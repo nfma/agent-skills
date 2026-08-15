@@ -297,14 +297,12 @@ uv run scripts/paper_manager.py check --arxiv-id "2301.12345"
 ### Permission denied when linking
 
 ```bash
-# Verify your token has write access
-echo $HF_TOKEN
+# Verify the Keychain item exists without printing it
+security find-generic-password -s HF_TOKEN -a "$USER" >/dev/null
 
-# Set token if missing
-export HF_TOKEN="your_token_here"
-
-# Or use .env file
-echo "HF_TOKEN=your_token_here" > .env
+# Inject the token only into this command
+HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" \
+  uv run scripts/paper_manager.py link --repo-id "user/model" --arxiv-id "2301.12345"
 ```
 
 ### arXiv ID format issues

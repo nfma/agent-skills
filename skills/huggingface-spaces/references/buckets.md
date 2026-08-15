@@ -82,7 +82,9 @@ Missing redirections fail silently or at first matplotlib / transformers / diffu
 
 ## Write access from the Space
 
-The Space's `HF_TOKEN` secret needs write permission on the bucket. Set via Settings → Secrets in the Space UI, or `hf spaces secrets set <id> HF_TOKEN=<token>`.
+The Space's `HF_TOKEN` secret needs write permission on the bucket. Set it via
+Settings → Secrets in the Space UI so the value does not appear in a command or
+shell history.
 
 ## Security note
 

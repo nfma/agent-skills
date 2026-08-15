@@ -59,14 +59,28 @@ It intentionally does not symlink `~/.codex/config.toml` or `~/.claude.json`,
 because those files also contain unrelated user and project state.
 
 GitHub is a deliberate Codex exception to native plugin ownership: the native
-plugin requires a globally exported token, so Codex uses the tracked `gh`
-Keychain wrapper instead. Claude's native GitHub plugin already supports that
-same local override.
+plugin requires a globally exported token, so Codex uses a tracked wrapper that
+loads a dedicated fine-grained PAT from macOS Keychain. Claude's native GitHub
+plugin has the same limitation, so Claude uses that wrapper directly as well.
 
-No credentials belong in this repository. Before installation, authenticate
-GitHub with `gh auth login` and store the Hugging Face token in the macOS
-Keychain item named `HF_TOKEN` for the current account. OAuth and Keychain
-contents remain machine-local.
+No credentials belong in this repository. Create a fine-grained GitHub PAT at
+<https://github.com/settings/personal-access-tokens/new>, limit it to the
+required repositories and permissions, then store it interactively without
+putting it in shell history:
+
+```sh
+security add-generic-password -U -s GITHUB_MCP_PAT -a "$USER" -w
+```
+
+Store the Hugging Face token the same way under the `HF_TOKEN` service. OAuth
+and Keychain contents remain machine-local.
+
+The installer and JSON-line filter have dependency-free regression tests:
+
+```sh
+bash tests/install-mcps.test.sh
+node --test tests/hf-mcp-filter.test.js
+```
 
 ## Maintenance
 

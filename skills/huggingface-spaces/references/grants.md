@@ -49,9 +49,11 @@ Free personal accounts already get 2 ZeroGPU Spaces, so a grant is now for the c
 ## Posting the request programmatically
 
 ```python
+import os
+
 from huggingface_hub import HfApi
 
-api = HfApi(token="hf_...")
+api = HfApi(token=os.environ["HF_TOKEN"])
 api.create_discussion(
     repo_id="<ns>/<space>",
     repo_type="space",

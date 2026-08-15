@@ -5,9 +5,12 @@ set -euo pipefail
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 manifest="$repo_root/mcp/manifest.json"
-codex_fragment="$repo_root/mcp/codex/mcp-fragment.json"
-claude_fragment="$repo_root/mcp/claude/mcp-fragment.json"
+codex_fragment=${MCP_CODEX_FRAGMENT:-"$repo_root/mcp/codex/mcp-fragment.json"}
+claude_fragment=${MCP_CLAUDE_FRAGMENT:-"$repo_root/mcp/claude/mcp-fragment.json"}
 wrapper_root="$repo_root/mcp/bin"
+install_home=${MCP_INSTALL_HOME:-"${HOME:-}"}
+security_bin=${MCP_SECURITY_BIN:-/usr/bin/security}
+node_check_bin=${MCP_NODE_CHECK_BIN:-"$wrapper_root/nvm-default-exec"}
 
 dry_run=0
 selected_harnesses=0
@@ -94,11 +97,24 @@ if [ "$selected_harnesses" -eq 0 ]; then
   select_harness all
 fi
 
-[ -n "${HOME:-}" ] || die 'HOME is unavailable'
+[ -n "$install_home" ] || die 'installation home is unavailable'
+[[ "$install_home" = /* && "$install_home" != / ]] ||
+  die 'installation home must be an absolute path other than /'
+[ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
+[ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
 [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command is unavailable: $1"
+}
+
+keychain_item_available() {
+  service_name=$1
+  account_name=$2
+  local keychain_value
+  keychain_value=$("$security_bin" find-generic-password \
+    -s "$service_name" -a "$account_name" -w 2>/dev/null) || return 1
+  [ -n "$keychain_value" ]
 }
 
 validate_harness_fragment() {
@@ -156,30 +172,23 @@ preflight() {
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
     die 'Antigravity MCP config is invalid'
 
-  "$wrapper_root/nvm-default-exec" node --version >/dev/null 2>&1 ||
+  "$node_check_bin" node --version >/dev/null 2>&1 ||
     die 'the NVM default Node runtime is unavailable'
 
   if [ "$install_codex" -eq 1 ] || [ "$install_claude" -eq 1 ] ||
      [ "$install_cursor" -eq 1 ] || [ "$install_antigravity" -eq 1 ]; then
     account_name=${USER:-$(/usr/bin/id -un)}
-    /usr/bin/security find-generic-password -s HF_TOKEN -a "$account_name" -w \
-      >/dev/null 2>&1 ||
+    keychain_item_available HF_TOKEN "$account_name" ||
       die "Keychain item HF_TOKEN is missing for $account_name"
-    command -v gh >/dev/null 2>&1 || [ -x /opt/homebrew/bin/gh ] ||
-      die 'gh is unavailable'
-    if command -v gh >/dev/null 2>&1; then
-      gh auth token >/dev/null 2>&1 || die 'GitHub authentication is unavailable; run `gh auth login`'
-    else
-      /opt/homebrew/bin/gh auth token >/dev/null 2>&1 ||
-        die 'GitHub authentication is unavailable; run `gh auth login`'
-    fi
+    keychain_item_available GITHUB_MCP_PAT "$account_name" ||
+      die "Keychain item GITHUB_MCP_PAT is missing for $account_name"
     command -v github-mcp-server >/dev/null 2>&1 ||
       [ -x /opt/homebrew/bin/github-mcp-server ] ||
       [ -x /usr/local/bin/github-mcp-server ] ||
       die 'github-mcp-server is unavailable'
-    [ -r "$HOME/.serena/serena_config.yml" ] ||
+    [ -r "$install_home/.serena/serena_config.yml" ] ||
       die 'Serena config is unavailable at ~/.serena/serena_config.yml'
-    [ -x "$HOME/.local/share/uv/tools/serena-agent/bin/serena" ] ||
+    [ -x "$install_home/.local/share/uv/tools/serena-agent/bin/serena" ] ||
       die 'the Serena uv tool is unavailable'
   fi
 }
@@ -188,7 +197,7 @@ ensure_backup_dir() {
   if [ -n "$backup_dir" ]; then
     return 0
   fi
-  backup_dir="$HOME/.agents/mcp-backups/$(date +%Y%m%d-%H%M%S)"
+  backup_dir="$install_home/.agents/mcp-backups/$(date +%Y%m%d-%H%M%S)"
   /bin/mkdir -p "$backup_dir"
   /bin/chmod 700 "$backup_dir"
 }
@@ -238,14 +247,14 @@ link_tracked_file() {
 
 snapshot_codex_config() {
   if [ "$codex_config_snapshotted" -eq 0 ]; then
-    snapshot_file "$HOME/.codex/config.toml" codex-config.toml
+    snapshot_file "$install_home/.codex/config.toml" codex-config.toml
     codex_config_snapshotted=1
   fi
 }
 
 snapshot_claude_config() {
   if [ "$claude_config_snapshotted" -eq 0 ]; then
-    snapshot_file "$HOME/.claude.json" claude.json
+    snapshot_file "$install_home/.claude.json" claude.json
     claude_config_snapshotted=1
   fi
 }
@@ -262,7 +271,7 @@ install_wrappers() {
     guardian-mcp; do
     link_tracked_file \
       "$wrapper_root/$wrapper_name" \
-      "$HOME/.local/bin/$wrapper_name" \
+      "$install_home/.local/bin/$wrapper_name" \
       "local-bin-$wrapper_name"
   done
 }
@@ -340,6 +349,17 @@ remove_codex_plugin_exception() {
   run_command codex plugin remove "$plugin_id" --json
 }
 
+remove_claude_plugin_exception() {
+  plugin_id=$1
+  if ! claude plugin list --json |
+       jq -e --arg id "$plugin_id" '.[] | select((.id // .name) == $id)' >/dev/null; then
+    return 0
+  fi
+  note "Removing Claude plugin in favor of a Keychain-backed direct MCP: $plugin_id"
+  snapshot_claude_config
+  run_command claude plugin uninstall --scope user --yes "$plugin_id"
+}
+
 install_native_plugins() {
   if [ "$install_codex" -eq 1 ]; then
     ensure_codex_marketplace
@@ -356,6 +376,9 @@ install_native_plugins() {
     while IFS= read -r plugin_id; do
       ensure_claude_plugin "$plugin_id"
     done < <(jq -r '.plugins.install[].id' "$claude_fragment")
+    while IFS= read -r plugin_id; do
+      remove_claude_plugin_exception "$plugin_id"
+    done < <(jq -r '.plugins.remove[].id' "$claude_fragment")
   fi
 }
 
@@ -419,10 +442,10 @@ reconcile_codex_http() {
 
 claude_user_entry() {
   server_name=$1
-  if [ ! -r "$HOME/.claude.json" ]; then
+  if [ ! -r "$install_home/.claude.json" ]; then
     return 1
   fi
-  jq -c --arg name "$server_name" '.mcpServers[$name] // empty' "$HOME/.claude.json"
+  jq -c --arg name "$server_name" '.mcpServers[$name] // empty' "$install_home/.claude.json"
 }
 
 reconcile_claude_stdio() {
@@ -484,9 +507,9 @@ install_fragment_mcps() {
         server_arg_count=$(printf '%s' "$server_entry" | jq '.value.args | length')
         if [ "$server_arg_count" -eq 0 ]; then
           if [ "$harness_name" = codex ]; then
-            reconcile_codex_stdio "$server_name" "$HOME/.local/bin/$local_command"
+            reconcile_codex_stdio "$server_name" "$install_home/.local/bin/$local_command"
           else
-            reconcile_claude_stdio "$server_name" "$HOME/.local/bin/$local_command"
+            reconcile_claude_stdio "$server_name" "$install_home/.local/bin/$local_command"
           fi
         else
           server_args=()
@@ -495,10 +518,10 @@ install_fragment_mcps() {
           done < <(printf '%s' "$server_entry" | jq -r '.value.args[]')
           if [ "$harness_name" = codex ]; then
             reconcile_codex_stdio \
-              "$server_name" "$HOME/.local/bin/$local_command" "${server_args[@]}"
+              "$server_name" "$install_home/.local/bin/$local_command" "${server_args[@]}"
           else
             reconcile_claude_stdio \
-              "$server_name" "$HOME/.local/bin/$local_command" "${server_args[@]}"
+              "$server_name" "$install_home/.local/bin/$local_command" "${server_args[@]}"
           fi
         fi
         ;;
@@ -518,13 +541,13 @@ install_dedicated_configs() {
   if [ "$install_cursor" -eq 1 ]; then
     link_tracked_file \
       "$repo_root/mcp/cursor/mcp.json" \
-      "$HOME/.cursor/mcp.json" \
+      "$install_home/.cursor/mcp.json" \
       cursor-mcp.json
   fi
   if [ "$install_antigravity" -eq 1 ]; then
     link_tracked_file \
       "$repo_root/mcp/antigravity/mcp_config.json" \
-      "$HOME/.gemini/config/mcp_config.json" \
+      "$install_home/.gemini/config/mcp_config.json" \
       antigravity-mcp_config.json
   fi
 }
@@ -578,17 +601,17 @@ verify_links() {
   for wrapper_name in \
     aikido-mcp-isolated-home.cjs nvm-default-exec npx hf-mcp-filter.js \
     hf-mcp-remote serena-mcp github-mcp-keychain guardian-mcp; do
-    target_file="$HOME/.local/bin/$wrapper_name"
+    target_file="$install_home/.local/bin/$wrapper_name"
     [ -L "$target_file" ] || die "wrapper is not linked: $target_file"
     [ "$(readlink "$target_file")" = "$wrapper_root/$wrapper_name" ] ||
       die "wrapper points to an unexpected target: $target_file"
   done
   if [ "$install_cursor" -eq 1 ]; then
-    [ "$(readlink "$HOME/.cursor/mcp.json")" = "$repo_root/mcp/cursor/mcp.json" ] ||
+    [ "$(readlink "$install_home/.cursor/mcp.json")" = "$repo_root/mcp/cursor/mcp.json" ] ||
       die 'Cursor MCP config link is incorrect'
   fi
   if [ "$install_antigravity" -eq 1 ]; then
-    [ "$(readlink "$HOME/.gemini/config/mcp_config.json")" = "$repo_root/mcp/antigravity/mcp_config.json" ] ||
+    [ "$(readlink "$install_home/.gemini/config/mcp_config.json")" = "$repo_root/mcp/antigravity/mcp_config.json" ] ||
       die 'Antigravity MCP config link is incorrect'
   fi
 }

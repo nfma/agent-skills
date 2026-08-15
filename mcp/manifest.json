@@ -23,7 +23,8 @@
   },
   "credentials": {
     "github": {
-      "source": "gh-auth-keychain",
+      "source": "macos-keychain",
+      "service": "GITHUB_MCP_PAT",
       "environmentVariable": "GITHUB_PERSONAL_ACCESS_TOKEN"
     },
     "hf": {

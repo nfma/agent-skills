@@ -17,7 +17,7 @@ Description:
 Examples:
   $0
   $0 5
-  HF_TOKEN=your_token $0 10
+  HF_TOKEN="\$(security find-generic-password -s HF_TOKEN -a "\$USER" -w)" $0 10
 EOF
 }
 

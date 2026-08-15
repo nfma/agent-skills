@@ -19,7 +19,7 @@ Description:
 Examples:
   hf_enrich_models.sh gpt2 distilbert-base-uncased
   baseline_hf_api.sh 50 | jq -r '.[].id' | hf_enrich_models.sh | jq -s 'sort_by(.downloads)'
-  HF_TOKEN=your_token hf_enrich_models.sh microsoft/DialoGPT-medium
+  HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" hf_enrich_models.sh microsoft/DialoGPT-medium
 USAGE
 }
 

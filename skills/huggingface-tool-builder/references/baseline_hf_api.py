@@ -28,7 +28,7 @@ Description:
 Examples:
   baseline_hf_api.py
   baseline_hf_api.py 5
-  HF_TOKEN=your_token baseline_hf_api.py 10
+  HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" baseline_hf_api.py 10
 """
     )
 

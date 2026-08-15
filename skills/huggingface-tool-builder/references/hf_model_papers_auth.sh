@@ -28,8 +28,8 @@ Examples:
     # Get papers for a specific model
     $0 microsoft/DialoGPT-medium
 
-    # Get papers with authentication
-    HF_TOKEN=your_token_here $0 your-private-model
+    # Load HF_TOKEN from Keychain only for this process
+    HF_TOKEN="\$(security find-generic-password -s HF_TOKEN -a "\$USER" -w)" $0 your-private-model
 
     # Get papers for top 3 trending models
     $0 --trending 3

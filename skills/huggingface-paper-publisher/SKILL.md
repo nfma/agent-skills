@@ -59,7 +59,8 @@ The skill includes Python scripts in `scripts/` for paper publishing operations.
 
 ### Prerequisites
 - Run scripts with `uv run` (dependencies are resolved from the script header)
-- Set `HF_TOKEN` environment variable with Write-access token
+- Store a Write-access token in macOS Keychain under the `HF_TOKEN` service,
+  then inject it into only the process that needs it
 
 > **All paths are relative to the directory containing this SKILL.md
 file.**
@@ -592,9 +593,11 @@ uv run scripts/paper_manager.py toggle-visibility --arxiv-id "2301.12345" --show
 
 **Python Script Example:**
 ```python
+import os
+
 from scripts.paper_manager import PaperManager
 
-pm = PaperManager(hf_token="your_token")
+pm = PaperManager(hf_token=os.environ["HF_TOKEN"])
 
 # Index paper
 pm.index_paper("2301.12345")

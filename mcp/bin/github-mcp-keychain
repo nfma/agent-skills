@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Load GitHub credentials from gh's Keychain-backed auth store. The token is
+# Load a dedicated fine-grained GitHub PAT from macOS Keychain. The token is
 # exposed only to the MCP child process and is never written to configuration.
 set -euo pipefail
 
@@ -24,18 +24,22 @@ find_executable() {
   return 1
 }
 
-gh_bin=$(find_executable gh "${GH_BIN:-}") || {
-  echo 'github-mcp-keychain: gh is unavailable' >&2
-  exit 127
-}
 mcp_bin=$(find_executable github-mcp-server "${MCP_BIN:-}") || {
   echo 'github-mcp-keychain: github-mcp-server is unavailable' >&2
   exit 127
 }
 
-token="$($gh_bin auth token 2>/dev/null || true)"
+security_bin=${GITHUB_MCP_SECURITY_BIN:-/usr/bin/security}
+if [[ "$security_bin" != /* || ! -x "$security_bin" ]]; then
+  echo 'github-mcp-keychain: security command is unavailable' >&2
+  exit 127
+fi
+
+account_name=${USER:-$(/usr/bin/id -un)}
+token="$($security_bin find-generic-password \
+  -s GITHUB_MCP_PAT -a "$account_name" -w 2>/dev/null || true)"
 if [[ -z "$token" ]]; then
-  echo 'github-mcp-keychain: run `gh auth login` before using this MCP' >&2
+  echo "github-mcp-keychain: Keychain item GITHUB_MCP_PAT is missing for $account_name" >&2
   exit 1
 fi
 

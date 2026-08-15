@@ -21,7 +21,7 @@
     "remove": [
       {
         "id": "github@claude-plugins-official",
-        "reason": "Use the local gh Keychain wrapper because the plugin requires a globally exported token."
+        "reason": "Use the local fine-grained PAT Keychain wrapper instead of a globally exported token."
       }
     ]
   },

@@ -131,14 +131,19 @@ All these formats work:
 
 ## Environment Setup
 
-### Set Token
+### Use a Keychain-backed token
+
+Store the token interactively once:
+
 ```bash
-export HF_TOKEN="your_token"
+security add-generic-password -U -s HF_TOKEN -a "$USER" -w
 ```
 
-### Or use .env file
+Inject it only into the process that needs it:
+
 ```bash
-echo "HF_TOKEN=your_token" > .env
+HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" \
+  uv run scripts/paper_manager.py --help
 ```
 
 ## Common Workflows

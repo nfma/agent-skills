@@ -21,7 +21,7 @@ Description:
 Examples:
   baseline_hf_api.tsx
   baseline_hf_api.tsx 5
-  HF_TOKEN=your_token baseline_hf_api.tsx 10
+  HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" baseline_hf_api.tsx 10
 `);
 };
 

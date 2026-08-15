@@ -24,7 +24,12 @@ input.on('line', (line) => {
       return;
     }
   } catch (_) {
-    // Non-JSON lines are valid transport input and must pass through.
+    process.stdout.write(`${JSON.stringify({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32700, message: 'Parse error' },
+    })}\n`);
+    return;
   }
   child.stdin.write(`${line}\n`);
 });

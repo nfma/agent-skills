@@ -71,16 +71,12 @@ curl -s "https://datasets-server.huggingface.co/parquet?dataset=<namespace>/<rep
 
 Low dependency CLI flow (`npx @huggingface/hub` / `hfjs`):
 
-- Set auth token:
+- Load the Keychain-backed auth token only into the upload process:
 
 ```bash
-export HF_TOKEN=<your_hf_token>
-```
-
-- Upload parquet folder to a dataset repo (auto-creates repo if missing):
-
-```bash
-npx -y @huggingface/hub upload datasets/<namespace>/<repo> ./local/parquet-folder data
+HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" \
+  npx -y @huggingface/hub upload \
+  datasets/<namespace>/<repo> ./local/parquet-folder data
 ```
 
 - Upload as private repo on creation:

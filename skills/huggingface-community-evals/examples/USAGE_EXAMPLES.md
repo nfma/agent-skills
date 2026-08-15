@@ -22,9 +22,16 @@ If you want to run these same scripts remotely, use the `hugging-face-jobs` skil
 ## Setup
 
 ```bash
-cd skills/hugging-face-evaluation
-export HF_TOKEN=hf_xxx
+cd skills/huggingface-community-evals
 uv --version
+```
+
+Store the token in macOS Keychain under the `HF_TOKEN` service. Inject it only
+into commands that need Hub authentication:
+
+```bash
+HF_TOKEN="$(security find-generic-password -s HF_TOKEN -a "$USER" -w)" \
+  uv run scripts/inspect_eval_uv.py --help
 ```
 
 For local GPU runs:

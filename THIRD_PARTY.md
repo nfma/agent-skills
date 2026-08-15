@@ -39,3 +39,5 @@ Source: <https://github.com/LLMSecurity/skillguard>
 `skills/skill-audit` resolves through the `vendor/skill-audit` submodule to the installable skill in `nfma/skill-audit`. The fork's package metadata declares the MIT license and records its own upstream history.
 
 Source: <https://github.com/nfma/skill-audit>
+
+Pinned commit: `594734decf04b32bdf54a8d6587dc6abed372807`

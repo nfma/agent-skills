@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Workspace"
+  short_description: "Use Gmail, Calendar, and Drive tools"
+  default_prompt: "Use $google-workspace to complete this Google Workspace task."

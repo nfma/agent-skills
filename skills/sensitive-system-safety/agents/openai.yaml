@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sensitive System Safety"
+  short_description: "Handle sensitive local state with care"
+  default_prompt: "Use $sensitive-system-safety for this sensitive system task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Workflow"
+  short_description: "Apply Nuno’s safe Git conventions"
+  default_prompt: "Use $git-workflow to handle this Git task safely."

@@ -84,6 +84,15 @@ npm ci --ignore-scripts
 npm test
 ```
 
+## SonarQube Cloud
+
+CI-based analysis uses `sonar-project.properties` for project
+`nfma_agent-skills`. Automatic Analysis must be disabled under **Administration
+→ Analysis Method** in SonarQube Cloud. Add a repository Actions secret named
+`SONAR_TOKEN`. Dependabot and fork pull requests, which cannot read Actions
+secrets, skip the scan with a warning; a missing token on any other run fails
+the job. The workflow waits for the quality gate when the scan runs.
+
 ## Maintenance
 
 Treat this repository as the source of truth. Edit tracked skill and MCP files

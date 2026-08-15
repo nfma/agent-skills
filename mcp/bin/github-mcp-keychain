@@ -35,11 +35,10 @@ if [[ "$security_bin" != /* || ! -x "$security_bin" ]]; then
   exit 127
 fi
 
-account_name=${USER:-$(/usr/bin/id -un)}
 token="$($security_bin find-generic-password \
-  -s GITHUB_MCP_PAT -a "$account_name" -w 2>/dev/null || true)"
+  -l GITHUB_MCP_PAT -w 2>/dev/null || true)"
 if [[ -z "$token" ]]; then
-  echo "github-mcp-keychain: Keychain item GITHUB_MCP_PAT is missing for $account_name" >&2
+  echo 'github-mcp-keychain: Keychain item labeled GITHUB_MCP_PAT is missing' >&2
   exit 1
 fi
 

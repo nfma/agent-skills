@@ -109,11 +109,9 @@ require_command() {
 }
 
 keychain_item_available() {
-  service_name=$1
-  account_name=$2
   local keychain_value
   keychain_value=$("$security_bin" find-generic-password \
-    -s "$service_name" -a "$account_name" -w 2>/dev/null) || return 1
+    "$@" -w 2>/dev/null) || return 1
   [ -n "$keychain_value" ]
 }
 
@@ -178,10 +176,10 @@ preflight() {
   if [ "$install_codex" -eq 1 ] || [ "$install_claude" -eq 1 ] ||
      [ "$install_cursor" -eq 1 ] || [ "$install_antigravity" -eq 1 ]; then
     account_name=${USER:-$(/usr/bin/id -un)}
-    keychain_item_available HF_TOKEN "$account_name" ||
+    keychain_item_available -s HF_TOKEN -a "$account_name" ||
       die "Keychain item HF_TOKEN is missing for $account_name"
-    keychain_item_available GITHUB_MCP_PAT "$account_name" ||
-      die "Keychain item GITHUB_MCP_PAT is missing for $account_name"
+    keychain_item_available -l GITHUB_MCP_PAT ||
+      die 'Keychain item labeled GITHUB_MCP_PAT is missing'
     command -v github-mcp-server >/dev/null 2>&1 ||
       [ -x /opt/homebrew/bin/github-mcp-server ] ||
       [ -x /usr/local/bin/github-mcp-server ] ||

@@ -69,7 +69,8 @@ required repositories and permissions, then store it interactively without
 putting it in shell history:
 
 ```sh
-security add-generic-password -U -s GITHUB_MCP_PAT -a "$USER" -w
+security add-generic-password -U \
+  -l GITHUB_MCP_PAT -s GITHUB_MCP_PAT -a "$USER" -w
 ```
 
 Store the Hugging Face token the same way under the `HF_TOKEN` service. OAuth

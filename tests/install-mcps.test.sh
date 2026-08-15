@@ -50,7 +50,18 @@ make_success_command() {
 for command_name in cursor node-check; do
   make_success_command "$command_name"
 done
-printf '#!/bin/sh\nprintf "test-credential\\n"\n' > "$fake_bin/security"
+cat > "$fake_bin/security" <<'EOF'
+#!/bin/sh
+set -eu
+case " $* " in
+  *' -s HF_TOKEN '*|*' -l GITHUB_MCP_PAT '*)
+    printf 'test-credential\n'
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+EOF
 /bin/chmod +x "$fake_bin/security"
 cat > "$fake_bin/github-mcp-server" <<'EOF'
 #!/bin/sh

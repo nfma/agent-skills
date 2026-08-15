@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "baseline": [
+    "aikido",
+    "browser-tools",
+    "chrome-devtools",
+    "context7",
+    "excalidraw",
+    "github",
+    "guardian",
+    "hf",
+    "playwright",
+    "serena"
+  ],
+  "npmPackages": {
+    "aikido": "@aikidosec/mcp@1.0.17",
+    "browser-tools": "@agentdeskai/browser-tools-mcp@1.2.0",
+    "chrome-devtools": "chrome-devtools-mcp@1.7.0",
+    "context7": "@upstash/context7-mcp@4.0.2",
+    "excalidraw": "mcp-excalidraw-server@1.1.0",
+    "hf-bridge": "mcp-remote@0.1.38",
+    "playwright": "@playwright/mcp@0.0.79"
+  },
+  "plugins": {
+    "codex": [
+      "aikido@claude-plugins-official",
+      "chrome-devtools-mcp@claude-plugins-official",
+      "context7@claude-plugins-official",
+      "playwright@claude-plugins-official"
+    ],
+    "claude": [
+      "aikido@claude-plugins-official",
+      "chrome-devtools-mcp@claude-plugins-official",
+      "context7@claude-plugins-official",
+      "github@claude-plugins-official",
+      "playwright@claude-plugins-official",
+      "semgrep@claude-plugins-official"
+    ]
+  },
+  "pluginExceptions": {
+    "codex": {
+      "github@claude-plugins-official": "Use the local gh Keychain wrapper because the plugin requires a globally exported token."
+    }
+  },
+  "credentials": {
+    "github": {
+      "source": "gh-auth-keychain",
+      "environmentVariable": "GITHUB_PERSONAL_ACCESS_TOKEN"
+    },
+    "hf": {
+      "source": "macos-keychain",
+      "service": "HF_TOKEN",
+      "environmentVariable": "HF_MCP_TOKEN"
+    }
+  }
+}

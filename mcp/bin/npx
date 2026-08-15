@@ -1,0 +1,123 @@
+#!/bin/sh
+
+set -u
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if [ "$#" -ge 2 ] && [ "$1" = '-y' ] && \
+   [ "$2" = '@aikidosec/mcp@1.0.17' ]; then
+  source_home=${HOME:-}
+  if [ -z "$source_home" ]; then
+    printf 'npx: HOME is unavailable for Aikido MCP isolation\n' >&2
+    exit 64
+  fi
+
+  aikido_home_hook="$script_dir/aikido-mcp-isolated-home.cjs"
+  if [ ! -r "$aikido_home_hook" ]; then
+    printf 'npx: Aikido MCP home-isolation hook is unavailable at %s\n' \
+      "$aikido_home_hook" >&2
+    exit 66
+  fi
+
+  isolation_root=${AIKIDO_MCP_ISOLATION_ROOT:-${TMPDIR:-/tmp}}
+  if ! mkdir -p "$isolation_root"; then
+    printf 'npx: cannot create Aikido MCP isolation root at %s\n' \
+      "$isolation_root" >&2
+    exit 73
+  fi
+  if ! isolation_root=$(CDPATH= cd -- "$isolation_root" && pwd); then
+    printf 'npx: cannot resolve Aikido MCP isolation root at %s\n' \
+      "$isolation_root" >&2
+    exit 73
+  fi
+  if ! isolated_home=$(mktemp -d "$isolation_root/aikido-mcp-home.XXXXXX"); then
+    printf 'npx: cannot create an isolated MCP home under %s\n' \
+      "$isolation_root" >&2
+    exit 73
+  fi
+
+  aikido_child=
+  forwarded_signal=
+  aikido_group_signaled=
+
+  cleanup_isolated_home() {
+    case "$isolated_home" in
+      "$isolation_root"/aikido-mcp-home.*)
+        rm -rf -- "$isolated_home"
+        ;;
+      *)
+        printf 'npx: refusing to remove unexpected MCP home at %s\n' \
+          "$isolated_home" >&2
+        return 73
+        ;;
+    esac
+  }
+
+  signal_aikido_child() {
+    if [ -n "$aikido_child" ]; then
+      if [ "$1" = HUP ]; then
+        aikido_group_signaled=1
+        kill -HUP "-$aikido_child" 2>/dev/null || :
+      else
+        kill -"$1" "$aikido_child" 2>/dev/null || :
+      fi
+    fi
+  }
+
+  forward_signal() {
+    forwarded_signal=$1
+    signal_aikido_child "$1"
+  }
+
+  trap cleanup_isolated_home EXIT
+  trap 'forward_signal HUP' HUP
+  trap 'forward_signal INT' INT
+  trap 'forward_signal TERM' TERM
+
+  source_nvm_dir=${NVM_DIR:-"$source_home/.nvm"}
+  source_npm_cache=${npm_config_cache:-"$source_home/.npm"}
+  source_node_options=${NODE_OPTIONS:-}
+  if [ -n "$source_node_options" ]; then
+    aikido_node_options="$source_node_options --require=$aikido_home_hook"
+  else
+    aikido_node_options="--require=$aikido_home_hook"
+  fi
+
+  set -m
+  env HOME="$source_home" NVM_DIR="$source_nvm_dir" \
+    npm_config_cache="$source_npm_cache" \
+    AIKIDO_MCP_ISOLATED_HOME="$isolated_home" \
+    NODE_OPTIONS="$aikido_node_options" \
+    "$script_dir/nvm-default-exec" npx "$@" <&0 >&1 2>&2 &
+  aikido_child=$!
+  set +m
+  if [ -n "$forwarded_signal" ]; then
+    signal_aikido_child "$forwarded_signal"
+  fi
+
+  wait "$aikido_child"
+  child_status=$?
+  if [ -n "$forwarded_signal" ] && [ "$child_status" -gt 128 ]; then
+    wait "$aikido_child"
+    forwarded_status=$?
+    if [ "$forwarded_status" -ne 127 ]; then
+      child_status=$forwarded_status
+    fi
+  fi
+  if [ -n "$aikido_group_signaled" ]; then
+    while kill -0 "-$aikido_child" 2>/dev/null; do
+      sleep 0.01
+    done
+  fi
+  aikido_child=
+
+  cleanup_status=0
+  cleanup_isolated_home || cleanup_status=$?
+  trap - EXIT HUP INT TERM
+  if [ "$child_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+    exit "$cleanup_status"
+  fi
+  exit "$child_status"
+fi
+
+exec "$script_dir/nvm-default-exec" npx "$@"

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Load GitHub credentials from gh's Keychain-backed auth store. The token is
+# exposed only to the MCP child process and is never written to configuration.
+set -euo pipefail
+
+find_executable() {
+  command_name=$1
+  configured_path=$2
+  if [[ -n "$configured_path" && -x "$configured_path" ]]; then
+    printf '%s\n' "$configured_path"
+    return 0
+  fi
+  if command -v "$command_name" >/dev/null 2>&1; then
+    command -v "$command_name"
+    return 0
+  fi
+  for candidate_path in "/opt/homebrew/bin/$command_name" "/usr/local/bin/$command_name"; do
+    if [[ -x "$candidate_path" ]]; then
+      printf '%s\n' "$candidate_path"
+      return 0
+    fi
+  done
+  return 1
+}
+
+gh_bin=$(find_executable gh "${GH_BIN:-}") || {
+  echo 'github-mcp-keychain: gh is unavailable' >&2
+  exit 127
+}
+mcp_bin=$(find_executable github-mcp-server "${MCP_BIN:-}") || {
+  echo 'github-mcp-keychain: github-mcp-server is unavailable' >&2
+  exit 127
+}
+
+token="$($gh_bin auth token 2>/dev/null || true)"
+if [[ -z "$token" ]]; then
+  echo 'github-mcp-keychain: run `gh auth login` before using this MCP' >&2
+  exit 1
+fi
+
+export GITHUB_PERSONAL_ACCESS_TOKEN="$token"
+unset token
+
+if [[ $# -eq 0 ]]; then
+  set -- stdio
+fi
+
+exec "$mcp_bin" "$@"

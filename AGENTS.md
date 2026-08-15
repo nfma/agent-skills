@@ -10,4 +10,5 @@
 
 - Validate every changed `SKILL.md` with the available Agent Skills validator.
 - Run focused tests for any changed scripts or executable resources.
+- After initializing or updating the `skill-audit` submodule, run `./scripts/prepare-vendored-skills.sh` and verify that the installed skill resolves to the reported CLI version.
 - Check for secrets and unsafe code before publication.

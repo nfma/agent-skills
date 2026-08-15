@@ -76,11 +76,12 @@ security add-generic-password -U \
 Store the Hugging Face token the same way under the `HF_TOKEN` service. OAuth
 and Keychain contents remain machine-local.
 
-The installer and JSON-line filter have dependency-free regression tests:
+The installer uses the pinned Bats-core test framework; the JSON-line filter
+uses Node's built-in test runner:
 
 ```sh
-bash tests/install-mcps.test.sh
-node --test tests/hf-mcp-filter.test.js
+npm ci --ignore-scripts
+npm test
 ```
 
 ## Maintenance

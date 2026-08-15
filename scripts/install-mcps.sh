@@ -133,7 +133,8 @@ validate_harness_fragment() {
         (.value.localCommand | type == "string") and
         (.value.localCommand | test("^[A-Za-z0-9._-]+$")) and
         (.value.args | type == "array") and
-        all(.value.args[]; type == "string")
+        all(.value.args[]; type == "string") and
+        ((.value.overridesPlugin // false) | type == "boolean")
       elif .value.type == "http" then
         (.value.url | type == "string") and
         (.value.url | test("^https://"))
@@ -260,6 +261,7 @@ snapshot_claude_config() {
 install_wrappers() {
   for wrapper_name in \
     aikido-mcp-isolated-home.cjs \
+    chrome-devtools-vivaldi \
     nvm-default-exec \
     npx \
     hf-mcp-filter.js \
@@ -395,7 +397,8 @@ package_pin() {
 reconcile_codex_stdio() {
   server_name=$1
   server_command=$2
-  shift 2
+  overrides_plugin=$3
+  shift 3
   expected_args=$(json_args "$@")
   current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
 
@@ -410,7 +413,7 @@ reconcile_codex_stdio() {
 
   note "Reconciling Codex MCP: $server_name"
   snapshot_codex_config
-  if [ -n "$current_json" ]; then
+  if [ -n "$current_json" ] && [ "$overrides_plugin" -eq 0 ]; then
     run_command codex mcp remove "$server_name"
   fi
   run_command codex mcp add "$server_name" -- "$server_command" "$@"
@@ -502,10 +505,17 @@ install_fragment_mcps() {
     case "$server_type" in
       stdio)
         local_command=$(printf '%s' "$server_entry" | jq -r '.value.localCommand')
+        overrides_plugin=$(printf '%s' "$server_entry" | jq -r '.value.overridesPlugin // false')
+        if [ "$overrides_plugin" = true ]; then
+          overrides_plugin=1
+        else
+          overrides_plugin=0
+        fi
         server_arg_count=$(printf '%s' "$server_entry" | jq '.value.args | length')
         if [ "$server_arg_count" -eq 0 ]; then
           if [ "$harness_name" = codex ]; then
-            reconcile_codex_stdio "$server_name" "$install_home/.local/bin/$local_command"
+            reconcile_codex_stdio \
+              "$server_name" "$install_home/.local/bin/$local_command" "$overrides_plugin"
           else
             reconcile_claude_stdio "$server_name" "$install_home/.local/bin/$local_command"
           fi
@@ -516,7 +526,8 @@ install_fragment_mcps() {
           done < <(printf '%s' "$server_entry" | jq -r '.value.args[]')
           if [ "$harness_name" = codex ]; then
             reconcile_codex_stdio \
-              "$server_name" "$install_home/.local/bin/$local_command" "${server_args[@]}"
+              "$server_name" "$install_home/.local/bin/$local_command" \
+              "$overrides_plugin" "${server_args[@]}"
           else
             reconcile_claude_stdio \
               "$server_name" "$install_home/.local/bin/$local_command" "${server_args[@]}"
@@ -591,13 +602,17 @@ verify_version_pins() {
   done
   grep -F -- "$(package_pin aikido)" "$wrapper_root/npx" >/dev/null ||
     die 'Aikido isolation wrapper is out of sync with the manifest'
+  grep -F -- "$(package_pin chrome-devtools)" \
+    "$wrapper_root/chrome-devtools-vivaldi" >/dev/null ||
+    die 'Chrome DevTools Vivaldi wrapper is out of sync with the manifest'
   grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-remote" >/dev/null ||
     die 'Hugging Face bridge wrapper is out of sync with the manifest'
 }
 
 verify_links() {
   for wrapper_name in \
-    aikido-mcp-isolated-home.cjs nvm-default-exec npx hf-mcp-filter.js \
+    aikido-mcp-isolated-home.cjs chrome-devtools-vivaldi \
+    nvm-default-exec npx hf-mcp-filter.js \
     hf-mcp-remote serena-mcp github-mcp-keychain guardian-mcp; do
     target_file="$install_home/.local/bin/$wrapper_name"
     [ -L "$target_file" ] || die "wrapper is not linked: $target_file"

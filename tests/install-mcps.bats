@@ -103,6 +103,7 @@ EOF
   [[ "$output" == *'codex plugin remove github@claude-plugins-official'* ]]
   [[ "$output" == *'claude plugin uninstall --scope user --yes github@claude-plugins-official'* ]]
   [[ "$output" == *"codex mcp add github -- $INSTALL_HOME/.local/bin/github-mcp-keychain stdio"* ]]
+  [[ "$output" == *"codex mcp add chrome-devtools -- $INSTALL_HOME/.local/bin/chrome-devtools-vivaldi"* ]]
   [[ "$output" == *"claude mcp add --scope user github -- $INSTALL_HOME/.local/bin/github-mcp-keychain stdio"* ]]
   [ ! -e "$INSTALL_HOME/.local/bin/github-mcp-keychain" ]
   [ ! -e "$INSTALL_HOME/.agents/mcp-backups" ]
@@ -183,6 +184,55 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *'codex mcp remove browser-tools'* ]]
   [[ "$output" == *'codex mcp add browser-tools'* ]]
+}
+
+@test "overlays the Chrome DevTools plugin without removing its server" {
+  printf '%s\n' \
+    '{"transport":{"type":"stdio","command":"npx","args":["chrome-devtools-mcp@1.7.0"]}}' \
+    > "$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+
+  run "$INSTALLER" --dry-run --harness codex
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Codex plugin ready: chrome-devtools-mcp@claude-plugins-official'* ]]
+  [[ "$output" != *'codex mcp remove chrome-devtools'* ]]
+  [[ "$output" == *"codex mcp add chrome-devtools -- $INSTALL_HOME/.local/bin/chrome-devtools-vivaldi"* ]]
+}
+
+@test "Vivaldi wrapper launches the pinned MCP with a persistent profile" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  cat > "$wrapper_dir/npx" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*"
+EOF
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+  write_success_command vivaldi
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/vivaldi" \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "-y chrome-devtools-mcp@1.7.0 --executablePath $FAKE_BIN/vivaldi --userDataDir $INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
+  [ -d "$INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
+}
+
+@test "Vivaldi wrapper fails closed when the browser is unavailable" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  write_success_command npx
+  cp "$FAKE_BIN/npx" "$wrapper_dir/npx"
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/missing-vivaldi" \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 69 ]
+  [[ "$output" == *'Vivaldi is unavailable'* ]]
 }
 
 @test "keeps a matching Claude stdio MCP" {

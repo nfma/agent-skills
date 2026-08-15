@@ -7,7 +7,7 @@
       },
       {
         "id": "chrome-devtools-mcp@claude-plugins-official",
-        "servers": ["chrome-devtools"]
+        "servers": []
       },
       {
         "id": "context7@claude-plugins-official",
@@ -30,6 +30,12 @@
       "type": "stdio",
       "localCommand": "npx",
       "args": ["-y", "@agentdeskai/browser-tools-mcp@1.2.0"]
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "localCommand": "chrome-devtools-vivaldi",
+      "args": [],
+      "overridesPlugin": true
     },
     "excalidraw": {
       "type": "stdio",

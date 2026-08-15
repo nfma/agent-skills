@@ -2,6 +2,7 @@ setup_installer_test() {
   REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$BATS_TEST_FILENAME")/.." && pwd)
   INSTALLER="$REPO_ROOT/scripts/install-mcps.sh"
   WRAPPER="$REPO_ROOT/mcp/bin/github-mcp-keychain"
+  VIVALDI_WRAPPER="$REPO_ROOT/mcp/bin/chrome-devtools-vivaldi"
   TEST_ROOT="$BATS_TEST_TMPDIR/sandbox"
   FAKE_BIN="$TEST_ROOT/bin"
   INSTALL_HOME="$TEST_ROOT/home"

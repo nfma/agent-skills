@@ -21,27 +21,6 @@
     "hf-bridge": "mcp-remote@0.1.38",
     "playwright": "@playwright/mcp@0.0.79"
   },
-  "plugins": {
-    "codex": [
-      "aikido@claude-plugins-official",
-      "chrome-devtools-mcp@claude-plugins-official",
-      "context7@claude-plugins-official",
-      "playwright@claude-plugins-official"
-    ],
-    "claude": [
-      "aikido@claude-plugins-official",
-      "chrome-devtools-mcp@claude-plugins-official",
-      "context7@claude-plugins-official",
-      "github@claude-plugins-official",
-      "playwright@claude-plugins-official",
-      "semgrep@claude-plugins-official"
-    ]
-  },
-  "pluginExceptions": {
-    "codex": {
-      "github@claude-plugins-official": "Use the local gh Keychain wrapper because the plugin requires a globally exported token."
-    }
-  },
   "credentials": {
     "github": {
       "source": "gh-auth-keychain",

@@ -5,6 +5,8 @@ set -euo pipefail
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 manifest="$repo_root/mcp/manifest.json"
+codex_fragment="$repo_root/mcp/codex/mcp-fragment.json"
+claude_fragment="$repo_root/mcp/claude/mcp-fragment.json"
 wrapper_root="$repo_root/mcp/bin"
 
 dry_run=0
@@ -99,6 +101,35 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command is unavailable: $1"
 }
 
+validate_harness_fragment() {
+  fragment_file=$1
+  jq -e '
+    (.plugins.install | type == "array") and
+    (.plugins.remove | type == "array") and
+    all(.plugins.install[];
+      (.id | type == "string") and
+      (.servers | type == "array") and
+      all(.servers[]; type == "string")) and
+    all(.plugins.remove[];
+      (.id | type == "string") and
+      (.reason | type == "string")) and
+    (.mcpServers | type == "object") and
+    all(.mcpServers | to_entries[];
+      if .value.type == "stdio" then
+        (.value.localCommand | type == "string") and
+        (.value.localCommand | test("^[A-Za-z0-9._-]+$")) and
+        (.value.args | type == "array") and
+        all(.value.args[]; type == "string")
+      elif .value.type == "http" then
+        (.value.url | type == "string") and
+        (.value.url | test("^https://"))
+      else
+        false
+      end)
+  ' "$fragment_file" >/dev/null ||
+    die "invalid harness MCP fragment: $fragment_file"
+}
+
 preflight() {
   require_command jq
   require_command git
@@ -118,6 +149,8 @@ preflight() {
 
   jq -e '.schemaVersion == 1 and (.baseline | length > 0)' "$manifest" >/dev/null ||
     die 'manifest is invalid'
+  validate_harness_fragment "$codex_fragment"
+  validate_harness_fragment "$claude_fragment"
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/cursor/mcp.json" >/dev/null ||
     die 'Cursor MCP config is invalid'
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
@@ -312,17 +345,17 @@ install_native_plugins() {
     ensure_codex_marketplace
     while IFS= read -r plugin_id; do
       ensure_codex_plugin "$plugin_id"
-    done < <(jq -r '.plugins.codex[]' "$manifest")
+    done < <(jq -r '.plugins.install[].id' "$codex_fragment")
     while IFS= read -r plugin_id; do
       remove_codex_plugin_exception "$plugin_id"
-    done < <(jq -r '.pluginExceptions.codex | keys[]' "$manifest")
+    done < <(jq -r '.plugins.remove[].id' "$codex_fragment")
   fi
 
   if [ "$install_claude" -eq 1 ]; then
     ensure_claude_marketplace
     while IFS= read -r plugin_id; do
       ensure_claude_plugin "$plugin_id"
-    done < <(jq -r '.plugins.claude[]' "$manifest")
+    done < <(jq -r '.plugins.install[].id' "$claude_fragment")
   fi
 }
 
@@ -360,6 +393,28 @@ reconcile_codex_stdio() {
     run_command codex mcp remove "$server_name"
   fi
   run_command codex mcp add "$server_name" -- "$server_command" "$@"
+}
+
+reconcile_codex_http() {
+  server_name=$1
+  server_url=$2
+  current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
+
+  if [ -n "$current_json" ] &&
+     printf '%s' "$current_json" |
+       jq -e --arg url "$server_url" \
+         '.transport.type == "streamable_http" and .transport.url == $url' \
+         >/dev/null; then
+    note "Codex MCP ready: $server_name"
+    return 0
+  fi
+
+  note "Reconciling Codex MCP: $server_name"
+  snapshot_codex_config
+  if [ -n "$current_json" ]; then
+    run_command codex mcp remove "$server_name"
+  fi
+  run_command codex mcp add "$server_name" --url "$server_url"
 }
 
 claude_user_entry() {
@@ -415,26 +470,48 @@ reconcile_claude_http() {
   run_command claude mcp add --scope user --transport http "$server_name" "$server_url"
 }
 
-install_codex_mcps() {
-  local_bin="$HOME/.local/bin"
-  reconcile_codex_stdio browser-tools "$local_bin/npx" -y "$(package_pin browser-tools)"
-  reconcile_codex_stdio excalidraw "$local_bin/npx" -y "$(package_pin excalidraw)"
-  reconcile_codex_stdio github "$local_bin/github-mcp-keychain" stdio
-  reconcile_codex_stdio guardian "$local_bin/guardian-mcp" claude mcp
-  reconcile_codex_stdio hf "$local_bin/hf-mcp-remote"
-  reconcile_codex_stdio serena "$local_bin/serena-mcp" \
-    start-mcp-server --context=codex --project-from-cwd \
-    --add-mode=no-memories --add-mode=rust-only
-}
+install_fragment_mcps() {
+  harness_name=$1
+  fragment_file=$2
 
-install_claude_mcps() {
-  local_bin="$HOME/.local/bin"
-  reconcile_claude_stdio browser-tools "$local_bin/npx" -y "$(package_pin browser-tools)"
-  reconcile_claude_stdio excalidraw "$local_bin/npx" -y "$(package_pin excalidraw)"
-  reconcile_claude_http hf 'https://huggingface.co/mcp'
-  reconcile_claude_stdio serena "$local_bin/serena-mcp" \
-    start-mcp-server --context=claude-code --project-from-cwd \
-    --add-mode=no-memories --add-mode=rust-only
+  while IFS= read -r server_entry; do
+    server_name=$(printf '%s' "$server_entry" | jq -r '.key')
+    server_type=$(printf '%s' "$server_entry" | jq -r '.value.type')
+
+    case "$server_type" in
+      stdio)
+        local_command=$(printf '%s' "$server_entry" | jq -r '.value.localCommand')
+        server_arg_count=$(printf '%s' "$server_entry" | jq '.value.args | length')
+        if [ "$server_arg_count" -eq 0 ]; then
+          if [ "$harness_name" = codex ]; then
+            reconcile_codex_stdio "$server_name" "$HOME/.local/bin/$local_command"
+          else
+            reconcile_claude_stdio "$server_name" "$HOME/.local/bin/$local_command"
+          fi
+        else
+          server_args=()
+          while IFS= read -r server_arg; do
+            server_args+=("$server_arg")
+          done < <(printf '%s' "$server_entry" | jq -r '.value.args[]')
+          if [ "$harness_name" = codex ]; then
+            reconcile_codex_stdio \
+              "$server_name" "$HOME/.local/bin/$local_command" "${server_args[@]}"
+          else
+            reconcile_claude_stdio \
+              "$server_name" "$HOME/.local/bin/$local_command" "${server_args[@]}"
+          fi
+        fi
+        ;;
+      http)
+        server_url=$(printf '%s' "$server_entry" | jq -r '.value.url')
+        if [ "$harness_name" = codex ]; then
+          reconcile_codex_http "$server_name" "$server_url"
+        else
+          reconcile_claude_http "$server_name" "$server_url"
+        fi
+        ;;
+    esac
+  done < <(jq -c '.mcpServers | to_entries[]' "$fragment_file")
 }
 
 install_dedicated_configs() {
@@ -462,8 +539,16 @@ verify_no_literal_credentials() {
 
 verify_baseline_configs() {
   expected_names=$(jq -c '.baseline | sort' "$manifest")
+  codex_names=$(jq -c \
+    '[.mcpServers | keys[]] + [.plugins.install[].servers[]] | unique | sort' \
+    "$codex_fragment")
+  claude_names=$(jq -c \
+    '[.mcpServers | keys[]] + [.plugins.install[].servers[]] | unique | sort' \
+    "$claude_fragment")
   cursor_names=$(jq -c '.mcpServers | keys | sort' "$repo_root/mcp/cursor/mcp.json")
   antigravity_names=$(jq -c '.mcpServers | keys | sort' "$repo_root/mcp/antigravity/mcp_config.json")
+  [ "$codex_names" = "$expected_names" ] || die 'Codex fragment does not match the baseline manifest'
+  [ "$claude_names" = "$expected_names" ] || die 'Claude fragment does not match the baseline manifest'
   [ "$cursor_names" = "$expected_names" ] || die 'Cursor config does not match the baseline manifest'
   [ "$antigravity_names" = "$expected_names" ] || die 'Antigravity config does not match the baseline manifest'
 }
@@ -475,6 +560,13 @@ verify_version_pins() {
       die "Cursor config is missing package pin: $pinned_package"
     grep -F -- "$pinned_package" "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
       die "Antigravity config is missing package pin: $pinned_package"
+  done
+  for fragment_file in "$codex_fragment" "$claude_fragment"; do
+    for package_name in browser-tools excalidraw; do
+      pinned_package=$(package_pin "$package_name")
+      grep -F -- "$pinned_package" "$fragment_file" >/dev/null ||
+        die "harness fragment is missing package pin: $pinned_package"
+    done
   done
   grep -F -- "$(package_pin aikido)" "$wrapper_root/npx" >/dev/null ||
     die 'Aikido isolation wrapper is out of sync with the manifest'
@@ -508,16 +600,16 @@ verify_installed_state() {
   if [ "$dry_run" -eq 0 ]; then
     verify_links
     if [ "$install_codex" -eq 1 ]; then
-      for server_name in browser-tools excalidraw github guardian hf serena; do
+      while IFS= read -r server_name; do
         codex mcp get "$server_name" --json >/dev/null ||
           die "Codex MCP verification failed: $server_name"
-      done
+      done < <(jq -r '.mcpServers | keys[]' "$codex_fragment")
     fi
     if [ "$install_claude" -eq 1 ]; then
-      for server_name in browser-tools excalidraw hf serena; do
+      while IFS= read -r server_name; do
         claude_user_entry "$server_name" >/dev/null ||
           die "Claude MCP verification failed: $server_name"
-      done
+      done < <(jq -r '.mcpServers | keys[]' "$claude_fragment")
     fi
   fi
 }
@@ -527,10 +619,10 @@ install_wrappers
 install_native_plugins
 
 if [ "$install_codex" -eq 1 ]; then
-  install_codex_mcps
+  install_fragment_mcps codex "$codex_fragment"
 fi
 if [ "$install_claude" -eq 1 ]; then
-  install_claude_mcps
+  install_fragment_mcps claude "$claude_fragment"
 fi
 
 install_dedicated_configs

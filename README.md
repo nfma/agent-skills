@@ -8,6 +8,9 @@ Cursor, and Antigravity.
 - `skills/` contains the discoverable skill directories.
 - `mcp/manifest.json` defines the shared MCP baseline and pinned direct-server
   versions.
+- `mcp/codex/` and `mcp/claude/` contain declarative MCP fragments that define
+  native plugin ownership and direct user-level servers. The installer merges
+  these fragments into each harness's monolithic user config.
 - `mcp/cursor/` and `mcp/antigravity/` contain MCP-only configuration files
   that can safely be linked into those harnesses.
 - `mcp/bin/` contains portable launchers that resolve credentials from local
@@ -45,8 +48,9 @@ Use repeated `--harness` flags to limit a run, for example:
 
 The installer:
 
-- installs or verifies MCP-providing plugins in Codex and Claude;
-- reconciles repo-owned user MCP entries through the Codex and Claude CLIs;
+- installs or verifies the plugins declared in the Codex and Claude fragments;
+- reconciles the fragments' direct user MCP entries through the Codex and
+  Claude CLIs;
 - links Cursor and Antigravity's MCP-only config files to this checkout;
 - links the runtime launchers into `~/.local/bin`;
 - preserves replaced files in timestamped `~/.agents/mcp-backups/` folders.

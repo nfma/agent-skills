@@ -31,6 +31,24 @@ The preparation step installs `skill-audit` dependencies without running lifecyc
 
 To install a skill, symlink its directory under `skills/` into `~/.agents/skills/`. Harness-specific discovery links can continue pointing at `~/.agents/skills`.
 
+## Skill synchronization
+
+After linking repository skills into `~/.agents/skills/`, preview and apply the
+harness discovery links:
+
+```sh
+./scripts/sync-agent-skills.sh --dry-run
+./scripts/sync-agent-skills.sh
+```
+
+The synchronizer links the canonical skills directory into Claude and Gemini,
+writes Gemini's skills discovery file, and creates per-skill links for Codex
+without touching its `.system` skills. Cursor is left unchanged because it
+discovers `~/.agents/skills/` directly.
+
+Use `AGENT_SKILLS_HOME=/absolute/path` to override the canonical skills
+directory, or `--verbose` to print every Codex skill link.
+
 ## MCP installation
 
 Preview the all-harness installation, then apply it:

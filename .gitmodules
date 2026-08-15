@@ -1,0 +1,4 @@
+[submodule "vendor/skill-audit"]
+	path = vendor/skill-audit
+	url = https://github.com/nfma/skill-audit.git
+	branch = agent/security-hardening

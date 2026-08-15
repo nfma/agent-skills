@@ -1,0 +1,66 @@
+#!/bin/sh
+
+set -eu
+
+if [ -z "${HOME:-}" ]; then
+  printf 'guardian-mcp: HOME is unavailable\n' >&2
+  exit 64
+fi
+
+find_versioned_plugin() {
+  cache_root=$1
+  if [ ! -d "$cache_root" ]; then
+    return 1
+  fi
+  find "$cache_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
+    /usr/bin/sort -V |
+    /usr/bin/tail -n 1
+}
+
+plugin_root=
+for cache_root in \
+  "$HOME/.claude/plugins/cache/claude-plugins-official/semgrep" \
+  "$HOME/.codex/plugins/cache/claude-plugins-official/semgrep"; do
+  candidate_root=$(find_versioned_plugin "$cache_root" || true)
+  if [ -n "$candidate_root" ]; then
+    plugin_root=$candidate_root
+    break
+  fi
+done
+
+if [ -z "$plugin_root" ] && [ -d "$HOME/.gemini/config/plugins/semgrep" ]; then
+  plugin_root="$HOME/.gemini/config/plugins/semgrep"
+fi
+
+if [ -z "$plugin_root" ]; then
+  printf 'guardian-mcp: install the Semgrep plugin in Claude or Codex first\n' >&2
+  exit 69
+fi
+
+launcher="$plugin_root/scripts/hook.sh"
+if [ ! -x "$launcher" ]; then
+  machine_arch=$(/usr/bin/uname -m)
+  case "$(/usr/bin/uname -s):$machine_arch" in
+    Darwin:arm64) launcher="$plugin_root/scripts/hook-darwin-arm64" ;;
+    Darwin:x86_64) launcher="$plugin_root/scripts/hook-darwin-x64" ;;
+    Linux:aarch64|Linux:arm64) launcher="$plugin_root/scripts/hook-linux-arm64" ;;
+    Linux:x86_64) launcher="$plugin_root/scripts/hook-linux-x64" ;;
+    *) launcher= ;;
+  esac
+fi
+
+if [ -z "$launcher" ] || [ ! -x "$launcher" ]; then
+  printf 'guardian-mcp: no compatible executable exists under %s\n' "$plugin_root" >&2
+  exit 69
+fi
+
+CLAUDE_PLUGIN_ROOT=$plugin_root
+CLAUDE_PLUGIN_DATA=${CLAUDE_PLUGIN_DATA:-"$HOME/.local/share/agent-mcps/semgrep"}
+export CLAUDE_PLUGIN_ROOT CLAUDE_PLUGIN_DATA
+/bin/mkdir -p "$CLAUDE_PLUGIN_DATA"
+
+if [ "$#" -eq 0 ]; then
+  set -- claude mcp
+fi
+
+exec "$launcher" "$@"

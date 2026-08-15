@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "aikido": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @aikidosec/mcp@1.0.17"]
+    },
+    "browser-tools": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @agentdeskai/browser-tools-mcp@1.2.0"]
+    },
+    "chrome-devtools": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y chrome-devtools-mcp@1.7.0"]
+    },
+    "context7": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @upstash/context7-mcp@4.0.2"]
+    },
+    "excalidraw": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y mcp-excalidraw-server@1.1.0"]
+    },
+    "github": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/github-mcp-keychain\" stdio"]
+    },
+    "guardian": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/guardian-mcp\" claude mcp"]
+    },
+    "hf": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/hf-mcp-remote\""]
+    },
+    "playwright": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @playwright/mcp@0.0.79"]
+    },
+    "serena": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/serena-mcp\" start-mcp-server --context=antigravity-rust"]
+    }
+  }
+}

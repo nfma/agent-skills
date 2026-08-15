@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "baseline": [
+    "aikido",
+    "browser-tools",
+    "chrome-devtools",
+    "context7",
+    "excalidraw",
+    "github",
+    "guardian",
+    "hf",
+    "playwright",
+    "serena"
+  ],
+  "npmPackages": {
+    "aikido": "@aikidosec/mcp@1.0.17",
+    "browser-tools": "@agentdeskai/browser-tools-mcp@1.2.0",
+    "chrome-devtools": "chrome-devtools-mcp@1.7.0",
+    "context7": "@upstash/context7-mcp@4.0.2",
+    "excalidraw": "mcp-excalidraw-server@1.1.0",
+    "hf-bridge": "mcp-remote@0.1.38",
+    "playwright": "@playwright/mcp@0.0.79"
+  },
+  "credentials": {
+    "github": {
+      "source": "macos-keychain",
+      "label": "GITHUB_MCP_PAT",
+      "environmentVariable": "GITHUB_PERSONAL_ACCESS_TOKEN"
+    },
+    "hf": {
+      "source": "macos-keychain",
+      "service": "HF_TOKEN",
+      "environmentVariable": "HF_MCP_TOKEN"
+    }
+  }
+}

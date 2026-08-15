@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coding Preferences"
+  short_description: "Apply Nuno’s focused coding conventions"
+  default_prompt: "Use $coding-preferences while making this code change."

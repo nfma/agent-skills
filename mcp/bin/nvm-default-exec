@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -eu
+
+tool=${1:-}
+case "$tool" in
+  node|npm|npx) shift ;;
+  *)
+    printf 'nvm-default-exec: expected node, npm, or npx\n' >&2
+    exit 64
+    ;;
+esac
+
+nvm_dir=${NVM_DIR:-"$HOME/.nvm"}
+nvm_sh="$nvm_dir/nvm.sh"
+
+if [ ! -r "$nvm_sh" ]; then
+  printf '%s: cannot load NVM from %s\n' "$tool" "$nvm_sh" >&2
+  exit 127
+fi
+
+. "$nvm_sh" --no-use
+
+if ! node_path=$(nvm which --silent default 2>/dev/null); then
+  printf '%s: NVM default is unavailable\n' "$tool" >&2
+  exit 127
+fi
+
+node_bin=${node_path%/*}
+PATH="$node_bin:$PATH"
+export PATH
+
+if [ "$tool" = node ]; then
+  exec "$node_path" "$@"
+fi
+
+tool_path="$node_bin/$tool"
+if [ ! -x "$node_path" ] || [ ! -r "$tool_path" ]; then
+  printf '%s: %s is unavailable for the NVM default\n' "$tool" "$tool" >&2
+  exit 127
+fi
+
+exec "$node_path" "$tool_path" "$@"

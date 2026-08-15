@@ -1,0 +1,66 @@
+{
+  "plugins": {
+    "install": [
+      {
+        "id": "aikido@claude-plugins-official",
+        "servers": ["aikido"]
+      },
+      {
+        "id": "chrome-devtools-mcp@claude-plugins-official",
+        "servers": ["chrome-devtools"]
+      },
+      {
+        "id": "context7@claude-plugins-official",
+        "servers": ["context7"]
+      },
+      {
+        "id": "playwright@claude-plugins-official",
+        "servers": ["playwright"]
+      }
+    ],
+    "remove": [
+      {
+        "id": "github@claude-plugins-official",
+        "reason": "Use the local fine-grained PAT Keychain wrapper instead of a globally exported token."
+      }
+    ]
+  },
+  "mcpServers": {
+    "browser-tools": {
+      "type": "stdio",
+      "localCommand": "npx",
+      "args": ["-y", "@agentdeskai/browser-tools-mcp@1.2.0"]
+    },
+    "excalidraw": {
+      "type": "stdio",
+      "localCommand": "npx",
+      "args": ["-y", "mcp-excalidraw-server@1.1.0"]
+    },
+    "github": {
+      "type": "stdio",
+      "localCommand": "github-mcp-keychain",
+      "args": ["stdio"]
+    },
+    "guardian": {
+      "type": "stdio",
+      "localCommand": "guardian-mcp",
+      "args": ["claude", "mcp"]
+    },
+    "hf": {
+      "type": "stdio",
+      "localCommand": "hf-mcp-remote",
+      "args": []
+    },
+    "serena": {
+      "type": "stdio",
+      "localCommand": "serena-mcp",
+      "args": [
+        "start-mcp-server",
+        "--context=codex",
+        "--project-from-cwd",
+        "--add-mode=no-memories",
+        "--add-mode=rust-only"
+      ]
+    }
+  }
+}

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -euo pipefail
+
+account_name=${USER:-$(/usr/bin/id -un)}
+HF_MCP_TOKEN="$(/usr/bin/security find-generic-password -s HF_TOKEN -a "$account_name" -w 2>/dev/null)" || {
+  echo "hf-mcp-remote: Keychain item HF_TOKEN is missing for $account_name" >&2
+  exit 1
+}
+export HF_MCP_TOKEN
+
+launcher_root=${HOME:?HOME is unavailable}/.local/bin
+npx_launcher="$launcher_root/npx"
+filter="$launcher_root/hf-mcp-filter.js"
+
+if [ ! -x "$npx_launcher" ] || [ ! -r "$filter" ]; then
+  echo "hf-mcp-remote: tracked MCP launchers are unavailable" >&2
+  exit 127
+fi
+
+log_file="$HOME/Library/Logs/hf-mcp-remote.log"
+
+start_bridge() {
+  exec "$launcher_root/nvm-default-exec" node "$filter" \
+    "$npx_launcher" -y mcp-remote@0.1.38 "https://huggingface.co/mcp" \
+    --header 'Authorization: Bearer ${HF_MCP_TOKEN}'
+}
+
+if [ "${HF_MCP_LOG_STDERR:-1}" = 0 ]; then
+  start_bridge
+fi
+
+start_bridge 2> >(grep -v --line-buffered 'Authorization' >> "$log_file")

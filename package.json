@@ -1,0 +1,12 @@
+{
+  "name": "agent-skills",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:installer && npm run test:hf-filter",
+    "test:hf-filter": "node --test tests/hf-mcp-filter.test.js",
+    "test:installer": "bats tests/install-mcps.bats"
+  },
+  "devDependencies": {
+    "bats": "1.13.0"
+  }
+}

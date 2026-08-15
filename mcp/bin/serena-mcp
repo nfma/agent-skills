@@ -1,0 +1,55 @@
+#!/bin/sh
+
+set -eu
+
+if [ -z "${HOME:-}" ]; then
+  printf 'serena-mcp: HOME is unavailable\n' >&2
+  exit 64
+fi
+
+runtime_home=${SERENA_RUNTIME_HOME:-"$HOME/.traycer/serena"}
+config_home=${SERENA_CONFIG_HOME:-"$HOME/.serena"}
+canonical_config="$config_home/serena_config.yml"
+runtime_config="$runtime_home/serena_config.yml"
+serena_exec="$HOME/.local/share/uv/tools/serena-agent/bin/serena"
+
+if [ ! -r "$canonical_config" ]; then
+  printf 'serena-mcp: cannot read canonical config at %s\n' "$canonical_config" >&2
+  exit 127
+fi
+
+if [ ! -x "$serena_exec" ]; then
+  printf 'serena-mcp: Serena uv tool is unavailable at %s\n' "$serena_exec" >&2
+  exit 127
+fi
+
+if ! /bin/mkdir -p "$runtime_home"; then
+  printf 'serena-mcp: cannot create runtime home at %s\n' "$runtime_home" >&2
+  exit 73
+fi
+
+for asset_name in contexts modes prompt_templates; do
+  canonical_asset="$config_home/$asset_name"
+  runtime_asset="$runtime_home/$asset_name"
+  if [ -d "$canonical_asset" ] && [ ! -e "$runtime_asset" ]; then
+    if ! /bin/ln -s "$canonical_asset" "$runtime_asset" 2>/dev/null &&
+       [ ! -e "$runtime_asset" ]; then
+      printf 'serena-mcp: cannot expose canonical %s at %s\n' \
+        "$asset_name" "$runtime_asset" >&2
+      exit 73
+    fi
+  fi
+done
+
+umask 077
+staged_config="$runtime_home/.serena_config.yml.$$"
+if ! /bin/cp "$canonical_config" "$staged_config" ||
+   ! /bin/mv -f "$staged_config" "$runtime_config"; then
+  printf 'serena-mcp: cannot refresh runtime config at %s\n' "$runtime_config" >&2
+  exit 73
+fi
+
+SERENA_HOME=$runtime_home
+export SERENA_HOME
+
+exec "$serena_exec" "$@"

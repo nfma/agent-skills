@@ -1,0 +1,4 @@
+interface:
+  display_name: "Risk-Scaled Review"
+  short_description: "Orchestrate evidence-based adversarial reviews"
+  default_prompt: "Use $orchestrate-risk-scaled-review to lead a risk-scaled review of these changes."

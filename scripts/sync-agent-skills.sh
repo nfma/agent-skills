@@ -99,14 +99,15 @@ ensure_dir_symlink() {
 write_agy_skills_json() {
   local json_path="$HOME/.gemini/config/skills.json"
   local desired
-  desired=$(cat <<'JSON'
+  desired=$(
+    cat <<'JSON'
 {
   "entries": [
     { "path": "~/.agents/skills" }
   ]
 }
 JSON
-)
+  )
   run mkdir -p "$(dirname "$json_path")"
   if [[ -f "$json_path" ]] && [[ "$(cat "$json_path")" == "$desired" ]]; then
     log "ok  $json_path"
@@ -115,7 +116,7 @@ JSON
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log "DRY: write $json_path"
   else
-    printf '%s\n' "$desired" > "$json_path"
+    printf '%s\n' "$desired" >"$json_path"
     log "write $json_path"
   fi
 }
@@ -195,9 +196,18 @@ sync_codex_skill_links() {
 # --- main ---
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dry-run) DRY_RUN=1; shift ;;
-    --verbose|-v) VERBOSE=1; shift ;;
-    --help|-h) usage; exit 0 ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --verbose | -v)
+      VERBOSE=1
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
     *)
       log "unknown option: $1" >&2
       usage >&2

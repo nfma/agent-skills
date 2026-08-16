@@ -1,3 +1,6 @@
 .DS_Store
 .serena/
+.venv/
+__pycache__/
+*.pyc
 node_modules/

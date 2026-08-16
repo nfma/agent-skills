@@ -1,4 +1,8 @@
+# Variables initialized here are consumed by the Bats files that load this helper.
+# shellcheck disable=SC2034
 setup_installer_test() {
+  # Assigning CDPATH only for cd prevents inherited values from changing output.
+  # shellcheck disable=SC1007
   REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$BATS_TEST_FILENAME")/.." && pwd)
   INSTALLER="$REPO_ROOT/scripts/install-mcps.sh"
   WRAPPER="$REPO_ROOT/mcp/bin/github-mcp-keychain"
@@ -12,7 +16,7 @@ setup_installer_test() {
     "$INSTALL_HOME/.serena" \
     "$INSTALL_HOME/.local/share/uv/tools/serena-agent/bin" \
     "$MCP_TEST_STATE"
-  : > "$INSTALL_HOME/.serena/serena_config.yml"
+  : >"$INSTALL_HOME/.serena/serena_config.yml"
 
   write_success_command cursor
   write_success_command agy
@@ -41,12 +45,12 @@ setup_installer_test() {
 
 write_success_command() {
   command_name=$1
-  printf '#!/bin/sh\nexit 0\n' > "$FAKE_BIN/$command_name"
+  printf '#!/bin/sh\nexit 0\n' >"$FAKE_BIN/$command_name"
   chmod +x "$FAKE_BIN/$command_name"
 }
 
 write_node_check() {
-  cat > "$FAKE_BIN/node-check" <<'EOF'
+  cat >"$FAKE_BIN/node-check" <<'EOF'
 #!/bin/sh
 set -eu
 [ "${MCP_TEST_NODE_FAILURE:-0}" != 1 ]
@@ -56,7 +60,7 @@ EOF
 }
 
 write_security_mock() {
-  cat > "$FAKE_BIN/security" <<'EOF'
+  cat >"$FAKE_BIN/security" <<'EOF'
 #!/bin/sh
 set -eu
 case " $* " in
@@ -76,7 +80,7 @@ EOF
 }
 
 write_github_server_mock() {
-  cat > "$FAKE_BIN/github-mcp-server" <<'EOF'
+  cat >"$FAKE_BIN/github-mcp-server" <<'EOF'
 #!/bin/sh
 set -eu
 [ -n "${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]
@@ -86,7 +90,7 @@ EOF
 }
 
 write_codex_mock() {
-  cat > "$FAKE_BIN/codex" <<'EOF'
+  cat >"$FAKE_BIN/codex" <<'EOF'
 #!/bin/bash
 set -eu
 
@@ -117,7 +121,7 @@ EOF
 }
 
 write_claude_mock() {
-  cat > "$FAKE_BIN/claude" <<'EOF'
+  cat >"$FAKE_BIN/claude" <<'EOF'
 #!/bin/bash
 set -eu
 

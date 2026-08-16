@@ -99,6 +99,76 @@ uses Node's built-in test runner:
 
 ```sh
 npm ci --ignore-scripts
+uv sync --frozen
+npm test
+```
+
+## Automated skill auditing
+
+Every pull request and every push to `main` builds and tests the pinned
+`skill-audit` submodule, installs pinned Trivy, and audits every skill under
+`skills/`. Recursive discovery includes skills added later without changing the
+workflow. The audit blocks high or critical findings and risk scores of 3 or
+higher.
+
+Reviewed false positives are recorded as exact fingerprints in
+`.skill-audit-baseline.json`. A change to the finding's skill, identifier,
+severity, file, line, or evidence requires fresh review, and stale entries fail
+the workflow. `skill-audit` itself is spec-validated by the runner, then built,
+dependency-audited, and tested separately because its source contains the
+detection signatures it is designed to find.
+
+Run the same audit locally after preparing the vendored CLI:
+
+```sh
+./scripts/prepare-vendored-skills.sh
+node scripts/audit-skills.mjs
+```
+
+The workflow consumes the GitHub-pinned source directly; it never publishes
+`skill-audit` to npm.
+
+## Quality and security gates
+
+Every pull request and push to `main` runs language-specific and repository
+security gates:
+
+- JavaScript and TypeScript: Prettier, ESLint security and SonarJS rules,
+  strict TypeScript checking, Node tests, and `npm audit`.
+- Python: Ruff linting and formatting, Pyright, mypy, Bandit, compile tests,
+  and `pip-audit` from the pinned `uv.lock` environment.
+- Shell: `bash -n` or `sh -n`, ShellCheck, shfmt, and Bats tests.
+- Repository security: Skill Audit, Semgrep community security rules, Trivy
+  vulnerability/misconfiguration/secret scanning, Gitleaks, CodeQL for
+  Actions/JavaScript/TypeScript/Python, dependency review, and OpenSSF
+  Scorecard.
+- Workflow/configuration quality: Actionlint, Zizmor, yamllint, and JSON
+  parsing.
+
+First-party code must be clean. Existing findings in imported skill examples
+are recorded as exact fingerprints in `.python-quality-baseline.json` and
+`.shell-quality-baseline.json`; new or stale fingerprints fail CI and require
+review. Dependabot checks the root npm and uv dependencies, GitHub Actions, and
+the `skill-audit` submodule pin every week.
+
+SonarQube Cloud is configured for organization `nfma` and project
+`nfma_agent-skills`. Disable Automatic Analysis under **Administration →
+Analysis Method** so SonarQube Cloud uses the repository's
+`sonar-project.properties`. Create the `sonar` GitHub environment and add a
+`SONAR_TOKEN` environment secret, then add the same name and value as a
+Dependabot secret. The workflow fails explicitly when the token is absent and
+waits for the quality gate.
+
+Run the local gates with:
+
+```sh
+npm ci --ignore-scripts
+uv sync --frozen
+npm run format:check
+npm run lint:js
+npm run typecheck
+npm run lint:python
+npm run lint:shell
 npm test
 ```
 

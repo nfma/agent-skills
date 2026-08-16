@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
+# Assigning CDPATH only for cd prevents inherited values from changing output.
+# shellcheck disable=SC1007
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck disable=SC1007
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 manifest="$repo_root/mcp/manifest.json"
 codex_fragment=${MCP_CODEX_FRAGMENT:-"$repo_root/mcp/codex/mcp-fragment.json"}
@@ -65,7 +68,7 @@ select_harness() {
     codex) install_codex=1 ;;
     claude) install_claude=1 ;;
     cursor) install_cursor=1 ;;
-    antigravity|agy) install_antigravity=1 ;;
+    antigravity | agy) install_antigravity=1 ;;
     *) die "unknown harness: $1" ;;
   esac
 }
@@ -82,7 +85,7 @@ while [ "$#" -gt 0 ]; do
       select_harness "$2"
       shift 2
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;
@@ -98,8 +101,8 @@ if [ "$selected_harnesses" -eq 0 ]; then
 fi
 
 [ -n "$install_home" ] || die 'installation home is unavailable'
-[[ "$install_home" = /* && "$install_home" != / ]] ||
-  die 'installation home must be an absolute path other than /'
+[[ "$install_home" = /* && "$install_home" != / ]] \
+  || die 'installation home must be an absolute path other than /'
 [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
 [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
 [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
@@ -140,8 +143,8 @@ validate_harness_fragment() {
       else
         false
       end)
-  ' "$fragment_file" >/dev/null ||
-    die "invalid harness MCP fragment: $fragment_file"
+  ' "$fragment_file" >/dev/null \
+    || die "invalid harness MCP fragment: $fragment_file"
 }
 
 preflight() {
@@ -161,33 +164,33 @@ preflight() {
     require_command agy
   fi
 
-  jq -e '.schemaVersion == 1 and (.baseline | length > 0)' "$manifest" >/dev/null ||
-    die 'manifest is invalid'
+  jq -e '.schemaVersion == 1 and (.baseline | length > 0)' "$manifest" >/dev/null \
+    || die 'manifest is invalid'
   validate_harness_fragment "$codex_fragment"
   validate_harness_fragment "$claude_fragment"
-  jq -e '.mcpServers | type == "object"' "$repo_root/mcp/cursor/mcp.json" >/dev/null ||
-    die 'Cursor MCP config is invalid'
-  jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
-    die 'Antigravity MCP config is invalid'
+  jq -e '.mcpServers | type == "object"' "$repo_root/mcp/cursor/mcp.json" >/dev/null \
+    || die 'Cursor MCP config is invalid'
+  jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null \
+    || die 'Antigravity MCP config is invalid'
 
-  "$node_check_bin" node --version >/dev/null 2>&1 ||
-    die 'the NVM default Node runtime is unavailable'
+  "$node_check_bin" node --version >/dev/null 2>&1 \
+    || die 'the NVM default Node runtime is unavailable'
 
-  if [ "$install_codex" -eq 1 ] || [ "$install_claude" -eq 1 ] ||
-     [ "$install_cursor" -eq 1 ] || [ "$install_antigravity" -eq 1 ]; then
+  if [ "$install_codex" -eq 1 ] || [ "$install_claude" -eq 1 ] \
+    || [ "$install_cursor" -eq 1 ] || [ "$install_antigravity" -eq 1 ]; then
     account_name=${USER:-$(/usr/bin/id -un)}
-    keychain_item_available -s HF_TOKEN -a "$account_name" ||
-      die "Keychain item HF_TOKEN is missing for $account_name"
-    keychain_item_available -l GITHUB_MCP_PAT ||
-      die 'Keychain item labeled GITHUB_MCP_PAT is missing'
-    command -v github-mcp-server >/dev/null 2>&1 ||
-      [ -x /opt/homebrew/bin/github-mcp-server ] ||
-      [ -x /usr/local/bin/github-mcp-server ] ||
-      die 'github-mcp-server is unavailable'
-    [ -r "$install_home/.serena/serena_config.yml" ] ||
-      die 'Serena config is unavailable at ~/.serena/serena_config.yml'
-    [ -x "$install_home/.local/share/uv/tools/serena-agent/bin/serena" ] ||
-      die 'the Serena uv tool is unavailable'
+    keychain_item_available -s HF_TOKEN -a "$account_name" \
+      || die "Keychain item HF_TOKEN is missing for $account_name"
+    keychain_item_available -l GITHUB_MCP_PAT \
+      || die 'Keychain item labeled GITHUB_MCP_PAT is missing'
+    command -v github-mcp-server >/dev/null 2>&1 \
+      || [ -x /opt/homebrew/bin/github-mcp-server ] \
+      || [ -x /usr/local/bin/github-mcp-server ] \
+      || die 'github-mcp-server is unavailable'
+    [ -r "$install_home/.serena/serena_config.yml" ] \
+      || die 'Serena config is unavailable at ~/.serena/serena_config.yml'
+    [ -x "$install_home/.local/share/uv/tools/serena-agent/bin/serena" ] \
+      || die 'the Serena uv tool is unavailable'
   fi
 }
 
@@ -275,8 +278,8 @@ install_wrappers() {
 }
 
 ensure_codex_marketplace() {
-  if codex plugin marketplace list --json |
-     jq -e '.marketplaces[] | select(.name == "claude-plugins-official")' >/dev/null; then
+  if codex plugin marketplace list --json \
+    | jq -e '.marketplaces[] | select(.name == "claude-plugins-official")' >/dev/null; then
     return 0
   fi
   note 'Installing the official plugin marketplace for Codex'
@@ -285,8 +288,8 @@ ensure_codex_marketplace() {
 }
 
 ensure_claude_marketplace() {
-  if claude plugin marketplace list --json |
-     jq -e '.[] | select(.name == "claude-plugins-official")' >/dev/null; then
+  if claude plugin marketplace list --json \
+    | jq -e '.[] | select(.name == "claude-plugins-official")' >/dev/null; then
     return 0
   fi
   note 'Installing the official plugin marketplace for Claude'
@@ -296,8 +299,8 @@ ensure_claude_marketplace() {
 
 ensure_codex_plugin() {
   plugin_id=$1
-  plugin_state=$(codex plugin list --json |
-    jq -r --arg id "$plugin_id" \
+  plugin_state=$(codex plugin list --json \
+    | jq -r --arg id "$plugin_id" \
       '[.installed[] | select(.pluginId == $id)][0] | if . == null then "missing" elif .enabled then "enabled" else "disabled" end')
   case "$plugin_state" in
     enabled)
@@ -316,8 +319,8 @@ ensure_codex_plugin() {
 
 ensure_claude_plugin() {
   plugin_id=$1
-  plugin_state=$(claude plugin list --json |
-    jq -r --arg id "$plugin_id" \
+  plugin_state=$(claude plugin list --json \
+    | jq -r --arg id "$plugin_id" \
       '[.[] | select((.id // .name) == $id)][0] | if . == null then "missing" elif .enabled == true then "enabled" else "disabled" end')
   case "$plugin_state" in
     enabled)
@@ -338,8 +341,8 @@ ensure_claude_plugin() {
 
 remove_codex_plugin_exception() {
   plugin_id=$1
-  if ! codex plugin list --json |
-       jq -e --arg id "$plugin_id" '.installed[] | select(.pluginId == $id)' >/dev/null; then
+  if ! codex plugin list --json \
+    | jq -e --arg id "$plugin_id" '.installed[] | select(.pluginId == $id)' >/dev/null; then
     return 0
   fi
   note "Removing Codex plugin in favor of a Keychain-backed direct MCP: $plugin_id"
@@ -349,8 +352,8 @@ remove_codex_plugin_exception() {
 
 remove_claude_plugin_exception() {
   plugin_id=$1
-  if ! claude plugin list --json |
-       jq -e --arg id "$plugin_id" '.[] | select((.id // .name) == $id)' >/dev/null; then
+  if ! claude plugin list --json \
+    | jq -e --arg id "$plugin_id" '.[] | select((.id // .name) == $id)' >/dev/null; then
     return 0
   fi
   note "Removing Claude plugin in favor of a Keychain-backed direct MCP: $plugin_id"
@@ -399,11 +402,11 @@ reconcile_codex_stdio() {
   expected_args=$(json_args "$@")
   current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg command "$server_command" --argjson args "$expected_args" \
-         '.transport.type == "stdio" and .transport.command == $command and .transport.args == $args' \
-         >/dev/null; then
+  if [ -n "$current_json" ] \
+    && printf '%s' "$current_json" \
+    | jq -e --arg command "$server_command" --argjson args "$expected_args" \
+      '.transport.type == "stdio" and .transport.command == $command and .transport.args == $args' \
+      >/dev/null; then
     note "Codex MCP ready: $server_name"
     return 0
   fi
@@ -421,11 +424,11 @@ reconcile_codex_http() {
   server_url=$2
   current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg url "$server_url" \
-         '.transport.type == "streamable_http" and .transport.url == $url' \
-         >/dev/null; then
+  if [ -n "$current_json" ] \
+    && printf '%s' "$current_json" \
+    | jq -e --arg url "$server_url" \
+      '.transport.type == "streamable_http" and .transport.url == $url' \
+      >/dev/null; then
     note "Codex MCP ready: $server_name"
     return 0
   fi
@@ -453,11 +456,11 @@ reconcile_claude_stdio() {
   expected_args=$(json_args "$@")
   current_json=$(claude_user_entry "$server_name" || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg command "$server_command" --argjson args "$expected_args" \
-         '(.type // "stdio") == "stdio" and .command == $command and (.args // []) == $args' \
-         >/dev/null; then
+  if [ -n "$current_json" ] \
+    && printf '%s' "$current_json" \
+    | jq -e --arg command "$server_command" --argjson args "$expected_args" \
+      '(.type // "stdio") == "stdio" and .command == $command and (.args // []) == $args' \
+      >/dev/null; then
     note "Claude MCP ready: $server_name"
     return 0
   fi
@@ -475,10 +478,10 @@ reconcile_claude_http() {
   server_url=$2
   current_json=$(claude_user_entry "$server_name" || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg url "$server_url" \
-         '.type == "http" and .url == $url' >/dev/null; then
+  if [ -n "$current_json" ] \
+    && printf '%s' "$current_json" \
+    | jq -e --arg url "$server_url" \
+      '.type == "http" and .url == $url' >/dev/null; then
     note "Claude MCP ready: $server_name"
     return 0
   fi
@@ -577,22 +580,22 @@ verify_baseline_configs() {
 verify_version_pins() {
   for package_name in aikido browser-tools chrome-devtools context7 excalidraw playwright; do
     pinned_package=$(package_pin "$package_name")
-    grep -F -- "$pinned_package" "$repo_root/mcp/cursor/mcp.json" >/dev/null ||
-      die "Cursor config is missing package pin: $pinned_package"
-    grep -F -- "$pinned_package" "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
-      die "Antigravity config is missing package pin: $pinned_package"
+    grep -F -- "$pinned_package" "$repo_root/mcp/cursor/mcp.json" >/dev/null \
+      || die "Cursor config is missing package pin: $pinned_package"
+    grep -F -- "$pinned_package" "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null \
+      || die "Antigravity config is missing package pin: $pinned_package"
   done
   for fragment_file in "$codex_fragment" "$claude_fragment"; do
     for package_name in browser-tools excalidraw; do
       pinned_package=$(package_pin "$package_name")
-      grep -F -- "$pinned_package" "$fragment_file" >/dev/null ||
-        die "harness fragment is missing package pin: $pinned_package"
+      grep -F -- "$pinned_package" "$fragment_file" >/dev/null \
+        || die "harness fragment is missing package pin: $pinned_package"
     done
   done
-  grep -F -- "$(package_pin aikido)" "$wrapper_root/npx" >/dev/null ||
-    die 'Aikido isolation wrapper is out of sync with the manifest'
-  grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-remote" >/dev/null ||
-    die 'Hugging Face bridge wrapper is out of sync with the manifest'
+  grep -F -- "$(package_pin aikido)" "$wrapper_root/npx" >/dev/null \
+    || die 'Aikido isolation wrapper is out of sync with the manifest'
+  grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-remote" >/dev/null \
+    || die 'Hugging Face bridge wrapper is out of sync with the manifest'
 }
 
 verify_links() {
@@ -601,16 +604,16 @@ verify_links() {
     hf-mcp-remote serena-mcp github-mcp-keychain guardian-mcp; do
     target_file="$install_home/.local/bin/$wrapper_name"
     [ -L "$target_file" ] || die "wrapper is not linked: $target_file"
-    [ "$(readlink "$target_file")" = "$wrapper_root/$wrapper_name" ] ||
-      die "wrapper points to an unexpected target: $target_file"
+    [ "$(readlink "$target_file")" = "$wrapper_root/$wrapper_name" ] \
+      || die "wrapper points to an unexpected target: $target_file"
   done
   if [ "$install_cursor" -eq 1 ]; then
-    [ "$(readlink "$install_home/.cursor/mcp.json")" = "$repo_root/mcp/cursor/mcp.json" ] ||
-      die 'Cursor MCP config link is incorrect'
+    [ "$(readlink "$install_home/.cursor/mcp.json")" = "$repo_root/mcp/cursor/mcp.json" ] \
+      || die 'Cursor MCP config link is incorrect'
   fi
   if [ "$install_antigravity" -eq 1 ]; then
-    [ "$(readlink "$install_home/.gemini/config/mcp_config.json")" = "$repo_root/mcp/antigravity/mcp_config.json" ] ||
-      die 'Antigravity MCP config link is incorrect'
+    [ "$(readlink "$install_home/.gemini/config/mcp_config.json")" = "$repo_root/mcp/antigravity/mcp_config.json" ] \
+      || die 'Antigravity MCP config link is incorrect'
   fi
 }
 
@@ -622,14 +625,14 @@ verify_installed_state() {
     verify_links
     if [ "$install_codex" -eq 1 ]; then
       while IFS= read -r server_name; do
-        codex mcp get "$server_name" --json >/dev/null ||
-          die "Codex MCP verification failed: $server_name"
+        codex mcp get "$server_name" --json >/dev/null \
+          || die "Codex MCP verification failed: $server_name"
       done < <(jq -r '.mcpServers | keys[]' "$codex_fragment")
     fi
     if [ "$install_claude" -eq 1 ]; then
       while IFS= read -r server_name; do
-        claude_user_entry "$server_name" >/dev/null ||
-          die "Claude MCP verification failed: $server_name"
+        claude_user_entry "$server_name" >/dev/null \
+          || die "Claude MCP verification failed: $server_name"
       done < <(jq -r '.mcpServers | keys[]' "$claude_fragment")
     fi
   fi

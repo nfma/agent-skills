@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2023", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2023",
+    "types": ["node"]
+  },
+  "include": [
+    "mcp/bin/**/*.js",
+    "mcp/bin/**/*.cjs",
+    "scripts/**/*.mjs",
+    "skills/huggingface-tool-builder/references/**/*.tsx",
+    "tests/**/*.js"
+  ],
+  "exclude": ["node_modules", "vendor"]
+}

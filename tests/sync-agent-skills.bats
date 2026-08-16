@@ -6,7 +6,7 @@ setup() {
   SCRIPT="$BATS_TEST_DIRNAME/../scripts/sync-agent-skills.sh"
 
   mkdir -p "$CANONICAL/example"
-  printf '%s\n' '# Example' > "$CANONICAL/example/SKILL.md"
+  printf '%s\n' '# Example' >"$CANONICAL/example/SKILL.md"
 }
 
 teardown() {
@@ -33,7 +33,7 @@ teardown() {
 
 @test "fans canonical skills out while preserving system skills" {
   mkdir -p "$TEST_HOME/.codex/skills/.system"
-  printf '%s\n' keep > "$TEST_HOME/.codex/skills/.system/sentinel"
+  printf '%s\n' keep >"$TEST_HOME/.codex/skills/.system/sentinel"
   ln -s "$CANONICAL/removed" "$TEST_HOME/.codex/skills/removed"
 
   run env HOME="$TEST_HOME" AGENT_SKILLS_HOME="$CANONICAL" "$SCRIPT"
@@ -51,7 +51,7 @@ teardown() {
 
 @test "refuses to replace a non-empty harness skills directory" {
   mkdir -p "$TEST_HOME/.claude/skills"
-  printf '%s\n' keep > "$TEST_HOME/.claude/skills/sentinel"
+  printf '%s\n' keep >"$TEST_HOME/.claude/skills/sentinel"
 
   run env HOME="$TEST_HOME" AGENT_SKILLS_HOME="$CANONICAL" "$SCRIPT"
 

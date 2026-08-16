@@ -31,7 +31,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Enable squash auto-merge
         if: >-
-          (steps.metadata.outputs.package-ecosystem == 'npm' ||
+          (steps.metadata.outputs.package-ecosystem == 'npm_and_yarn' ||
           steps.metadata.outputs.package-ecosystem == 'uv' ||
           steps.metadata.outputs.package-ecosystem == 'gitsubmodule') &&
           (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
@@ -43,7 +43,7 @@ jobs:
         run: gh pr merge --repo "$GH_REPO" --auto --squash "$PR_NUMBER"
       - name: Explain manual review requirement
         if: >-
-          (steps.metadata.outputs.package-ecosystem != 'npm' &&
+          (steps.metadata.outputs.package-ecosystem != 'npm_and_yarn' &&
           steps.metadata.outputs.package-ecosystem != 'uv' &&
           steps.metadata.outputs.package-ecosystem != 'gitsubmodule') ||
           (steps.metadata.outputs.update-type != 'version-update:semver-patch' &&

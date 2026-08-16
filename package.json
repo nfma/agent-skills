@@ -12,7 +12,7 @@
     "test:python": "PYTHONDONTWRITEBYTECODE=1 uv run --frozen python -m unittest discover -s tests/python -p 'test_*.py'",
     "test:sync-skills": "bats tests/sync-agent-skills.bats",
     "test:workflow-security": "node --test tests/sonar-workflow.test.js",
-    "typecheck": "tsc --project tsconfig.json"
+    "typecheck": "node ./node_modules/typescript-7/bin/tsc --project tsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -23,7 +23,8 @@
     "eslint-plugin-sonarjs": "4.2.0",
     "globals": "17.11.0",
     "prettier": "3.9.6",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
+    "typescript-7": "npm:typescript@7.0.2",
     "typescript-eslint": "8.67.0"
   }
 }

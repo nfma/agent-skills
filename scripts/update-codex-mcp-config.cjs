@@ -6,15 +6,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
-const [configPath, serverName, timeoutValue] = process.argv.slice(2);
+const [requestedConfigPath, serverName, timeoutValue] = process.argv.slice(2);
 
 function fail(message, exitCode = 64) {
   console.error(`update-codex-mcp-config: ${message}`);
   process.exit(exitCode);
 }
 
-if (!configPath || !path.isAbsolute(configPath) ||
-    configPath === path.parse(configPath).root) {
+if (!requestedConfigPath || !path.isAbsolute(requestedConfigPath) ||
+    requestedConfigPath === path.parse(requestedConfigPath).root) {
   fail('config path must be an absolute file path');
 }
 
@@ -27,13 +27,59 @@ if (!timeoutValue || !Number.isFinite(Number(timeoutValue)) ||
   fail('startup timeout must be a positive number');
 }
 
+let configPath;
 let source;
 let sourceMode;
 try {
+  configPath = fs.realpathSync(requestedConfigPath);
+  if (!fs.statSync(configPath).isFile()) {
+    fail(`config path is not a regular file: ${requestedConfigPath}`, 66);
+  }
   source = fs.readFileSync(configPath, 'utf8');
   sourceMode = fs.statSync(configPath).mode & 0o777;
 } catch (error) {
-  fail(`cannot read ${configPath}: ${error.message}`, 66);
+  fail(`cannot read ${requestedConfigPath}: ${error.message}`, 66);
+}
+
+function hasBalancedSingleLineValue(value) {
+  let quote = '';
+  let escaped = false;
+  let squareDepth = 0;
+  let curlyDepth = 0;
+
+  for (const character of value.trim()) {
+    if (quote) {
+      if (quote === '"' && escaped) {
+        escaped = false;
+      } else if (quote === '"' && character === '\\') {
+        escaped = true;
+      } else if (character === quote) {
+        quote = '';
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '#') {
+      break;
+    } else if (character === '[') {
+      squareDepth += 1;
+    } else if (character === ']') {
+      squareDepth -= 1;
+    } else if (character === '{') {
+      curlyDepth += 1;
+    } else if (character === '}') {
+      curlyDepth -= 1;
+    }
+
+    if (squareDepth < 0 || curlyDepth < 0) {
+      return false;
+    }
+  }
+
+  return quote === '' && squareDepth === 0 && curlyDepth === 0 &&
+    !/^\s*(?:#|$)/.test(value);
 }
 
 const sectionHeader = `[mcp_servers.${serverName}]`;
@@ -51,17 +97,27 @@ if (sectionIndexes.length !== 1) {
 }
 
 const sectionStart = sectionIndexes[0];
+const tableHeaderPattern =
+  /^\s*(?:\[[^\[\]\r\n]+\]|\[\[[^\[\]\r\n]+\]\])\s*(?:#.*)?$/;
+const assignmentPattern = /^\s*([A-Za-z0-9_-]+)\s*=\s*(.+?)\s*$/;
 let sectionEnd = lines.length;
+const timeoutIndexes = [];
 for (let index = sectionStart + 1; index < lines.length; index += 1) {
-  if (/^\s*\[/.test(lines[index])) {
+  const line = lines[index];
+  if (tableHeaderPattern.test(line)) {
     sectionEnd = index;
     break;
   }
-}
 
-const timeoutIndexes = [];
-for (let index = sectionStart + 1; index < sectionEnd; index += 1) {
-  if (/^\s*startup_timeout_sec\s*=/.test(lines[index])) {
+  if (/^\s*(?:#.*)?$/.test(line)) {
+    continue;
+  }
+
+  const assignment = assignmentPattern.exec(line);
+  if (!assignment || !hasBalancedSingleLineValue(assignment[2])) {
+    fail(`${sectionHeader} contains unsupported non-canonical TOML`);
+  }
+  if (assignment[1] === 'startup_timeout_sec') {
     timeoutIndexes.push(index);
   }
 }
@@ -75,7 +131,7 @@ if (timeoutIndexes.length === 1) {
   lines[timeoutIndexes[0]] = timeoutLine;
 } else {
   let insertAt = sectionEnd;
-  while (insertAt > sectionStart + 1 && lines[insertAt - 1] === '') {
+  while (insertAt > sectionStart + 1 && lines[insertAt - 1].trim() === '') {
     insertAt -= 1;
   }
   lines.splice(insertAt, 0, timeoutLine);

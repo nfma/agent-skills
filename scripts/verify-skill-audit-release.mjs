@@ -22,9 +22,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export const PIN_SHA256 =
   "5cf3f5f9cd5bc9a4a37c19876c71ffe7362f6170908ae9559af7ea01c5ef232a";
 export const LEGACY_SUBMODULE_COMMIT =
-  "594734decf04b32bdf54a8d6587dc6abed372807";
-export const LEGACY_PATCH_SHA256 =
-  "da27d3a04e4ebca5c96e7ce0165417fe1dd1f6efc8bc1b0099a9917a25334038";
+  "fffa3d82af71ec2ae0a314a3693f7b51ffd2b320";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const pinPath = resolve(repositoryRoot, ".skill-audit-release.json");
@@ -586,7 +584,12 @@ console.log(JSON.stringify(reports));
   }
 }
 
-/** @param {string} [root] @param {{ expectedCommit?: string, acceptedPatchSha256?: string }} [options] */
+/** @param {string} root */
+function legacyCleanupGuidance(root) {
+  return `Inspect ${root} and manually remove the retained checkout after resolving this state.`;
+}
+
+/** @param {string} [root] @param {{ expectedCommit?: string }} [options] */
 export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
   const gitMetadata = join(root, ".git");
   try {
@@ -598,14 +601,12 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
   }
 
   const expectedCommit = options.expectedCommit ?? LEGACY_SUBMODULE_COMMIT;
-  const acceptedPatchSha256 =
-    options.acceptedPatchSha256 ?? LEGACY_PATCH_SHA256;
   const head = run("git", ["rev-parse", "HEAD"], { cwd: root });
   requireSuccess("legacy skill-audit HEAD check", head);
   const actualHead = outputText(head.stdout).trim();
   if (actualHead !== expectedCommit) {
     throw new Error(
-      `Refusing to remove legacy skill-audit at unexpected commit ${actualHead}`,
+      `Refusing to remove legacy skill-audit: expected commit ${expectedCommit}, got ${actualHead}. ${legacyCleanupGuidance(root)}`,
     );
   }
 
@@ -620,7 +621,7 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
       .split("\0")
       .filter(Boolean);
     throw new Error(
-      `Refusing to remove legacy skill-audit: expected no untracked files, got ${displayValue(untrackedPaths)}`,
+      `Refusing to remove legacy skill-audit: expected no untracked files, got ${displayValue(untrackedPaths)}. ${legacyCleanupGuidance(root)}`,
     );
   }
 
@@ -629,25 +630,26 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
     encoding: null,
   });
   requireSuccess("legacy skill-audit patch check", diff);
-  const staged = run("git", ["diff", "--cached", "--quiet"], { cwd: root });
-  if (staged.status !== 0) {
+  const staged = run("git", ["diff", "--cached", "--name-only", "-z"], {
+    cwd: root,
+    encoding: null,
+  });
+  requireSuccess("legacy skill-audit staged-file check", staged);
+  const stagedPaths = outputText(staged.stdout).split("\0").filter(Boolean);
+  if (stagedPaths.length !== 0) {
     throw new Error(
-      `Refusing to remove legacy skill-audit with staged changes: expected staged diff exit 0, got ${displayValue(staged.status)}`,
+      `Refusing to remove legacy skill-audit: expected no staged paths, got ${displayValue(stagedPaths)}. ${legacyCleanupGuidance(root)}`,
     );
   }
   const patchDigest = sha256(diff.stdout);
-  if (diff.stdout.length !== 0 && patchDigest !== acceptedPatchSha256) {
+  if (diff.stdout.length !== 0) {
     throw new Error(
-      `Refusing to remove legacy skill-audit with unapproved patch ${patchDigest}`,
+      `Refusing to remove legacy skill-audit: expected no unstaged patch, got SHA-256 ${patchDigest} (${diff.stdout.length} bytes). ${legacyCleanupGuidance(root)}`,
     );
   }
 
   rmSync(root, { recursive: true, force: false });
-  console.log(
-    diff.stdout.length === 0
-      ? `Removed clean legacy skill-audit checkout at ${expectedCommit}`
-      : `Removed legacy skill-audit checkout with approved patch ${acceptedPatchSha256}`,
-  );
+  console.log(`Removed clean legacy skill-audit checkout at ${expectedCommit}`);
   return true;
 }
 

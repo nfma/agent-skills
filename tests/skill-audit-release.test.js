@@ -55,6 +55,17 @@ function runGit(root, args) {
   return result.stdout;
 }
 
+/** @param {string} root */
+function initializeLegacyCheckout(root) {
+  runGit(root, ["init", "--quiet"]);
+  runGit(root, ["config", "user.email", "test@example.com"]);
+  runGit(root, ["config", "user.name", "Release Test"]);
+  writeFileSync(join(root, "tracked.txt"), "before\n");
+  runGit(root, ["add", "tracked.txt"]);
+  runGit(root, ["commit", "--quiet", "-m", "Initial fixture"]);
+  return runGit(root, ["rev-parse", "HEAD"]).trim();
+}
+
 test("pins the byte-exact v0.10.2 release descriptor", () => {
   const { bytes, descriptor } = verifier.loadPinnedDescriptor();
   assert.equal(verifier.sha256(bytes), verifier.PIN_SHA256);
@@ -336,16 +347,29 @@ test("released dual-read preserves CTX-002 through CTX-006", async () => {
   }
 });
 
-test("legacy cleanup accepts only the named dirty patch", () => {
+test("legacy cleanup rejects the wrong commit", () => {
   const root = temporaryDirectory();
   try {
-    runGit(root, ["init", "--quiet"]);
-    runGit(root, ["config", "user.email", "test@example.com"]);
-    runGit(root, ["config", "user.name", "Release Test"]);
-    writeFileSync(join(root, "tracked.txt"), "before\n");
-    runGit(root, ["add", "tracked.txt"]);
-    runGit(root, ["commit", "--quiet", "-m", "Initial fixture"]);
-    const head = runGit(root, ["rev-parse", "HEAD"]).trim();
+    const head = initializeLegacyCheckout(root);
+    const expectedCommit = "0".repeat(40);
+    assert.notEqual(head, expectedCommit);
+    assert.throws(
+      () => verifier.cleanupLegacyVendor(root, { expectedCommit }),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes(`expected commit ${expectedCommit}`) &&
+        error.message.includes(`got ${head}`) &&
+        error.message.includes("manually remove the retained checkout"),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy cleanup rejects an unstaged patch", () => {
+  const root = temporaryDirectory();
+  try {
+    const head = initializeLegacyCheckout(root);
     writeFileSync(join(root, "tracked.txt"), "after\n");
     const patch = spawnSync(
       "/usr/bin/git",
@@ -356,36 +380,63 @@ test("legacy cleanup accepts only the named dirty patch", () => {
       },
     );
     assert.equal(patch.status, 0);
-    const acceptedPatchSha256 = verifier.sha256(patch.stdout);
-    assert.notEqual(acceptedPatchSha256, verifier.LEGACY_PATCH_SHA256);
-
+    const patchSha256 = verifier.sha256(patch.stdout);
     assert.throws(
-      () =>
-        verifier.cleanupLegacyVendor(root, {
-          expectedCommit: head,
-          acceptedPatchSha256: "0".repeat(64),
-        }),
-      /unapproved patch/,
-    );
-    runGit(root, ["add", "tracked.txt"]);
-    assert.throws(
-      () =>
-        verifier.cleanupLegacyVendor(root, {
-          expectedCommit: head,
-          acceptedPatchSha256,
-        }),
-      /staged changes/,
-    );
-    runGit(root, ["reset", "--quiet"]);
-    assert.doesNotThrow(() =>
-      verifier.cleanupLegacyVendor(root, {
-        expectedCommit: head,
-        acceptedPatchSha256,
-      }),
+      () => verifier.cleanupLegacyVendor(root, { expectedCommit: head }),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes("expected no unstaged patch") &&
+        error.message.includes(`got SHA-256 ${patchSha256}`) &&
+        error.message.includes("manually remove the retained checkout"),
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("legacy cleanup rejects staged changes", () => {
+  const root = temporaryDirectory();
+  try {
+    const head = initializeLegacyCheckout(root);
+    writeFileSync(join(root, "tracked.txt"), "after\n");
+    runGit(root, ["add", "tracked.txt"]);
+    assert.throws(
+      () => verifier.cleanupLegacyVendor(root, { expectedCommit: head }),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes("expected no staged paths") &&
+        error.message.includes('got ["tracked.txt"]') &&
+        error.message.includes("manually remove the retained checkout"),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy cleanup rejects untracked files", () => {
+  const root = temporaryDirectory();
+  try {
+    const head = initializeLegacyCheckout(root);
+    writeFileSync(join(root, "untracked.txt"), "untracked\n");
+    assert.throws(
+      () => verifier.cleanupLegacyVendor(root, { expectedCommit: head }),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes("expected no untracked files") &&
+        error.message.includes('["untracked.txt"]') &&
+        error.message.includes("manually remove the retained checkout"),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy cleanup removes the exact clean checkout", () => {
+  const root = temporaryDirectory();
+  const head = initializeLegacyCheckout(root);
+  assert.doesNotThrow(() =>
+    verifier.cleanupLegacyVendor(root, { expectedCommit: head }),
+  );
 });
 
 test("release downloads are bounded by the pinned executable size", async () => {

@@ -1,53 +1,75 @@
 version: 2
+
 updates:
-  - package-ecosystem: npm
-    directory: /
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "05:00"
-      timezone: Europe/Berlin
+      interval: "weekly"
+      day: "monday"
+      time: "05:15"
+      timezone: "Europe/Berlin"
     cooldown:
       default-days: 7
+    versioning-strategy: "increase"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
     groups:
-      npm-development:
-        dependency-type: development
-        update-types: [minor, patch]
-    open-pull-requests-limit: 10
+      npm-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
-  - package-ecosystem: uv
-    directory: /
+  - package-ecosystem: "uv"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "05:10"
-      timezone: Europe/Berlin
-    cooldown:
-      default-days: 7
-    groups:
-      python-development:
-        dependency-type: development
-        update-types: [minor, patch]
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "05:20"
-      timezone: Europe/Berlin
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 10
-
-  - package-ecosystem: gitsubmodule
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
+      interval: "weekly"
+      day: "monday"
       time: "05:30"
-      timezone: Europe/Berlin
+      timezone: "Europe/Berlin"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      python-development:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:45"
+      timezone: "Europe/Berlin"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions-non-major:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"

@@ -9,6 +9,11 @@ description: >-
   choosing an AI model for a specific use case. Always use this skill when the user wants
   model recommendations or comparisons, even if they don't explicitly mention HuggingFace
   or benchmarks.
+metadata:
+  skill-audit-context-reads: task, hardware_constraints, licensing_constraints, deployment_constraints
+  skill-audit-context-requires: selection_goal
+  skill-audit-context-writes: candidate_models, evidence_sources, recommendation
+  skill-audit-confirmation: never
 ---
 
 # HuggingFace Best Model Finder

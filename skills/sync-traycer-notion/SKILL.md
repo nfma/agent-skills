@@ -26,16 +26,19 @@ Re-fetch the live schema each turn instead of trusting the reference blindly.
 
 ## Mapping
 
-| Traycer item | Notion parent | Traycer key |
+| Traycer item | Native Notion parent | Traycer key |
 | --- | --- | --- |
 | Epic | none | `traycer:epic:<epic-uuid>` |
-| Story artifact | epic's numeric ID | `traycer:epic:<epic-uuid>:story:<artifact-relative-directory>` |
-| Ticket artifact | story's numeric ID | `traycer:epic:<epic-uuid>:ticket:<artifact-relative-directory>` |
+| Story artifact | epic page through `Parent task` | `traycer:epic:<epic-uuid>:story:<artifact-relative-directory>` |
+| Ticket artifact | story page through `Parent task` | `traycer:epic:<epic-uuid>:ticket:<artifact-relative-directory>` |
 
 Map artifact status `0`, `1`, and `2` to `To do`, `Doing`, and `Done`.
 Normalize Notion's generated ID to a positive integer even when a query returns
-it as text. Display it as `TASK-<number>` and store only the number in
-`parent task id`.
+it as text and display it as `TASK-<number>`. Make Notion's native `Parent task`
+relation authoritative for hierarchy so `Sub-task` is populated automatically.
+While the legacy `parent task id` property remains in the data source, mirror
+the parent's numeric ID there for compatibility; never use it instead of the
+native relation.
 
 The artifact-relative directory is stable across title edits, but not moves.
 Before moving or reparenting an artifact, resolve its existing Notion row by the
@@ -60,7 +63,9 @@ be proven, stop instead of creating a replacement.
    conflicting task references.
 5. Ensure the parent chain before creating a child. Create pages under the Task
    List data source with `Task`, `Status`, `Traycer key`, and, for children,
-   numeric `parent task id` properties.
+   the native `Parent task` relation targeting the parent page. Also mirror the
+   parent's numeric ID into `parent task id` while that compatibility property
+   exists.
 6. Re-query after creation to obtain the generated ID and page URL and to detect
    a concurrent duplicate. If more than one row now has the key, make no further
    hierarchy writes and report the conflict. In user-facing messages, link the
@@ -68,6 +73,9 @@ be proven, stop instead of creating a replacement.
 7. Update an existing row when its Traycer title, expected parent, or status
    changes. Update only the required properties; never replace page content
    merely to synchronize properties.
+8. After any hierarchy write, fetch the child and parent pages. Require the
+   child's `Parent task` to contain exactly the parent page and the parent's
+   reciprocal `Sub-task` relation to contain the child.
 
 ## Hierarchy invariants
 
@@ -75,8 +83,9 @@ be proven, stop instead of creating a replacement.
 - A story must have one parent, and that parent must be an epic.
 - A ticket must have one parent, that parent must be a story, and the story's
   parent must be an epic.
-- Require every generated and parent ID to be a finite positive integer. Reject
-  missing, zero, negative, or fractional parent values.
+- Require every generated and mirrored parent ID to be a finite positive
+  integer. Require every native parent relation to resolve to exactly one page.
+  Reject missing, zero, negative, or fractional compatibility values.
 - Reject orphan stories, orphan tickets, self-parenting, cycles, and a fourth
   hierarchy level. Do not create a child until its valid parent is synchronized.
 - Require every parent row's key to belong to the same epic and expected level.
@@ -100,7 +109,8 @@ the board already says `Done`; reopen a done epic only when the user explicitly
 resumes it. Move an epic to `Done` only when the user or Traycer workflow
 explicitly completes it.
 
-Do not infer structural changes from board movement or `parent task id` edits.
+Do not infer structural changes from board movement, native relation edits, or
+legacy `parent task id` edits.
 Do not mark an epic or story done solely because one child completed.
 
 ## Failure handling

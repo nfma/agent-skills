@@ -20,7 +20,9 @@ credentials in this bundle.
 | --- | --- | --- | --- |
 | `Task` | `Task` | title | Traycer title; writable |
 | `ID` | `userDefined:ID` | auto-increment ID | Read-only; normalize to a positive integer |
-| `parent task id` | `parent task id` | number | Writable integer for stories and tickets; null for epics |
+| `Parent task` | `Parent task` | relation, limit 1 | Authoritative native parent; story → epic, ticket → story, null for epic |
+| `Sub-task` | `Sub-task` | reciprocal relation | Read-only through hierarchy writes; verify the expected child appears |
+| `parent task id` | `parent task id` | number | Temporary compatibility mirror of the native parent's numeric ID |
 | `Status` | `Status` | select | Writable: `To do`, `Doing`, `Done` |
 | `Traycer key` | `Traycer key` | text | Writable synchronization identity |
 | `System Status` | `System Status` | canonical status | Protected; never write |
@@ -41,11 +43,17 @@ Never modify the schema automatically.
    title, and parent filtering locally. View mode is the required fallback.
 5. Create rows with `create_pages` under data-source ID
    `cdd2be94-9c36-4d0a-87da-82b9612c5bd3`. Include `Task`, `Status`, and
-   `Traycer key`; include numeric `parent task id` only for a child.
+   `Traycer key`; for a child, set `Parent task` to an array containing the
+   parent page URL or ID and mirror the parent's numeric ID into
+   `parent task id`.
 6. Update rows with `update_page` and `update_properties`, using the returned
    page ID or URL. Omit unchanged properties.
 7. Re-query after every create and any identity or parent update. Treat a write
    as successful only after the resulting row is uniquely readable.
+8. Fetch both pages after a hierarchy write. Verify the child's `Parent task`
+   and the parent's reciprocal `Sub-task` relation. Query results can omit these
+   relation values even in view mode, so do not use their absence there as
+   verification evidence.
 
 Use this SQL shape for identity lookup:
 
@@ -56,9 +64,9 @@ WHERE "Traycer key" = ?
 LIMIT 2
 ```
 
-For adoption, require an empty `Traycer key`, exact title, and exact expected
-parent. Use `IS NULL` for an epic parent; normalize numeric values before
-comparison.
+For adoption, require an empty `Traycer key`, exact title, and exact native
+`Parent task` relation. Require no parent for an epic. Use `parent task id` only
+as a compatibility cross-check and normalize numeric values before comparison.
 
 ## Provenance and maintenance
 

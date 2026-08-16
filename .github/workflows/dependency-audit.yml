@@ -71,7 +71,7 @@ jobs:
     # Alerts describe the default branch, so this is meaningless on a pull request.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    environment: dependency-audit
+    environment: dependabot-alerts
     timeout-minutes: 10
     steps:
       - name: Require no open Dependabot alerts

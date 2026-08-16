@@ -6,8 +6,10 @@ const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
 const {
   cpSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } = require("node:fs");
@@ -67,7 +69,7 @@ test("pins the byte-exact v0.10.2 release descriptor", () => {
     writeFileSync(released, Buffer.concat([bytes, Buffer.from("\n")]));
     assert.throws(
       () => verifier.verifyReleaseDescriptorBytes(released),
-      /differs from the release descriptor asset/,
+      /pin digest\/size mismatch: expected .* got/,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -107,6 +109,130 @@ test("verifies the installed executable and fixed legacy and portable corpus", (
   assert.doesNotThrow(() =>
     verifier.verifyFixedCorpus(executablePath, fixtureRoot),
   );
+});
+
+test("rejects corrupted embedded rules even when executable identity matches", () => {
+  const { descriptor } = verifier.loadPinnedDescriptor();
+  const root = temporaryDirectory();
+  try {
+    const source = readFileSync(executablePath, "utf8");
+    const markerIndex = source.indexOf(
+      `"${descriptor.executable.embeddedRulesSha256}"`,
+    );
+    assert.notEqual(markerIndex, -1);
+    const encodedMatch = source
+      .slice(markerIndex)
+      // The fixture starts from the size- and digest-pinned release executable.
+      // eslint-disable-next-line security/detect-unsafe-regex
+      .match(/,[$A-Za-z_][$\w]*=(\[(?:"[A-Za-z0-9+/=]*",?)+\])\.join\(""\)/);
+    assert.ok(encodedMatch);
+    const matchIndex = encodedMatch.index;
+    assert.ok(matchIndex !== undefined);
+    const encodedChunks = encodedMatch[1];
+    assert.ok(encodedChunks);
+    const encoded = /** @type {string[]} */ (JSON.parse(encodedChunks)).join(
+      "",
+    );
+    const rules = JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
+    rules.categories.behavioral.description += " corrupted";
+    const corruptedEncoded = Buffer.from(JSON.stringify(rules)).toString(
+      "base64",
+    );
+    const payloadOffset =
+      markerIndex + matchIndex + encodedMatch[0].indexOf(encodedChunks);
+    const corruptedSource =
+      source.slice(0, payloadOffset) +
+      JSON.stringify([corruptedEncoded]) +
+      source.slice(payloadOffset + encodedChunks.length);
+    const corruptedBytes = Buffer.from(corruptedSource);
+    const corruptedExecutable = join(root, "skill-audit.mjs");
+    writeFileSync(corruptedExecutable, corruptedBytes);
+    const corruptedDescriptor = {
+      ...descriptor,
+      executable: {
+        ...descriptor.executable,
+        sha256: verifier.sha256(corruptedBytes),
+        sizeBytes: corruptedBytes.length,
+      },
+    };
+
+    assert.throws(
+      () => verifier.verifyExecutable(corruptedDescriptor, corruptedExecutable),
+      /embedded rules digest mismatch: expected [0-9a-f]{64}, got [0-9a-f]{64}/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects an executable that starts a child process during import", () => {
+  const { descriptor } = verifier.loadPinnedDescriptor();
+  const root = temporaryDirectory();
+  try {
+    const sideEffect = String.raw`
+if (!process.argv.includes("--version")) {
+  const { execFileSync } = await import("node:child_process");
+  execFileSync(process.execPath, ["--version"]);
+}
+`;
+    const sideEffectBytes = Buffer.concat([
+      readFileSync(executablePath),
+      Buffer.from(sideEffect),
+    ]);
+    const sideEffectExecutable = join(root, "skill-audit.mjs");
+    writeFileSync(sideEffectExecutable, sideEffectBytes);
+    const sideEffectDescriptor = {
+      ...descriptor,
+      executable: {
+        ...descriptor.executable,
+        sha256: verifier.sha256(sideEffectBytes),
+        sizeBytes: sideEffectBytes.length,
+      },
+    };
+
+    assert.throws(
+      () =>
+        verifier.verifyExecutable(sideEffectDescriptor, sideEffectExecutable),
+      /Import attempted prohibited side effect: execFileSync/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("re-downloads and verifies a replacement for a corrupt installation", async () => {
+  const { descriptor } = verifier.loadPinnedDescriptor();
+  const root = realpathSync(temporaryDirectory());
+  const installedExecutable = join(root, "dist", "skill-audit.mjs");
+  mkdirSync(dirname(installedExecutable), { recursive: true });
+  writeFileSync(installedExecutable, "corrupted");
+  const releaseBytes = readFileSync(executablePath);
+  /** @type {string[]} */
+  const events = [];
+  const originalWarn = console.warn;
+  console.warn = (message) => events.push(`warn:${message}`);
+  try {
+    await verifier.installExecutable(descriptor, {
+      executable: installedExecutable,
+      corpusRoot: fixtureRoot,
+      fetchImpl: async (url) => {
+        events.push(`fetch:${url}`);
+        return new Response(releaseBytes, {
+          headers: { "content-length": String(releaseBytes.length) },
+        });
+      },
+    });
+
+    assert.match(events[0] ?? "", /failed verification: .*identity mismatch/);
+    assert.match(events[1] ?? "", /^fetch:https:\/\/github\.com\//);
+    assert.equal(
+      verifier.sha256(readFileSync(installedExecutable)),
+      descriptor.executable.sha256,
+    );
+  } finally {
+    console.warn = originalWarn;
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("released dual-read preserves CTX-002 through CTX-006", async () => {

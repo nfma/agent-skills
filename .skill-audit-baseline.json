@@ -3,7 +3,7 @@
   "selfAuditedSkills": [
     {
       "skill": "skill-audit",
-      "reason": "The runner spec-validates this skill, while CI validates its self-referential detection corpus with the complete test and dependency-audit suites."
+      "reason": "The immutable release digest pin is verified with `gh attestation verify` bound to `--signer-workflow`, `--source-digest`, `--source-ref`, and `--deny-self-hosted-runners`; the release-contract test then verifies the installed executable and fixed corpus."
     }
   ],
   "acceptedFindings": [

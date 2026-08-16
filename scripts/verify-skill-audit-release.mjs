@@ -34,6 +34,10 @@ const executablePath = resolve(
   repositoryRoot,
   "vendor/skill-audit/dist/skill-audit.mjs",
 );
+const fixedCorpusRoot = resolve(
+  repositoryRoot,
+  "tests/fixtures/skill-audit-release",
+);
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 /** @typedef {{ path: string, sha256: string }} DocumentationFile */
@@ -126,45 +130,133 @@ function outputText(output) {
   return Buffer.isBuffer(output) ? output.toString("utf8") : (output ?? "");
 }
 
+/** @param {unknown} value */
+function displayValue(value) {
+  const encoded = JSON.stringify(value);
+  return encoded === undefined ? String(value) : encoded;
+}
+
+/** @param {Record<string, any>} descriptor */
+function assertReleaseIdentity(descriptor) {
+  if (descriptor.schemaVersion !== 1) {
+    throw new Error(
+      `skill-audit release descriptor schemaVersion mismatch: expected 1, got ${displayValue(descriptor.schemaVersion)}`,
+    );
+  }
+  if (descriptor.sourceRepository !== "nfma/skill-audit") {
+    throw new Error(
+      `skill-audit release descriptor sourceRepository mismatch: expected "nfma/skill-audit", got ${displayValue(descriptor.sourceRepository)}`,
+    );
+  }
+  const expectedTag = `v${descriptor.version}`;
+  if (descriptor.tag !== expectedTag) {
+    throw new Error(
+      `skill-audit release descriptor tag mismatch: expected ${displayValue(expectedTag)}, got ${displayValue(descriptor.tag)}`,
+    );
+  }
+  const expectedWorkflow = `.github/workflows/release.yml@${descriptor.sourceCommit}`;
+  if (descriptor.buildWorkflow !== expectedWorkflow) {
+    throw new Error(
+      `skill-audit release descriptor buildWorkflow mismatch: expected ${displayValue(expectedWorkflow)}, got ${displayValue(descriptor.buildWorkflow)}`,
+    );
+  }
+  if (!/^[0-9a-f]{40}$/.test(descriptor.sourceCommit ?? "")) {
+    throw new Error(
+      `skill-audit release descriptor sourceCommit mismatch: expected 40 lowercase hexadecimal characters, got ${displayValue(descriptor.sourceCommit)}`,
+    );
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(descriptor.minimumNode ?? "")) {
+    throw new Error(
+      `skill-audit release descriptor minimumNode mismatch: expected a plain semantic version, got ${displayValue(descriptor.minimumNode)}`,
+    );
+  }
+  if (!isVersionAtLeast(process.versions.node, descriptor.minimumNode)) {
+    throw new Error(
+      `skill-audit Node version mismatch: expected at least ${descriptor.minimumNode}, got ${process.versions.node}`,
+    );
+  }
+}
+
+/** @param {Record<string, any>} descriptor */
+function assertExecutableIdentity(descriptor) {
+  const executable = descriptor.executable;
+  if (!executable || typeof executable !== "object") {
+    throw new Error(
+      `skill-audit executable descriptor type mismatch: expected non-null object, got ${executable === null ? "null" : typeof executable}`,
+    );
+  }
+  const expectedExecutableName = `skill-audit-v${descriptor.version}.mjs`;
+  if (executable.name !== expectedExecutableName) {
+    throw new Error(
+      `skill-audit executable name mismatch: expected ${displayValue(expectedExecutableName)}, got ${displayValue(executable.name)}`,
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(executable.sha256 ?? "")) {
+    throw new Error(
+      `skill-audit executable sha256 mismatch: expected 64 lowercase hexadecimal characters, got ${displayValue(executable.sha256)}`,
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(executable.embeddedRulesSha256 ?? "")) {
+    throw new Error(
+      `skill-audit executable embeddedRulesSha256 mismatch: expected 64 lowercase hexadecimal characters, got ${displayValue(executable.embeddedRulesSha256)}`,
+    );
+  }
+  if (
+    !Number.isSafeInteger(executable.sizeBytes) ||
+    executable.sizeBytes <= 0
+  ) {
+    throw new Error(
+      `skill-audit executable sizeBytes mismatch: expected a positive safe integer, got ${displayValue(executable.sizeBytes)}`,
+    );
+  }
+  if (!Array.isArray(executable.exports)) {
+    throw new Error(
+      `skill-audit executable exports mismatch: expected an array, got ${displayValue(executable.exports)}`,
+    );
+  }
+  if (executable.exports.length !== 6) {
+    throw new Error(
+      `skill-audit executable exports length mismatch: expected 6, got ${executable.exports.length}`,
+    );
+  }
+}
+
+/** @param {Record<string, any>} descriptor */
+function assertDocumentationIdentity(descriptor) {
+  const documentation = descriptor.documentation;
+  if (!documentation || typeof documentation !== "object") {
+    throw new Error(
+      `skill-audit documentation descriptor type mismatch: expected non-null object, got ${documentation === null ? "null" : typeof documentation}`,
+    );
+  }
+  if (!Array.isArray(documentation.files)) {
+    throw new Error(
+      `skill-audit documentation files mismatch: expected an array, got ${displayValue(documentation.files)}`,
+    );
+  }
+  if (documentation.files.length !== 6) {
+    throw new Error(
+      `skill-audit documentation files length mismatch: expected 6, got ${documentation.files.length}`,
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(documentation.upstreamDocsSha256 ?? "")) {
+    throw new Error(
+      `skill-audit documentation upstreamDocsSha256 mismatch: expected 64 lowercase hexadecimal characters, got ${displayValue(documentation.upstreamDocsSha256)}`,
+    );
+  }
+}
+
 /** @param {unknown} value @returns {asserts value is ReleaseDescriptor} */
 function assertDescriptor(value) {
   if (!value || typeof value !== "object") {
-    throw new Error("skill-audit release descriptor must be an object");
+    throw new Error(
+      `skill-audit release descriptor type mismatch: expected non-null object, got ${value === null ? "null" : typeof value}`,
+    );
   }
   const descriptor = /** @type {Record<string, any>} */ (value);
-  if (
-    descriptor.schemaVersion !== 1 ||
-    descriptor.sourceRepository !== "nfma/skill-audit" ||
-    descriptor.tag !== `v${descriptor.version}` ||
-    descriptor.buildWorkflow !==
-      `.github/workflows/release.yml@${descriptor.sourceCommit}` ||
-    !/^[0-9a-f]{40}$/.test(descriptor.sourceCommit ?? "") ||
-    !isVersionAtLeast(process.versions.node, descriptor.minimumNode)
-  ) {
-    throw new Error("skill-audit release descriptor identity is invalid");
-  }
-  const executable = descriptor.executable;
-  if (
-    !executable ||
-    executable.name !== `skill-audit-v${descriptor.version}.mjs` ||
-    !/^[0-9a-f]{64}$/.test(executable.sha256 ?? "") ||
-    !/^[0-9a-f]{64}$/.test(executable.embeddedRulesSha256 ?? "") ||
-    !Number.isSafeInteger(executable.sizeBytes) ||
-    executable.sizeBytes <= 0 ||
-    !Array.isArray(executable.exports) ||
-    executable.exports.length !== 6
-  ) {
-    throw new Error("skill-audit executable identity is invalid");
-  }
-  const documentation = descriptor.documentation;
-  if (
-    !documentation ||
-    !Array.isArray(documentation.files) ||
-    documentation.files.length !== 6 ||
-    !/^[0-9a-f]{64}$/.test(documentation.upstreamDocsSha256 ?? "")
-  ) {
-    throw new Error("skill-audit documentation identity is invalid");
-  }
+  assertReleaseIdentity(descriptor);
+  assertExecutableIdentity(descriptor);
+  assertDocumentationIdentity(descriptor);
 }
 
 /** @param {string} [path] */
@@ -268,7 +360,7 @@ function verifyEmbeddedRules(executable, expectedDigest) {
   const markerIndex = source.indexOf(`"${expectedDigest}"`);
   if (markerIndex === -1) {
     throw new Error(
-      "skill-audit executable does not bind the pinned rules digest",
+      `skill-audit embedded rules digest marker mismatch: expected ${displayValue(expectedDigest)}, got absent`,
     );
   }
   const encodedMatch = source
@@ -277,17 +369,24 @@ function verifyEmbeddedRules(executable, expectedDigest) {
     // eslint-disable-next-line security/detect-unsafe-regex
     .match(/,[$A-Za-z_][$\w]*=(\[(?:"[A-Za-z0-9+/=]*",?)+\])\.join\(""\)/);
   if (!encodedMatch) {
-    throw new Error("skill-audit embedded rules payload could not be located");
+    throw new Error(
+      `skill-audit embedded rules payload mismatch: expected encoded chunks after digest ${expectedDigest}, got absent`,
+    );
   }
   const encodedChunks = encodedMatch[1];
   if (!encodedChunks) {
-    throw new Error("skill-audit embedded rules payload is empty");
+    throw new Error(
+      `skill-audit embedded rules payload mismatch: expected non-empty encoded chunks, got ${displayValue(encodedChunks)}`,
+    );
   }
   const chunks = /** @type {string[]} */ (JSON.parse(encodedChunks));
   const encoded = chunks.join("");
   const decoded = Buffer.from(encoded, "base64");
-  if (decoded.toString("base64") !== encoded) {
-    throw new Error("skill-audit embedded rules are not canonical base64");
+  const canonicalEncoded = decoded.toString("base64");
+  if (canonicalEncoded !== encoded) {
+    throw new Error(
+      `skill-audit embedded rules base64 mismatch: expected canonical length ${canonicalEncoded.length} and digest ${sha256(canonicalEncoded)}, got length ${encoded.length} and digest ${sha256(encoded)}`,
+    );
   }
   utf8Decoder.decode(decoded);
   const actualDigest = sha256(decoded);
@@ -361,8 +460,12 @@ export function verifyExecutable(descriptor, path = executablePath) {
 
   const syntax = run(process.execPath, ["--check", path]);
   requireSuccess("skill-audit syntax check", syntax);
-  if ((syntax.stdout ?? "") !== "" || (syntax.stderr ?? "") !== "") {
-    throw new Error("skill-audit syntax check emitted unexpected output");
+  const syntaxStdout = outputText(syntax.stdout);
+  const syntaxStderr = outputText(syntax.stderr);
+  if (syntaxStdout !== "" || syntaxStderr !== "") {
+    throw new Error(
+      `skill-audit syntax output mismatch: expected empty stdout/stderr, got stdout ${displayValue(syntaxStdout)} and stderr ${displayValue(syntaxStderr)}`,
+    );
   }
 
   const version = run(process.execPath, [path, "--version"]);
@@ -409,17 +512,25 @@ export function verifyExecutable(descriptor, path = executablePath) {
         `skill-audit export contract mismatch: expected ${expectedExports}, got ${probeStdout}`,
       );
     }
-    if (readdirSync(probeRoot).length !== 0) {
-      throw new Error("skill-audit import left files in the probe directory");
+    const remainingProbeFiles = readdirSync(probeRoot).sort();
+    if (remainingProbeFiles.length !== 0) {
+      throw new Error(
+        `skill-audit import probe directory mismatch: expected [], got ${displayValue(remainingProbeFiles)}`,
+      );
     }
     const directoryAfter = readdirSync(executableDirectory)
       .filter((entry) => entry !== probeName)
       .sort();
     if (JSON.stringify(directoryBefore) !== JSON.stringify(directoryAfter)) {
-      throw new Error("skill-audit import changed the executable directory");
+      throw new Error(
+        `skill-audit executable directory mismatch after import: expected ${displayValue(directoryBefore)}, got ${displayValue(directoryAfter)}`,
+      );
     }
-    if (sha256(readFileSync(path)) !== descriptor.executable.sha256) {
-      throw new Error("skill-audit import changed the executable");
+    const digestAfterImport = sha256(readFileSync(path));
+    if (digestAfterImport !== descriptor.executable.sha256) {
+      throw new Error(
+        `skill-audit executable digest mismatch after import: expected ${descriptor.executable.sha256}, got ${digestAfterImport}`,
+      );
     }
   } finally {
     rmSync(probeRoot, { recursive: true, force: true });
@@ -505,8 +616,11 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
   );
   requireSuccess("legacy skill-audit untracked-file check", untracked);
   if (untracked.stdout.length !== 0) {
+    const untrackedPaths = outputText(untracked.stdout)
+      .split("\0")
+      .filter(Boolean);
     throw new Error(
-      "Refusing to remove legacy skill-audit with untracked files",
+      `Refusing to remove legacy skill-audit: expected no untracked files, got ${displayValue(untrackedPaths)}`,
     );
   }
 
@@ -518,7 +632,7 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
   const staged = run("git", ["diff", "--cached", "--quiet"], { cwd: root });
   if (staged.status !== 0) {
     throw new Error(
-      "Refusing to remove legacy skill-audit with staged changes",
+      `Refusing to remove legacy skill-audit with staged changes: expected staged diff exit 0, got ${displayValue(staged.status)}`,
     );
   }
   const patchDigest = sha256(diff.stdout);
@@ -573,30 +687,32 @@ export async function readBoundedResponse(response, expectedSize) {
   return Buffer.concat(chunks, total);
 }
 
-/** @param {ReleaseDescriptor} descriptor */
-async function installExecutable(descriptor) {
+/**
+ * @param {ReleaseDescriptor} descriptor
+ * @param {{ executable?: string, corpusRoot?: string, fetchImpl?: typeof fetch }} [options]
+ */
+export async function installExecutable(descriptor, options = {}) {
+  const installedExecutable = options.executable ?? executablePath;
+  const corpusRoot = options.corpusRoot ?? fixedCorpusRoot;
+  const fetchImpl = options.fetchImpl ?? fetch;
   try {
-    verifyExecutable(descriptor, executablePath);
+    verifyExecutable(descriptor, installedExecutable);
     console.log(`Verified installed skill-audit ${descriptor.version}`);
     return;
   } catch (error) {
-    if (
-      !(error instanceof Error) ||
-      !error.message.includes("identity mismatch")
-    ) {
-      try {
-        lstatSync(executablePath);
-      } catch (statError) {
-        if (
-          /** @type {NodeJS.ErrnoException} */ (statError).code !== "ENOENT"
-        ) {
-          throw statError;
-        }
+    try {
+      lstatSync(installedExecutable);
+      console.warn(
+        `Installed skill-audit failed verification: ${error instanceof Error ? error.message : String(error)}. Downloading a verified replacement.`,
+      );
+    } catch (statError) {
+      if (/** @type {NodeJS.ErrnoException} */ (statError).code !== "ENOENT") {
+        throw statError;
       }
     }
   }
 
-  const destinationDirectory = dirname(executablePath);
+  const destinationDirectory = dirname(installedExecutable);
   mkdirSync(destinationDirectory, { recursive: true, mode: 0o755 });
   if (realpathSync(destinationDirectory) !== destinationDirectory) {
     throw new Error(
@@ -608,7 +724,7 @@ async function installExecutable(descriptor) {
   );
   const temporaryPath = join(temporaryDirectory, descriptor.executable.name);
   try {
-    const response = await fetch(releaseDownloadUrl(descriptor), {
+    const response = await fetchImpl(releaseDownloadUrl(descriptor), {
       redirect: "follow",
     });
     if (!response.ok) {
@@ -622,8 +738,9 @@ async function installExecutable(descriptor) {
     );
     writeFileSync(temporaryPath, bytes, { flag: "wx", mode: 0o600 });
     verifyExecutable(descriptor, temporaryPath);
+    verifyFixedCorpus(temporaryPath, corpusRoot);
     chmodSync(temporaryPath, 0o755);
-    renameSync(temporaryPath, executablePath);
+    renameSync(temporaryPath, installedExecutable);
     console.log(
       `Installed skill-audit ${descriptor.version} from ${releaseDownloadUrl(descriptor)}`,
     );
@@ -638,7 +755,7 @@ export function verifyReleaseDescriptorBytes(releaseDescriptorPath) {
   const released = readRegularFile(releaseDescriptorPath);
   if (!tracked.bytes.equals(released)) {
     throw new Error(
-      "Tracked skill-audit pin differs from the release descriptor asset",
+      `Tracked skill-audit pin digest/size mismatch: expected ${sha256(tracked.bytes)}/${tracked.bytes.length}, got ${sha256(released)}/${released.length}`,
     );
   }
 }

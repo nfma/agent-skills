@@ -6,11 +6,12 @@
     "lint:js": "eslint mcp/bin scripts tests skills/huggingface-tool-builder/references/baseline_hf_api.tsx --max-warnings 0",
     "lint:python": "node scripts/check-python-quality.mjs",
     "lint:shell": "node scripts/check-shell-quality.mjs",
-    "test": "npm run test:installer && npm run test:sync-skills && npm run test:hf-filter && npm run test:python",
+    "test": "npm run test:installer && npm run test:sync-skills && npm run test:hf-filter && npm run test:workflow-security && npm run test:python",
     "test:hf-filter": "node --test tests/hf-mcp-filter.test.js",
     "test:installer": "bats tests/install-mcps.bats",
     "test:python": "PYTHONDONTWRITEBYTECODE=1 uv run --frozen python -m unittest discover -s tests/python -p 'test_*.py'",
     "test:sync-skills": "bats tests/sync-agent-skills.bats",
+    "test:workflow-security": "node --test tests/sonar-workflow.test.js",
     "typecheck": "tsc --project tsconfig.json"
   },
   "devDependencies": {

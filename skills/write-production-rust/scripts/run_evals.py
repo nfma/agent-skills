@@ -25,7 +25,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CASE_PACK = SKILL_ROOT / "assets/trigger-behavior-evals.json"
 DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/write-production-rust/semantic-key-manifest.json"
-DEFAULT_PROOF_REPORT = REPOSITORY_ROOT / "evals/write-production-rust/proof-report.json"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
 TRIGGER_TOOLS = ("Read", "Skill")
@@ -794,12 +793,11 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         },
         "passed": passed,
     }
-    DEFAULT_PROOF_REPORT.write_text(format_json(report), encoding="utf-8")
-    print(f"baseline semantic score: {baseline_total}")
-    print(f"with-skill semantic score: {treatment_total}")
-    print(f"automatic positive trigger: {trigger['positive_automatic_trigger']}")
-    print(f"near-miss non-trigger: {trigger['near_miss_non_trigger']}")
-    print(f"wrote {DEFAULT_PROOF_REPORT}")
+    print(f"baseline semantic score: {baseline_total}", file=sys.stderr)
+    print(f"with-skill semantic score: {treatment_total}", file=sys.stderr)
+    print(f"automatic positive trigger: {trigger['positive_automatic_trigger']}", file=sys.stderr)
+    print(f"near-miss non-trigger: {trigger['near_miss_non_trigger']}", file=sys.stderr)
+    print(format_json(report), end="")
     return 0 if passed else 1
 
 

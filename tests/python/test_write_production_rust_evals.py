@@ -154,11 +154,6 @@ class WriteProductionRustEvalTests(unittest.TestCase):
             self.runner.parse_grade(f"```json\n{response}\n```\nextra", criteria)
 
     def test_raw_outputs_and_semantic_key_must_stay_outside_repository(self) -> None:
-        self.assertEqual(
-            self.runner.DEFAULT_PROOF_REPORT,
-            REPOSITORY_ROOT / "evals/write-production-rust/proof-report.json",
-        )
-
         with self.assertRaisesRegex(self.runner.EvalError, "outside the repository"):
             self.runner.require_external_input(CASE_PACK, "semantic key")
         with tempfile.TemporaryDirectory() as temporary_directory:

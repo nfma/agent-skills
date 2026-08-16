@@ -1,6 +1,6 @@
 ---
 name: sync-traycer-notion
-description: Mirror Traycer Tasks as epics and synchronize story and ticket artifacts, hierarchy, references, and workflow status with Nuno's Notion Task List. Use on the first agent turn in a Traycer Task, whenever a story or ticket artifact is created, renamed, moved, reparented, or changes status, when work is managed from the Notion board, or when the user asks to reconcile Traycer work with Notion. Do not use for ordinary Notion todo management, non-Traycer work, or spec and review artifacts.
+description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. Never load for `kind: spec`, `kind: review`, ordinary Notion todo management, or non-Traycer work, even when a request mentions both Traycer and Notion. Use on the first agent turn in a Traycer Task, when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion."
 ---
 
 # Sync Traycer to Notion

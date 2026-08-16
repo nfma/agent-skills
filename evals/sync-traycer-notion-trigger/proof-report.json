@@ -1,0 +1,486 @@
+{
+  "behavior": {
+    "baseline": {
+      "checks_passed": 16,
+      "checks_total": 24,
+      "results": [
+        {
+          "case_id": "first-turn-new-story",
+          "checks": [
+            {
+              "id": "epic-identity",
+              "passed": false
+            },
+            {
+              "id": "story-identity",
+              "passed": false
+            },
+            {
+              "id": "numeric-parent",
+              "passed": false
+            },
+            {
+              "id": "doing-status",
+              "passed": false
+            },
+            {
+              "id": "identity-before-create",
+              "passed": false
+            },
+            {
+              "id": "generated-id-requery",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "move-ticket-and-complete",
+          "checks": [
+            {
+              "id": "old-identity",
+              "passed": true
+            },
+            {
+              "id": "new-identity",
+              "passed": true
+            },
+            {
+              "id": "same-task",
+              "passed": true
+            },
+            {
+              "id": "new-numeric-parent",
+              "passed": false
+            },
+            {
+              "id": "explicit-done-wins",
+              "passed": true
+            },
+            {
+              "id": "view-fallback",
+              "passed": true
+            },
+            {
+              "id": "complete-pagination",
+              "passed": true
+            },
+            {
+              "id": "no-replacement-row",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "board-status-pull",
+          "checks": [
+            {
+              "id": "story-identity",
+              "passed": true
+            },
+            {
+              "id": "board-status-wins",
+              "passed": true
+            },
+            {
+              "id": "integer-frontmatter-status",
+              "passed": true
+            },
+            {
+              "id": "no-notion-property-write",
+              "passed": false
+            },
+            {
+              "id": "no-parent-auto-completion",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "review-artifact-exclusion",
+          "checks": [
+            {
+              "id": "duplicate-detected",
+              "passed": true
+            },
+            {
+              "id": "duplicate-identity",
+              "passed": true
+            },
+            {
+              "id": "fail-closed",
+              "passed": true
+            },
+            {
+              "id": "no-ticket-create",
+              "passed": true
+            },
+            {
+              "id": "affected-epic-blocked",
+              "passed": false
+            }
+          ]
+        }
+      ],
+      "score_percent": 66.7
+    },
+    "improvement_checks": 7,
+    "improvement_percentage_points": 29.2,
+    "with_skill": {
+      "checks_passed": 23,
+      "checks_total": 24,
+      "results": [
+        {
+          "case_id": "first-turn-new-story",
+          "checks": [
+            {
+              "id": "epic-identity",
+              "passed": true
+            },
+            {
+              "id": "story-identity",
+              "passed": true
+            },
+            {
+              "id": "numeric-parent",
+              "passed": true
+            },
+            {
+              "id": "doing-status",
+              "passed": true
+            },
+            {
+              "id": "identity-before-create",
+              "passed": false
+            },
+            {
+              "id": "generated-id-requery",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "move-ticket-and-complete",
+          "checks": [
+            {
+              "id": "old-identity",
+              "passed": true
+            },
+            {
+              "id": "new-identity",
+              "passed": true
+            },
+            {
+              "id": "same-task",
+              "passed": true
+            },
+            {
+              "id": "new-numeric-parent",
+              "passed": true
+            },
+            {
+              "id": "explicit-done-wins",
+              "passed": true
+            },
+            {
+              "id": "view-fallback",
+              "passed": true
+            },
+            {
+              "id": "complete-pagination",
+              "passed": true
+            },
+            {
+              "id": "no-replacement-row",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "board-status-pull",
+          "checks": [
+            {
+              "id": "story-identity",
+              "passed": true
+            },
+            {
+              "id": "board-status-wins",
+              "passed": true
+            },
+            {
+              "id": "integer-frontmatter-status",
+              "passed": true
+            },
+            {
+              "id": "no-notion-property-write",
+              "passed": true
+            },
+            {
+              "id": "no-parent-auto-completion",
+              "passed": true
+            }
+          ]
+        },
+        {
+          "case_id": "review-artifact-exclusion",
+          "checks": [
+            {
+              "id": "duplicate-detected",
+              "passed": true
+            },
+            {
+              "id": "duplicate-identity",
+              "passed": true
+            },
+            {
+              "id": "fail-closed",
+              "passed": true
+            },
+            {
+              "id": "no-ticket-create",
+              "passed": true
+            },
+            {
+              "id": "affected-epic-blocked",
+              "passed": true
+            }
+          ]
+        }
+      ],
+      "score_percent": 95.8
+    }
+  },
+  "claim_scope": "Claude Code automatic triggering and behavior; not cross-harness portability",
+  "claude_version": "2.1.233 (Claude Code)",
+  "generated_at": "2026-08-16T13:14:45+00:00",
+  "passed": true,
+  "profile": {
+    "effort": "xhigh",
+    "mcp_servers": [],
+    "model_alias": "opus",
+    "permission_mode": "dontAsk",
+    "setting_sources": [
+      "project"
+    ],
+    "tools": [
+      "Read",
+      "Skill"
+    ]
+  },
+  "records": [
+    {
+      "arm": "baseline",
+      "case_id": "board-status-pull",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "fd0c39badf8d9c896401017c538fea509af5a1afb1e06cb598834c5bd3edee40",
+      "response_sha256": "b168de09b9948dcbca6944d091bf3282fff3c15198e1d19bef514d6707c0329e",
+      "trace_sha256": "6ee9d9a599f5b49eb72d87b017311ec0e41b20515071189bb73c649a5a75acc8",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "board-status-pull",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "fd0c39badf8d9c896401017c538fea509af5a1afb1e06cb598834c5bd3edee40",
+      "response_sha256": "c465ea3224cb99345d8e17ba237861b811d994281a254ffadf883a6caa98644f",
+      "trace_sha256": "7b80302f79e7a0f1cb5df70165c82e41f6b2c41912f1384889072d45c0a619b7",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "board-status-pull",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "e127fa9329eb4acc644ec9a737f33cdd0de5f901184b7e8f92ba8cafd85f4445",
+      "response_sha256": "2ef18ecee35882bb180ece8239be217749a03722c7045e6cf482511666c18cb0",
+      "trace_sha256": "c19324e64cd618c2a3060f1090660bdfc6e902574570695c56222c28405bbd3c",
+      "variant": "positive"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "board-status-pull",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [
+        "sync-traycer-notion"
+      ],
+      "model": "claude-opus-5",
+      "prompt_sha256": "e127fa9329eb4acc644ec9a737f33cdd0de5f901184b7e8f92ba8cafd85f4445",
+      "response_sha256": "7ff46d5b9a3457f1f3a0bde8cbbf7fc84db6259e9d45afbb0076abc3251f02aa",
+      "trace_sha256": "7a62f940d4d307ab4feec238f696af61b9ac5b1c69b7ae19714f2b555796d85d",
+      "variant": "positive"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "first-turn-new-story",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "4e4051a874e6acd80358d034fdcfda34289a7c632c0b39bb8101d073e44467a7",
+      "response_sha256": "46347d0560250209f8f093c13281c6d5d16facdb1ff6f424a8415ef4b28c09e7",
+      "trace_sha256": "a7f952c552e8d500bc3c2fd871d32cd7d73bf88afb602e2a2d9cbe5c8c7a526e",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "first-turn-new-story",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "4e4051a874e6acd80358d034fdcfda34289a7c632c0b39bb8101d073e44467a7",
+      "response_sha256": "b844e83f28b4fc8bb54e9e7416863a1badecab9ce43d51a239a87da00a5873e2",
+      "trace_sha256": "68b3d99e6b75dd2b2e5aee1cd66f4a0b94a41499dbe4b70dcda82b4d320fa82f",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "first-turn-new-story",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "42a518a761f99e4e26f19fc0c2f6a12df1040f5a10fefc8d1cba24b953abc71f",
+      "response_sha256": "2a89dadd7488aac01652739df087b21539f68b12c1e9dfd48adee5724a8dd3e3",
+      "trace_sha256": "bae3e57dc0090ac4647b433f93496189417ac7aa06c3d3556c03bd970febf691",
+      "variant": "positive"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "first-turn-new-story",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [
+        "sync-traycer-notion"
+      ],
+      "model": "claude-opus-5",
+      "prompt_sha256": "42a518a761f99e4e26f19fc0c2f6a12df1040f5a10fefc8d1cba24b953abc71f",
+      "response_sha256": "51cec2269a9f27f7764fdb365c8df9a4376d850c979b3887fe80b39d967dbd78",
+      "trace_sha256": "87e296514a21375f85c07c1c5d58b50d5725a5ae15ee95103097d50dba859fa2",
+      "variant": "positive"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "move-ticket-and-complete",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "5354f011acdf4ab77fc2f4be74760b123f0fd975609efe5a760f0a373a8ce22d",
+      "response_sha256": "1d74f79e1d8a38323c9c4e2c8d4f2e67980627ab322657834dfd503c5fec1686",
+      "trace_sha256": "29acaa1d55cc03cdec325ccccfd97fa1d9b00402de29ed3be07d2e72ba81842f",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "move-ticket-and-complete",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "5354f011acdf4ab77fc2f4be74760b123f0fd975609efe5a760f0a373a8ce22d",
+      "response_sha256": "155d3396a6fe2adc81bdd0b7e2621f7c4062113d595499bad9564a5e1eb1aefd",
+      "trace_sha256": "c0c46dffc3dc72cca0db2f2350aa9ad4a465e99b9d7509ff7066b7891a970ffe",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "move-ticket-and-complete",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "765eb3d87b1bc26e95b325d7115a584e4bb80e4c298090e97ef07f5b04f0a32e",
+      "response_sha256": "dfaf75803284cf457fa9e2ecd0b0093ac43fc59002c4d8c410e94f4998e3e651",
+      "trace_sha256": "1d0a87faf9efa1b9f7a8da062f0aa65cf039daab5182dcf0a5a69845dbf1a179",
+      "variant": "positive"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "move-ticket-and-complete",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [
+        "sync-traycer-notion"
+      ],
+      "model": "claude-opus-5",
+      "prompt_sha256": "765eb3d87b1bc26e95b325d7115a584e4bb80e4c298090e97ef07f5b04f0a32e",
+      "response_sha256": "72f91896b054e52763aa423e2d90437baf955766cebc60e60c04b9fd5f562d0e",
+      "trace_sha256": "d346bcdeb3156a012ddad8137edae293e5ff48d4dbdbfb105b1340180b40925f",
+      "variant": "positive"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "review-artifact-exclusion",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "7352e98eab0c478b1001eded0ccdfc060c098a9d9a5b7623a1984890213440ee",
+      "response_sha256": "de4338c624650c6dd7ae91ad52713ebbbaf5a21ca41133108b4ed98a144b9e36",
+      "trace_sha256": "dee2df3f7433182cdd14168408ec885a80b09e0cdfb3da7cca7504b4debc1db4",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "review-artifact-exclusion",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "7352e98eab0c478b1001eded0ccdfc060c098a9d9a5b7623a1984890213440ee",
+      "response_sha256": "ee66c9e97404155072346ee20734849db83aab8f463e4af00b6b27fdda440179",
+      "trace_sha256": "4be67aad346d50095889ea88a3e2a345e48fa168a85e5f7e24c2636f0b250b2c",
+      "variant": "near_miss"
+    },
+    {
+      "arm": "baseline",
+      "case_id": "review-artifact-exclusion",
+      "discovered_target_skill": false,
+      "errors": [],
+      "invoked_skills": [],
+      "model": "claude-opus-5",
+      "prompt_sha256": "1b9f2f5a367af259e06585d4bab32329492e3940db95691211691bdc4cc5d6cf",
+      "response_sha256": "6e14d4dd3b7ce64e0caf41369d36ae46786793ad74ae6f5130e2ed3ae25014af",
+      "trace_sha256": "62e514b0c06d5b6137d3343be29d811df0bdc994b846eb1a27d8fa2e1090b29b",
+      "variant": "positive"
+    },
+    {
+      "arm": "with_skill",
+      "case_id": "review-artifact-exclusion",
+      "discovered_target_skill": true,
+      "errors": [],
+      "invoked_skills": [
+        "sync-traycer-notion"
+      ],
+      "model": "claude-opus-5",
+      "prompt_sha256": "1b9f2f5a367af259e06585d4bab32329492e3940db95691211691bdc4cc5d6cf",
+      "response_sha256": "bfc7213fba0d5ffef7d50c1b107d9eadb22df1add00ac86ea81baf2788ba4417",
+      "trace_sha256": "a6716444a675c06934b96125b93604ce584df30d1c9d916d32992fd4d270b687",
+      "variant": "positive"
+    }
+  ],
+  "run_manifest_sha256": "4babe5e59fb067906a3e6189d0e13b5ec09ab5733b1ace5812ad3bb51ce25f58",
+  "schema_version": 1,
+  "sealed_inputs": {
+    "case_pack_sha256": "954e622ac50bcbd0794f4fe6044256b6f8a2fcdbe76bdd7ae7c22e587e71db41",
+    "key_manifest_sha256": "b05ac00a66de07ec8b4e9626120be90347dc6e16476af7dd39c8de2cc28f20d0",
+    "key_sha256": "d9248fe8e6e685525f5d5a701e27c0e276ba51ecb399ecad56f970e9f1842b70"
+  },
+  "skill_sha256": "44722a940c3c7cd1a4604111d4071702f7218a0676753baf0aa836cb142df58d",
+  "suite": "sync-traycer-notion-trigger-behavior",
+  "trigger_proof": {
+    "baseline_isolated": true,
+    "near_miss_non_trigger": true,
+    "positive_automatic_trigger": true,
+    "trace_contract_passed": true
+  }
+}

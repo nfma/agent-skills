@@ -6,6 +6,7 @@ setup_installer_test() {
   REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$BATS_TEST_FILENAME")/.." && pwd)
   INSTALLER="$REPO_ROOT/scripts/install-mcps.sh"
   WRAPPER="$REPO_ROOT/mcp/bin/github-mcp-keychain"
+  VIVALDI_WRAPPER="$REPO_ROOT/mcp/bin/chrome-devtools-vivaldi"
   TEST_ROOT="$BATS_TEST_TMPDIR/sandbox"
   FAKE_BIN="$TEST_ROOT/bin"
   INSTALL_HOME="$TEST_ROOT/home"
@@ -39,6 +40,7 @@ setup_installer_test() {
   unset MCP_TEST_CLAUDE_PLUGIN_MODE
   unset MCP_TEST_CODEX_MARKETPLACE
   unset MCP_TEST_CODEX_PLUGIN_MODE
+  unset MCP_TEST_CODEX_ADD_NOOP
   unset MCP_TEST_NODE_FAILURE
   unset MCP_TEST_SECURITY_FAILURE
 }
@@ -54,7 +56,21 @@ write_node_check() {
 #!/bin/sh
 set -eu
 [ "${MCP_TEST_NODE_FAILURE:-0}" != 1 ]
-printf 'v24.0.0\n'
+if [ "$1 $2" = 'node --version' ]; then
+  printf 'v24.0.0\n'
+  exit 0
+fi
+
+"$@"
+if [ "$1" = node ] && [ "${2##*/}" = update-codex-mcp-config.cjs ]; then
+  state_file="$MCP_TEST_STATE/codex-mcp-$4.json"
+  if [ -r "$state_file" ]; then
+    jq --argjson timeout "$5" \
+      '. + {startup_timeout_sec:$timeout}' \
+      "$state_file" > "$state_file.tmp"
+    mv "$state_file.tmp" "$state_file"
+  fi
+fi
 EOF
   chmod +x "$FAKE_BIN/node-check"
 }
@@ -113,6 +129,25 @@ elif [ "$1 $2" = 'mcp get' ]; then
   state_file="$MCP_TEST_STATE/codex-mcp-$3.json"
   [ -r "$state_file" ] || exit 1
   cat "$state_file"
+elif [ "$1 $2" = 'mcp remove' ]; then
+  printf '%s\n' "$*" >> "$MCP_TEST_STATE/codex-calls.log"
+  rm -f "$MCP_TEST_STATE/codex-mcp-$3.json"
+elif [ "$1 $2" = 'mcp add' ]; then
+  printf '%s\n' "$*" >> "$MCP_TEST_STATE/codex-calls.log"
+  server_name=$3
+  if [ "${MCP_TEST_CODEX_ADD_NOOP:-}" != "$server_name" ]; then
+    shift 4
+    server_command=$1
+    shift
+    if [ "$#" -eq 0 ]; then
+      server_args='[]'
+    else
+      server_args=$(printf '%s\n' "$@" | jq -R . | jq -s -c .)
+    fi
+    jq -n --arg command "$server_command" --argjson args "$server_args" \
+      '{transport:{type:"stdio",command:$command,args:$args}}' \
+      > "$MCP_TEST_STATE/codex-mcp-$server_name.json"
+  fi
 else
   printf '%s\n' "$*" >> "$MCP_TEST_STATE/codex-calls.log"
 fi

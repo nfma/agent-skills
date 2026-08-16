@@ -1,0 +1,47 @@
+#!/bin/sh
+
+set -eu
+
+if [ -z "${HOME:-}" ]; then
+  printf 'chrome-devtools-vivaldi: HOME is unavailable\n' >&2
+  exit 64
+fi
+
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+npx_launcher="$script_dir/npx"
+vivaldi_bin=${CHROME_DEVTOOLS_VIVALDI_BIN:-/Applications/Vivaldi.app/Contents/MacOS/Vivaldi}
+profile_dir=${CHROME_DEVTOOLS_VIVALDI_PROFILE_DIR:-"$HOME/.cache/chrome-devtools-mcp/vivaldi-profile"}
+
+if [ ! -x "$npx_launcher" ]; then
+  printf 'chrome-devtools-vivaldi: tracked npx launcher is unavailable at %s\n' \
+    "$npx_launcher" >&2
+  exit 69
+fi
+
+if [ ! -x "$vivaldi_bin" ]; then
+  printf 'chrome-devtools-vivaldi: Vivaldi is unavailable at %s\n' \
+    "$vivaldi_bin" >&2
+  exit 69
+fi
+
+case "$profile_dir" in
+  /*) ;;
+  *)
+    printf 'chrome-devtools-vivaldi: profile path must be absolute: %s\n' \
+      "$profile_dir" >&2
+    exit 64
+    ;;
+esac
+
+if [ "$profile_dir" = / ]; then
+  printf 'chrome-devtools-vivaldi: refusing to use / as the profile path\n' >&2
+  exit 64
+fi
+
+umask 077
+/bin/mkdir -p "$profile_dir"
+
+exec "$npx_launcher" -y chrome-devtools-mcp@1.7.0 \
+  --categoryExtensions \
+  --executablePath "$vivaldi_bin" \
+  --userDataDir "$profile_dir"

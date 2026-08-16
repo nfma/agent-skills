@@ -37,7 +37,17 @@ export default typescriptEslint.config(
     },
   },
   {
-    files: ["tests/hf-mcp-filter.test.js"],
+    files: ["scripts/update-codex-mcp-config.cjs"],
+    rules: {
+      // The requested path is absolute and non-root, then canonicalized before use.
+      "security/detect-non-literal-fs-filename": "off",
+    },
+  },
+  {
+    files: [
+      "tests/hf-mcp-filter.test.js",
+      "tests/update-codex-mcp-config.test.js",
+    ],
     rules: {
       // The test creates and removes only paths beneath its private mkdtemp root.
       "security/detect-non-literal-fs-filename": "off",

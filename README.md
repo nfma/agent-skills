@@ -81,6 +81,16 @@ plugin requires a globally exported token, so Codex uses a tracked wrapper that
 loads a dedicated fine-grained PAT from macOS Keychain. Claude's native GitHub
 plugin has the same limitation, so Claude uses that wrapper directly as well.
 
+Codex keeps the native Chrome DevTools plugin installed for its bundled skills,
+but overlays its MCP server with the tracked `chrome-devtools-vivaldi` launcher.
+The launcher uses `/Applications/Vivaldi.app` and a persistent browser profile
+under `~/.cache/chrome-devtools-mcp/vivaldi-profile`; the Codex fragment also
+owns its 20-second startup timeout. Vivaldi renders its initial browser UI as an
+extension target, so the launcher enables Chrome DevTools MCP's extension
+category; extension targets and tools are therefore visible to the server. Set
+`CHROME_DEVTOOLS_VIVALDI_BIN` or `CHROME_DEVTOOLS_VIVALDI_PROFILE_DIR` to
+override those machine-local paths.
+
 No credentials belong in this repository. Create a fine-grained GitHub PAT at
 <https://github.com/settings/personal-access-tokens/new>, limit it to the
 required repositories and permissions, then store it interactively without

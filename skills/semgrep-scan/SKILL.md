@@ -4,6 +4,11 @@ description: >-
   Run Semgrep SAST (CLI and/or Guardian MCP) on files, a directory, a diff, or
   the repo. Use when the user asks for Semgrep, Guardian findings, rule-based
   SAST, or a quick security scan of code changes.
+metadata:
+  skill-audit-context-reads: scan_scope, changed_files, rule_config, privacy_constraints
+  skill-audit-context-requires: explicit_scan_scope
+  skill-audit-context-writes: commands_run, security_findings, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Semgrep scan (shared)

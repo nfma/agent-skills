@@ -94,6 +94,12 @@ security add-generic-password -U \
 Store the Hugging Face token the same way under the `HF_TOKEN` service. OAuth
 and Keychain contents remain machine-local.
 
+Notion uses its official hosted MCP endpoint and per-harness OAuth. After
+installing the shared baseline, authenticate Codex with
+`codex mcp login notion`; use `/mcp` in Claude Code; and complete the OAuth
+prompt when Cursor or Antigravity first connects. See Notion's
+[connection guide](https://developers.notion.com/guides/mcp/get-started-with-mcp).
+
 The installer uses the pinned Bats-core test framework; the JSON-line filter
 uses Node's built-in test runner:
 

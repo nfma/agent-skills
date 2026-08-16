@@ -25,3 +25,14 @@ id = "generic-api-key"
   regexes = [
     '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
   ]
+
+  [[rules.allowlists]]
+  description = "Ignore generated SHA-256 evidence fields in the production Rust eval"
+  condition = "AND"
+  regexTarget = "line"
+  paths = [
+    '''^evals/write-production-rust/(semantic-key-manifest|proof-report)\.json$''',
+  ]
+  regexes = [
+    '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
+  ]

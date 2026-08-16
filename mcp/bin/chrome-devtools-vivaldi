@@ -42,5 +42,6 @@ umask 077
 /bin/mkdir -p "$profile_dir"
 
 exec "$npx_launcher" -y chrome-devtools-mcp@1.7.0 \
+  --categoryExtensions \
   --executablePath "$vivaldi_bin" \
   --userDataDir "$profile_dir"

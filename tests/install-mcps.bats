@@ -271,7 +271,7 @@ EOF
     "$wrapper_dir/chrome-devtools-vivaldi"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "-y chrome-devtools-mcp@1.7.0 --executablePath $FAKE_BIN/vivaldi --userDataDir $INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
+  [ "$output" = "-y chrome-devtools-mcp@1.7.0 --categoryExtensions --executablePath $FAKE_BIN/vivaldi --userDataDir $INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
   [ -d "$INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
 }
 

@@ -2,9 +2,10 @@
   "name": "agent-skills",
   "private": true,
   "scripts": {
-    "test": "npm run test:installer && npm run test:hf-filter",
+    "test": "npm run test:installer && npm run test:hf-filter && npm run test:workflow-security",
     "test:hf-filter": "node --test tests/hf-mcp-filter.test.js",
-    "test:installer": "bats tests/install-mcps.bats"
+    "test:installer": "bats tests/install-mcps.bats",
+    "test:workflow-security": "node --test tests/sonar-workflow.test.js"
   },
   "devDependencies": {
     "bats": "1.13.0"

@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # Required to enable GitHub's auto-merge state.
+      pull-requests: write # Required to update the Dependabot pull request.
     steps:
       - name: Enable squash auto-merge
         env:

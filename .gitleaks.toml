@@ -1,0 +1,16 @@
+title = "agent-skills Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+  [[rules.allowlists]]
+  description = "Ignore generated shfmt checksums in the shell quality baseline"
+  condition = "AND"
+  regexTarget = "line"
+  paths = ['''^\.shell-quality-baseline\.json$''']
+  regexes = [
+    '''^\s*"skills/[A-Za-z0-9_./-]+\.sh:[a-f0-9]{64}"[,]?\s*$''',
+  ]

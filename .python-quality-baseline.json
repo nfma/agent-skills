@@ -119,7 +119,7 @@
     "ruffFormat": [
       "skills/huggingface-community-evals/scripts/inspect_eval_uv.py:104:1:unformatted",
       "skills/huggingface-community-evals/scripts/lighteval_vllm_uv.py:77:24:unformatted",
-      "skills/huggingface-gradio/SKILL.md:34:1:unformatted",
+      "skills/huggingface-gradio/SKILL.md:39:1:unformatted",
       "skills/huggingface-gradio/examples.md:10:1:unformatted",
       "skills/huggingface-lora-space-builder/SKILL.md:107:1:unformatted",
       "skills/huggingface-lora-space-builder/references/base-models/krea-2.md:34:27:unformatted",

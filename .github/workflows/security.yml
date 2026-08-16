@@ -53,8 +53,10 @@ jobs:
           mkdir -p \
             "$probe_root/allowed" \
             "$probe_root/allowed/evals/sync-traycer-notion-trigger" \
+            "$probe_root/allowed/evals/test-rust-loaded-content" \
             "$probe_root/allowed/evals/write-production-rust" \
             "$probe_root/rejected" \
+            "$probe_root/rejected-loaded-content/evals/test-rust-loaded-content" \
             "$probe_root/wrong-path/sub" \
             "$probe_root/wrong-path/evals/other-suite"
           checksum="$(printf '%s' 'gitleaks-regression-probe' | sha256sum | cut -d ' ' -f 1)"
@@ -67,6 +69,7 @@ jobs:
           for repository in \
             "$probe_root/allowed" \
             "$probe_root/rejected" \
+            "$probe_root/rejected-loaded-content" \
             "$probe_root/wrong-path"; do
             git -C "$repository" init --quiet
             git -C "$repository" config user.name "Gitleaks regression probe"
@@ -83,12 +86,18 @@ jobs:
             "$probe_root/allowed/evals/sync-traycer-notion-trigger/proof-report.json"
           printf '  "key_sha256": "%s"\n' \
             "$checksum" > \
+            "$probe_root/allowed/evals/test-rust-loaded-content/key-manifest.json"
+          printf '  "key_sha256": "%s"\n' \
+            "$checksum" > \
             "$probe_root/allowed/evals/write-production-rust/semantic-key-manifest.json"
           printf '  "key_manifest_sha256": "%s",\n  "key_sha256": "%s"\n' \
             "$checksum" "$checksum" > \
             "$probe_root/allowed/evals/write-production-rust/proof-report.json"
           printf '  "api_key": "%s"\n' \
             "$checksum" > "$probe_root/rejected/.shell-quality-baseline.json"
+          printf '  "api_key": "%s"\n' \
+            "$checksum" > \
+            "$probe_root/rejected-loaded-content/evals/test-rust-loaded-content/key-manifest.json"
           printf '  "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:%s"\n' \
             "$checksum" > "$probe_root/wrong-path/sub/.shell-quality-baseline.json"
           printf '  "key_sha256": "%s"\n' \
@@ -101,6 +110,7 @@ jobs:
             .shell-quality-baseline.json \
             evals/sync-traycer-notion-trigger/key-manifest.json \
             evals/sync-traycer-notion-trigger/proof-report.json \
+            evals/test-rust-loaded-content/key-manifest.json \
             evals/write-production-rust/semantic-key-manifest.json \
             evals/write-production-rust/proof-report.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
@@ -108,6 +118,11 @@ jobs:
           git -C "$probe_root/rejected" add .shell-quality-baseline.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/rejected" commit --quiet --message "Add rejected secret"
+          git -C "$probe_root/rejected-loaded-content" add \
+            evals/test-rust-loaded-content/key-manifest.json
+          git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+            -C "$probe_root/rejected-loaded-content" commit --quiet \
+            --message "Add rejected loaded-content secret"
           git -C "$probe_root/wrong-path" add \
             sub/.shell-quality-baseline.json \
             evals/other-suite/key-manifest.json \
@@ -127,6 +142,9 @@ jobs:
           jq -e \
             'any(.[]; .RuleID == "generic-api-key" and .File == ".shell-quality-baseline.json")' \
             "$probe_root/control-report.json" > /dev/null
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/test-rust-loaded-content/key-manifest.json")' \
+            "$probe_root/control-report.json" > /dev/null
 
           gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/allowed"
           if gitleaks git \
@@ -141,6 +159,18 @@ jobs:
           jq -e \
             'any(.[]; .RuleID == "generic-api-key" and .File == ".shell-quality-baseline.json")' \
             "$probe_root/rejected-report.json" > /dev/null
+          if gitleaks git \
+            --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
+            --no-banner \
+            --report-format json \
+            --report-path "$probe_root/rejected-loaded-content-report.json" \
+            "$probe_root/rejected-loaded-content"; then
+            echo "Gitleaks accepted a non-digest secret-like value in the loaded-content manifest" >&2
+            exit 1
+          fi
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/test-rust-loaded-content/key-manifest.json")' \
+            "$probe_root/rejected-loaded-content-report.json" > /dev/null
           if gitleaks git \
             --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
             --no-banner \

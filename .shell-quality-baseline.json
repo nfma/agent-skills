@@ -1,8 +1,8 @@
 {
   "version": 1,
   "reviewNotes": {
-    "shellcheck": "Only imported Hugging Face examples and vendored skill-audit scripts are accepted; exact locations gate changes.",
-    "shfmt": "Imported and vendored formatting is preserved; SHA-256 diff fingerprints gate changes."
+    "shellcheck": "Only imported Hugging Face examples are accepted; exact locations gate changes.",
+    "shfmt": "Imported formatting is preserved; SHA-256 diff fingerprints gate changes."
   },
   "acceptedFindings": {
     "shellcheck": [
@@ -22,17 +22,14 @@
       "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:75:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
       "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:78:9:SC2001:style:See if you can use ${variable//search/replace} instead.",
       "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:83:15:SC2155:warning:Declare and assign separately to avoid masking return values.",
-      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:86:13:SC2001:style:See if you can use ${variable//search/replace} instead.",
-      "vendor/skill-audit/skill-audit/scripts/test-audit.sh:13:14:SC2064:warning:Use single quotes, otherwise this expands now rather than when signalled."
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:86:13:SC2001:style:See if you can use ${variable//search/replace} instead."
     ],
     "shfmt": [
       "skills/huggingface-tool-builder/references/baseline_hf_api.sh:fb40937f4dfad29e92343a94415760c4f6b4565d11fcb0277e00e5ca60bbdc55",
       "skills/huggingface-tool-builder/references/find_models_by_paper.sh:f36b188d2cdb530fc65b8ec081525dfcd0d8c5f0bc6228b7c4e32afa288db019",
       "skills/huggingface-tool-builder/references/hf_enrich_models.sh:c12a53549b8c419953acb8300253b31bc5c2b4333b10df482ff28c2f4bf5d9c5",
       "skills/huggingface-tool-builder/references/hf_model_card_frontmatter.sh:8d1e83983155473e3ca05ad4fdbb18d89b6c25d013f70dad5ba74e5740670666",
-      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:704570cf09825dc86e068af916722b374782d7e079028db59f05de0e1827cf66",
-      "vendor/skill-audit/skill-audit/scripts/test-audit.sh:1ba4e19f036fc5d385466ddbcde8bda1a3338223bad7f4b59a93495a8debfcd0",
-      "vendor/skill-audit/skill-audit/scripts/validate-skill.sh:d0165af72ef7104903175fa8bfca0b3379c9926d9eb9b414bfcaf29f571c207b"
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:704570cf09825dc86e068af916722b374782d7e079028db59f05de0e1827cf66"
     ]
   }
 }

@@ -1,0 +1,155 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  javascript-typescript:
+    name: JavaScript and TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint JavaScript and TypeScript
+        run: npm run lint:js
+
+      - name: Type-check JavaScript and TypeScript
+        run: npm run typecheck
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=moderate
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: 0.11.32
+          enable-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-build
+
+      - name: Lint, format-check, type-check, and security-check Python
+        run: npm run lint:python
+
+      - name: Test Python scripts
+        run: npm run test:python
+
+      - name: Audit Python dependencies
+        run: |
+          uv export \
+            --quiet \
+            --frozen \
+            --format requirements.txt \
+            --no-emit-project \
+            --output-file "$RUNNER_TEMP/audit-requirements.txt"
+          uv run --frozen pip-audit --requirement "$RUNNER_TEMP/audit-requirements.txt"
+
+  shell:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+
+      - name: Install pinned shell analyzers
+        run: |
+          ./scripts/install-linux-ci-tools.sh "$RUNNER_TEMP/ci-tools"
+          echo "$RUNNER_TEMP/ci-tools" >> "$GITHUB_PATH"
+
+      - name: Check syntax, ShellCheck, and shfmt
+        run: npm run lint:shell
+
+  repository:
+    name: Workflow and configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: 0.11.32
+          enable-cache: true
+
+      - name: Install pinned workflow analyzers
+        run: |
+          ./scripts/install-linux-ci-tools.sh "$RUNNER_TEMP/ci-tools"
+          echo "$RUNNER_TEMP/ci-tools" >> "$GITHUB_PATH"
+          uv sync --frozen --no-build
+
+      - name: Validate workflow syntax
+        run: actionlint
+
+      - name: Audit workflow security
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --persona auditor .github/workflows
+
+      - name: Lint YAML
+        run: uv run --frozen --no-build yamllint .github
+
+      - name: Validate tracked JSON
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$file"
+          done < <(git ls-files -z '*.json')

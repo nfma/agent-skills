@@ -8,16 +8,14 @@ const workflow = readFileSync(
   "utf8",
 );
 const dependabotWorkflow = readFileSync(
-  join(
-    __dirname,
-    "..",
-    ".github",
-    "workflows",
-    "dependabot-auto-merge.yml",
-  ),
+  join(__dirname, "..", ".github", "workflows", "dependabot-auto-merge.yml"),
   "utf8",
 );
 
+/**
+ * @param {string} name
+ * @returns {string}
+ */
 function workflowStep(name) {
   const marker = `      - name: ${name}\n`;
   const start = workflow.indexOf(marker);
@@ -41,7 +39,10 @@ test("classifies pull-request trust before checkout without loading secrets", ()
     classifier,
     /github\.event\.pull_request\.head\.repo\.full_name != github\.repository/,
   );
-  assert.doesNotMatch(classifier, /github\.event\.pull_request\.head\.repo\.fork/);
+  assert.doesNotMatch(
+    classifier,
+    /github\.event\.pull_request\.head\.repo\.fork/,
+  );
   assert.doesNotMatch(classifier, /github\.actor|secrets\.SONAR_TOKEN/);
 });
 
@@ -88,10 +89,14 @@ test("scopes Dependabot auto-merge to same-repository bot pull requests", () => 
 
 test("grants only merge permissions and forces squash auto-merge", () => {
   assert.match(dependabotWorkflow, /permissions: \{\}/);
-  assert.match(
-    dependabotWorkflow,
-    /permissions:\n      contents: write\n      pull-requests: write/,
-  );
+  const writePermissions = dependabotWorkflow
+    .split("\n")
+    .map((line) => line.split(" #", 1)[0] ?? "")
+    .filter((line) => line.endsWith(": write"));
+  assert.deepEqual(writePermissions, [
+    "      contents: write",
+    "      pull-requests: write",
+  ]);
   assert.match(
     dependabotWorkflow,
     /gh pr merge --repo "\$GH_REPO" --auto --squash "\$PR_NUMBER"/,

@@ -29,7 +29,7 @@ setup() {
 
 @test "rejects an unsafe local command in a fragment" {
   fragment="$TEST_ROOT/unsafe-fragment.json"
-  cat > "$fragment" <<'EOF'
+  cat >"$fragment" <<'EOF'
 {
   "plugins": {"install": [], "remove": []},
   "mcpServers": {
@@ -48,7 +48,7 @@ EOF
 @test "rejects a fragment that no longer matches the baseline" {
   fragment="$TEST_ROOT/incomplete-fragment.json"
   jq 'del(.mcpServers.github)' \
-    "$REPO_ROOT/mcp/codex/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
 
   run env MCP_CODEX_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -60,7 +60,7 @@ EOF
 @test "rejects an unpinned package in a fragment" {
   fragment="$TEST_ROOT/unpinned-fragment.json"
   jq '(.mcpServers["browser-tools"].args[1]) = "@agentdeskai/browser-tools-mcp@latest"' \
-    "$REPO_ROOT/mcp/codex/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
 
   run env MCP_CODEX_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -110,7 +110,7 @@ EOF
 
 @test "installs Cursor links and backs up an existing config" {
   mkdir -p "$INSTALL_HOME/.cursor"
-  printf 'existing-config\n' > "$INSTALL_HOME/.cursor/mcp.json"
+  printf 'existing-config\n' >"$INSTALL_HOME/.cursor/mcp.json"
 
   run "$INSTALLER" --harness cursor
 
@@ -164,7 +164,7 @@ EOF
   jq -n \
     --arg command "$INSTALL_HOME/.local/bin/npx" \
     '{transport:{type:"stdio",command:$command,args:["-y","@agentdeskai/browser-tools-mcp@1.2.0"]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-browser-tools.json"
+    >"$MCP_TEST_STATE/codex-mcp-browser-tools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -176,7 +176,7 @@ EOF
 @test "replaces a mismatched Codex stdio MCP" {
   printf '%s\n' \
     '{"transport":{"type":"stdio","command":"/unexpected","args":[]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-browser-tools.json"
+    >"$MCP_TEST_STATE/codex-mcp-browser-tools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -189,7 +189,7 @@ EOF
   jq -n \
     --arg command "$INSTALL_HOME/.local/bin/github-mcp-keychain" \
     '{mcpServers:{github:{type:"stdio",command:$command,args:["stdio"]}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -242,7 +242,7 @@ EOF
 @test "keeps a matching Claude HTTP MCP" {
   jq -n \
     '{mcpServers:{hf:{type:"http",url:"https://huggingface.co/mcp"}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -254,7 +254,7 @@ EOF
 @test "replaces a mismatched Claude HTTP MCP" {
   jq -n \
     '{mcpServers:{hf:{type:"http",url:"https://example.invalid/mcp"}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -273,7 +273,7 @@ EOF
 }
 
 @test "refuses to overwrite an existing backup" {
-  cat > "$FAKE_BIN/date" <<'EOF'
+  cat >"$FAKE_BIN/date" <<'EOF'
 #!/bin/sh
 printf '20000101-000000\n'
 EOF
@@ -281,7 +281,7 @@ EOF
   mkdir -p \
     "$INSTALL_HOME/.local/bin" \
     "$INSTALL_HOME/.agents/mcp-backups/20000101-000000"
-  printf 'existing-wrapper\n' > "$INSTALL_HOME/.local/bin/aikido-mcp-isolated-home.cjs"
+  printf 'existing-wrapper\n' >"$INSTALL_HOME/.local/bin/aikido-mcp-isolated-home.cjs"
   printf 'existing-backup\n' > \
     "$INSTALL_HOME/.agents/mcp-backups/20000101-000000/local-bin-aikido-mcp-isolated-home.cjs"
 

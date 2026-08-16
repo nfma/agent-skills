@@ -71,6 +71,7 @@ jobs:
     # Alerts describe the default branch, so this is meaningless on a pull request.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    environment: dependency-audit
     timeout-minutes: 10
     steps:
       - name: Require no open Dependabot alerts
@@ -82,7 +83,10 @@ jobs:
           # Not configured. Say so loudly and say what is still covered, so this
           # can never be mistaken for "no alerts found".
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::Dependabot alerts were NOT checked: repository secret DEPENDABOT_ALERTS_TOKEN is not set. Dependencies are currently gated by npm audit alone. Add a token with Dependabot-alerts read access to enable the second source."
+            echo "::warning::Dependabot alerts were NOT checked:" \
+              "repository secret DEPENDABOT_ALERTS_TOKEN is not set." \
+              "Dependencies are currently gated by npm audit alone." \
+              "Add a token with Dependabot-alerts read access to enable the second source."
             echo "Dependabot alert check did not run: DEPENDABOT_ALERTS_TOKEN is not configured."
             echo "This is not a clean result — it is an unchecked one."
             exit 0
@@ -108,6 +112,11 @@ jobs:
           fi
 
           echo "$count open Dependabot alert(s):" >&2
-          printf '%s' "$alerts" | jq -r '.[]
-            | "  \(.security_advisory.severity)\t\(.dependency.package.name)\t\(.dependency.scope)\tfixed in \(.security_vulnerability.first_patched_version.identifier // "no patch available")"' >&2
+          printf '%s' "$alerts" | jq -r '
+            .[]
+            | "  \(.security_advisory.severity)\t"
+              + "\(.dependency.package.name)\t"
+              + "\(.dependency.scope)\t"
+              + "fixed in \(.security_vulnerability.first_patched_version.identifier // "no patch available")"
+          ' >&2
           exit 1

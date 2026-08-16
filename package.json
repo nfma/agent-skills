@@ -2,12 +2,28 @@
   "name": "agent-skills",
   "private": true,
   "scripts": {
-    "test": "npm run test:installer && npm run test:hf-filter && npm run test:workflow-security",
+    "format:check": "prettier --check \".github/**/*.yml\" \".*-baseline.json\" \"eslint.config.mjs\" \"mcp/bin/*.{js,cjs}\" \"package*.json\" \"scripts/*.mjs\" \"skills/huggingface-tool-builder/references/*.tsx\" \"tests/**/*.js\" \"tsconfig.json\"",
+    "lint:js": "eslint mcp/bin scripts tests skills/huggingface-tool-builder/references/baseline_hf_api.tsx --max-warnings 0",
+    "lint:python": "node scripts/check-python-quality.mjs",
+    "lint:shell": "node scripts/check-shell-quality.mjs",
+    "test": "npm run test:installer && npm run test:sync-skills && npm run test:hf-filter && npm run test:workflow-security && npm run test:python",
     "test:hf-filter": "node --test tests/hf-mcp-filter.test.js",
     "test:installer": "bats tests/install-mcps.bats",
-    "test:workflow-security": "node --test tests/sonar-workflow.test.js"
+    "test:python": "PYTHONDONTWRITEBYTECODE=1 uv run --frozen python -m unittest discover -s tests/python -p 'test_*.py'",
+    "test:sync-skills": "bats tests/sync-agent-skills.bats",
+    "test:workflow-security": "node --test tests/sonar-workflow.test.js",
+    "typecheck": "tsc --project tsconfig.json"
   },
   "devDependencies": {
-    "bats": "1.13.0"
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.2.0",
+    "bats": "1.13.0",
+    "eslint": "10.8.1",
+    "eslint-plugin-security": "4.0.1",
+    "eslint-plugin-sonarjs": "4.2.0",
+    "globals": "17.11.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0"
   }
 }

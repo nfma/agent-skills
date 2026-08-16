@@ -6,9 +6,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  closeSync,
+  constants,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   realpathSync,
@@ -67,13 +71,32 @@ export function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/** @param {string} left @param {string} right */
+function compareUtf8Bytes(left, right) {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
+/** @param {string} path */
+function readRegularFileSnapshot(path) {
+  // O_NOFOLLOW and fstat bind the file type and bytes to one descriptor snapshot.
+  const fileDescriptor = openSync(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW,
+  );
+  try {
+    const metadata = fstatSync(fileDescriptor);
+    if (!metadata.isFile()) {
+      throw new Error(`Expected a regular file: ${path}`);
+    }
+    return { bytes: readFileSync(fileDescriptor), metadata };
+  } finally {
+    closeSync(fileDescriptor);
+  }
+}
+
 /** @param {string} path */
 function readRegularFile(path) {
-  const metadata = lstatSync(path);
-  if (metadata.isSymbolicLink() || !metadata.isFile()) {
-    throw new Error(`Expected a regular file, not a symlink: ${path}`);
-  }
-  return readFileSync(path);
+  return readRegularFileSnapshot(path).bytes;
 }
 
 /** @param {string} version */
@@ -131,7 +154,8 @@ function outputText(output) {
 /** @param {unknown} value */
 function displayValue(value) {
   const encoded = JSON.stringify(value);
-  return encoded === undefined ? String(value) : encoded;
+  // JSON.stringify returns undefined for undefined, functions, and symbols despite the lib.d.ts return type.
+  return encoded === undefined ? String(value) : encoded; // NOSONAR
 }
 
 /** @param {Record<string, any>} descriptor */
@@ -208,7 +232,7 @@ function assertExecutableIdentity(descriptor) {
     );
   }
   if (!Array.isArray(executable.exports)) {
-    throw new Error(
+    throw new TypeError(
       `skill-audit executable exports mismatch: expected an array, got ${displayValue(executable.exports)}`,
     );
   }
@@ -228,7 +252,7 @@ function assertDocumentationIdentity(descriptor) {
     );
   }
   if (!Array.isArray(documentation.files)) {
-    throw new Error(
+    throw new TypeError(
       `skill-audit documentation files mismatch: expected an array, got ${displayValue(documentation.files)}`,
     );
   }
@@ -361,11 +385,12 @@ function verifyEmbeddedRules(executable, expectedDigest) {
       `skill-audit embedded rules digest marker mismatch: expected ${displayValue(expectedDigest)}, got absent`,
     );
   }
-  const encodedMatch = source
-    .slice(markerIndex)
+  const encodedMatch =
     // The input is the size- and digest-pinned release executable.
     // eslint-disable-next-line security/detect-unsafe-regex
-    .match(/,[$A-Za-z_][$\w]*=(\[(?:"[A-Za-z0-9+/=]*",?)+\])\.join\(""\)/);
+    /,[$A-Za-z_][$\w]*=(\[(?:"[A-Za-z0-9+/=]*",?)+\])\.join\(""\)/.exec(
+      source.slice(markerIndex),
+    );
   if (!encodedMatch) {
     throw new Error(
       `skill-audit embedded rules payload mismatch: expected encoded chunks after digest ${expectedDigest}, got absent`,
@@ -395,7 +420,7 @@ function verifyEmbeddedRules(executable, expectedDigest) {
   }
 }
 
-const importProbe = String.raw`
+const importProbe = `
 import childProcess from "node:child_process";
 import dns from "node:dns";
 import fs from "node:fs";
@@ -440,11 +465,7 @@ console.log(JSON.stringify(Object.keys(loaded).sort()));
 
 /** @param {ReleaseDescriptor} descriptor @param {string} [path] */
 export function verifyExecutable(descriptor, path = executablePath) {
-  const metadata = lstatSync(path);
-  if (metadata.isSymbolicLink() || !metadata.isFile()) {
-    throw new Error(`skill-audit executable must be a regular file: ${path}`);
-  }
-  const bytes = readFileSync(path);
+  const { bytes, metadata } = readRegularFileSnapshot(path);
   const digest = sha256(bytes);
   if (
     digest !== descriptor.executable.sha256 ||
@@ -502,7 +523,7 @@ export function verifyExecutable(descriptor, path = executablePath) {
     );
     requireSuccess("skill-audit side-effect-free import probe", probe);
     const expectedExports = JSON.stringify(
-      [...descriptor.executable.exports].sort(),
+      [...descriptor.executable.exports].sort(compareUtf8Bytes),
     );
     const probeStdout = outputText(probe.stdout).trim();
     if (probeStdout !== expectedExports || outputText(probe.stderr) !== "") {
@@ -524,7 +545,8 @@ export function verifyExecutable(descriptor, path = executablePath) {
         `skill-audit executable directory mismatch after import: expected ${displayValue(directoryBefore)}, got ${displayValue(directoryAfter)}`,
       );
     }
-    const digestAfterImport = sha256(readFileSync(path));
+    // A second fd snapshot detects persistent replacement; swap-and-restore remains outside the local-user threat model.
+    const digestAfterImport = sha256(readRegularFileSnapshot(path).bytes);
     if (digestAfterImport !== descriptor.executable.sha256) {
       throw new Error(
         `skill-audit executable digest mismatch after import: expected ${descriptor.executable.sha256}, got ${digestAfterImport}`,
@@ -537,7 +559,7 @@ export function verifyExecutable(descriptor, path = executablePath) {
 
 /** @param {string} executable @param {string} fixtureRoot */
 export function verifyFixedCorpus(executable, fixtureRoot) {
-  const probe = String.raw`
+  const probe = `
 const loaded = await import(process.argv[1]);
 const reports = [];
 for (const fixture of process.argv.slice(2)) {
@@ -655,6 +677,7 @@ export function cleanupLegacyVendor(root = legacyVendorRoot, options = {}) {
 
 /** @param {ReleaseDescriptor} descriptor */
 function releaseDownloadUrl(descriptor) {
+  // The attested fixed descriptor identity pins every component of this URL.
   return `https://github.com/${descriptor.sourceRepository}/releases/download/${descriptor.tag}/${descriptor.executable.name}`;
 }
 
@@ -738,6 +761,7 @@ export async function installExecutable(descriptor, options = {}) {
       response,
       descriptor.executable.sizeBytes,
     );
+    // The bounded response gets digest and fixed-corpus checks before chmod, then an atomic rename in this symlink-checked directory.
     writeFileSync(temporaryPath, bytes, { flag: "wx", mode: 0o600 });
     verifyExecutable(descriptor, temporaryPath);
     verifyFixedCorpus(temporaryPath, corpusRoot);

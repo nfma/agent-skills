@@ -11,6 +11,7 @@ const {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } = require("node:fs");
 const { tmpdir } = require("node:os");
@@ -120,6 +121,23 @@ test("verifies the installed executable and fixed legacy and portable corpus", (
   assert.doesNotThrow(() =>
     verifier.verifyFixedCorpus(executablePath, fixtureRoot),
   );
+});
+
+test("rejects a symlinked executable", () => {
+  const { descriptor } = verifier.loadPinnedDescriptor();
+  const root = temporaryDirectory();
+  try {
+    const symlinkedExecutable = join(root, "skill-audit.mjs");
+    symlinkSync(executablePath, symlinkedExecutable);
+    assert.throws(
+      () => verifier.verifyExecutable(descriptor, symlinkedExecutable),
+      (error) =>
+        error instanceof Error &&
+        /** @type {NodeJS.ErrnoException} */ (error).code === "ELOOP",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("rejects corrupted embedded rules even when executable identity matches", () => {

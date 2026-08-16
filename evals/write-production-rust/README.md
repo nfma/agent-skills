@@ -18,6 +18,22 @@ committed report contains hashes, scores, and proof status only. The current
 runner proves one explicit Claude Code profile; it does not claim cross-harness
 portability.
 
+## Evidence status
+
+`suite.json`, `key-manifest.json`, and `calibration-manifest.json` are
+unexecuted draft coordinator inputs. Their `PENDING-COORDINATOR-SEAL`
+placeholders are not evidence.
+
+The only passing evidence in this directory is the standalone sealed three-case
+proof: `semantic-key-manifest.json` plus `proof-report.json`.
+
+That report was produced by the pre-hardening grader, so it does not include the
+expected trigger-key evidence emitted by hardened runs. Its committed input
+digests still match the on-disk `SKILL.md`, case pack, and key manifest, but the
+external run manifest and traces were not retained, so the report cannot be
+retroactively revalidated. Trace revalidation applies to future reports only;
+the committed report remains the record of what the earlier run measured.
+
 Run from the repository root:
 
 ```sh

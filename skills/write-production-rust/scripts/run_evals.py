@@ -554,6 +554,130 @@ def indexed_records(run_manifest: Mapping[str, Any]) -> dict[tuple[str, str, str
     return indexed
 
 
+def validated_run_manifest_digests(run_manifest: Mapping[str, Any]) -> tuple[str, str]:
+    case_pack_sha256 = require_string(run_manifest.get("case_pack_sha256"), "case pack digest")
+    if case_pack_sha256 != sha256_file(DEFAULT_CASE_PACK):
+        raise EvalError("run manifest case pack digest does not match the committed case pack")
+
+    skill_sha256 = require_string(run_manifest.get("skill_sha256"), "skill digest")
+    if skill_sha256 != sha256_file(SKILL_ROOT / "SKILL.md"):
+        raise EvalError("run manifest skill digest does not match the committed SKILL.md")
+
+    return case_pack_sha256, skill_sha256
+
+
+def validate_trigger_record_set(
+    records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
+    trigger_cases: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    expected = {
+        ("trigger", cast(str, case["id"]), variant, arm)
+        for case in trigger_cases
+        for variant in VARIANTS
+        for arm in ARMS
+    }
+    observed = {key for key in records if key[0] == "trigger"}
+    if observed != expected:
+        details: list[str] = []
+        if missing := sorted(expected - observed):
+            details.append(f"missing={missing}")
+        if extra := sorted(observed - expected):
+            details.append(f"extra={extra}")
+        raise EvalError(f"trigger record set does not match the sealed case pack: {'; '.join(details)}")
+    return {
+        "count": len(expected),
+        "keys": [
+            {"case_id": case_id, "variant": variant, "arm": arm} for _stage, case_id, variant, arm in sorted(expected)
+        ],
+    }
+
+
+def read_frozen_trace(record: Mapping[str, Any], stage: str, identity: str) -> dict[str, Any]:
+    trace_path_value = require_string(record.get("trace_path"), f"{stage} trace path for {identity}")
+    try:
+        trace_path = require_external_input(Path(trace_path_value), f"{stage} trace for {identity}")
+    except OSError as error:
+        raise EvalError(f"{stage} trace is unavailable for {identity}: {error}") from error
+
+    trace_sha256 = require_string(record.get("trace_sha256"), f"{stage} trace digest for {identity}")
+    try:
+        if sha256_file(trace_path) != trace_sha256:
+            raise EvalError(f"{stage} trace digest mismatch for {identity}: {trace_path}")
+        trace = trace_path.read_bytes()
+    except OSError as error:
+        raise EvalError(f"could not read {stage} trace for {identity}: {error}") from error
+    if sha256_bytes(trace) != trace_sha256:
+        raise EvalError(f"{stage} trace changed while reading for {identity}: {trace_path}")
+
+    try:
+        return trace_summary(parse_stream_json(trace))
+    except (EvalError, UnicodeError) as error:
+        raise EvalError(f"invalid {stage} trace for {identity}: {error}") from error
+
+
+def recompute_trigger_record(key: tuple[str, str, str, str], record: Mapping[str, Any]) -> dict[str, Any]:
+    _stage, case_id, variant, arm = key
+    label = f"{case_id}/{variant}/{arm}"
+    summary = read_frozen_trace(record, "trigger", label)
+    errors = validate_trigger_trace(summary, arm, variant)
+    if errors:
+        raise EvalError(f"trigger trace contract failed for {label}: {'; '.join(errors)}")
+    return {
+        "advertised_skills": summary["advertised_skills"],
+        "invoked_skills": summary["invoked_skills"],
+        "tools_used": summary["tools_used"],
+        "mcp_server_count": summary["mcp_server_count"],
+        "errors": errors,
+    }
+
+
+def recompute_trigger_records(
+    records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
+) -> dict[tuple[str, str, str, str], Mapping[str, Any]]:
+    recomputed: dict[tuple[str, str, str, str], Mapping[str, Any]] = {}
+    for key in sorted(key for key in records if key[0] == "trigger"):
+        record = records[key]
+        if not isinstance(record, Mapping):
+            raise EvalError(f"trigger record must be an object: {key}")
+        recomputed[key] = recompute_trigger_record(key, record)
+    return recomputed
+
+
+def recompute_behavior_record(key: tuple[str, str, str, str], record: Mapping[str, Any]) -> dict[str, Any]:
+    _stage, case_id, _variant, arm = key
+    label = f"{case_id}/{arm}"
+    summary = read_frozen_trace(record, "behavior", label)
+    errors = validate_zero_tool_trace(summary)
+    if errors:
+        raise EvalError(f"behavior trace contract failed for {label}: {'; '.join(errors)}")
+    try:
+        frozen_response = read_frozen_response(record)
+    except (EvalError, OSError, UnicodeError) as error:
+        raise EvalError(f"invalid frozen behavior response for {label}: {error}") from error
+    trace_response = cast(str, summary["response"])
+    if trace_response.encode("utf-8") != frozen_response.encode("utf-8"):
+        raise EvalError(f"behavior trace response mismatch for {label}")
+    return {
+        "advertised_tools": summary["advertised_tools"],
+        "tools_used": summary["tools_used"],
+        "mcp_server_count": summary["mcp_server_count"],
+        "success": summary["success"],
+        "errors": errors,
+    }
+
+
+def recompute_behavior_records(
+    records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
+) -> dict[tuple[str, str, str, str], Mapping[str, Any]]:
+    recomputed: dict[tuple[str, str, str, str], Mapping[str, Any]] = {}
+    for key in sorted(key for key in records if key[0] == "behavior"):
+        record = records[key]
+        if not isinstance(record, Mapping):
+            raise EvalError(f"behavior record must be an object: {key}")
+        recomputed[key] = recompute_behavior_record(key, record)
+    return recomputed
+
+
 def read_frozen_response(record: Mapping[str, Any]) -> str:
     path = require_external_input(Path(require_string(record.get("response_path"), "response path")), "response")
     if sha256_file(path) != record.get("response_sha256"):
@@ -729,51 +853,57 @@ def grade_case(
 
 
 def trigger_proof(records: Mapping[tuple[str, str, str, str], Mapping[str, Any]]) -> dict[str, bool]:
-    trigger_records = [record for key, record in records.items() if key[0] == "trigger"]
-    positive = [
-        record
-        for key, record in records.items()
-        if key[0] == "trigger" and key[2] == "positive" and key[3] == "with_skill"
-    ]
-    near = [
-        record
-        for key, record in records.items()
-        if key[0] == "trigger" and key[2] == "near_miss" and key[3] == "with_skill"
-    ]
-    baseline = [record for key, record in records.items() if key[0] == "trigger" and key[3] == "baseline"]
+    validated: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for key, record in records.items():
+        if key[0] != "trigger":
+            continue
+        if not isinstance(record, Mapping):
+            raise EvalError(f"trigger proof record must be an object: {key}")
+        values: dict[str, Any] = {}
+        for field in ("advertised_skills", "invoked_skills", "tools_used", "errors"):
+            raw_values = require_list(record.get(field), f"trigger proof {key}.{field}")
+            if not all(isinstance(value, str) for value in raw_values):
+                raise EvalError(f"trigger proof {key}.{field} must contain only strings")
+            values[field] = cast(list[str], raw_values)
+        mcp_server_count = record.get("mcp_server_count")
+        if type(mcp_server_count) is not int:
+            raise EvalError(f"trigger proof {key}.mcp_server_count must be an integer")
+        values["mcp_server_count"] = mcp_server_count
+        validated[key] = values
+
+    trigger_records = list(validated.values())
+    positive = [record for key, record in validated.items() if key[2] == "positive" and key[3] == "with_skill"]
+    near = [record for key, record in validated.items() if key[2] == "near_miss" and key[3] == "with_skill"]
+    baseline = [record for key, record in validated.items() if key[3] == "baseline"]
     return {
-        "baseline_isolated": all(
-            SKILL_NAME not in cast(list[str], record.get("advertised_skills", [])) for record in baseline
-        ),
-        "near_miss_non_trigger": all(
-            SKILL_NAME not in cast(list[str], record.get("invoked_skills", [])) for record in near
-        ),
-        "positive_automatic_trigger": all(
-            SKILL_NAME in cast(list[str], record.get("invoked_skills", [])) for record in positive
-        ),
-        "trace_contract_passed": all(not record.get("errors") for record in trigger_records),
+        "baseline_isolated": all(SKILL_NAME not in record["advertised_skills"] for record in baseline),
+        "near_miss_non_trigger": all(SKILL_NAME not in record["invoked_skills"] for record in near),
+        "positive_automatic_trigger": all(SKILL_NAME in record["invoked_skills"] for record in positive),
+        "trace_contract_passed": all(not record["errors"] for record in trigger_records),
     }
 
 
 def grade_suite(arguments: argparse.Namespace) -> int:
     run_manifest_path = require_external_input(arguments.run_manifest, "run manifest")
-    key_path = require_external_input(arguments.key, "semantic key")
-    key_manifest_path = arguments.key_manifest.expanduser().resolve(strict=True)
     run_manifest = read_json(run_manifest_path)
     if run_manifest.get("schema_version") != SCHEMA_VERSION or run_manifest.get("suite") != SUITE_NAME:
         raise EvalError("run manifest schema or suite mismatch")
+    case_pack_sha256, skill_sha256 = validated_run_manifest_digests(run_manifest)
+    _pack, trigger_cases, _behavior_cases = validated_case_pack(DEFAULT_CASE_PACK)
+    records = indexed_records(run_manifest)
+    trigger_record_report = validate_trigger_record_set(records, trigger_cases)
+    verified_trigger_records = recompute_trigger_records(records)
+    key_path = require_external_input(arguments.key, "semantic key")
+    key_manifest_path = arguments.key_manifest.expanduser().resolve(strict=True)
     profile = run_manifest.get("profile")
     if not isinstance(profile, dict) or profile.get("model_alias") == arguments.grader_model:
         raise EvalError("grader model must differ from the behavior model")
     key, key_manifest = validate_key(
-        case_pack_sha256=require_string(run_manifest.get("case_pack_sha256"), "case pack digest"),
+        case_pack_sha256=case_pack_sha256,
         key_manifest_path=key_manifest_path,
         key_path=key_path,
     )
-    records = indexed_records(run_manifest)
-    behavior_records = [record for key_tuple, record in records.items() if key_tuple[0] == "behavior"]
-    if any(record.get("errors") for record in behavior_records):
-        raise EvalError("behavior trace contract failed; grading is inadmissible")
+    recompute_behavior_records(records)
     raw_cases = key.get("cases")
     if not isinstance(raw_cases, dict):
         raise EvalError("semantic key cases are invalid")
@@ -812,7 +942,7 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         for grade in grades
     )
     treatment_wins = sum(grade.get("winner") == "with_skill" for grade in grades)
-    trigger = trigger_proof(records)
+    trigger = trigger_proof(verified_trigger_records)
     passed = (
         all(trigger.values())
         and not grade_errors
@@ -827,13 +957,14 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         "generated_at": utc_now(),
         "run_manifest_sha256": run_manifest_sha256,
         "sealed_inputs": {
-            "case_pack_sha256": run_manifest.get("case_pack_sha256"),
+            "case_pack_sha256": case_pack_sha256,
             "key_manifest_sha256": sha256_file(key_manifest_path),
             "key_sha256": key_manifest.get("key_sha256"),
-            "skill_sha256": run_manifest.get("skill_sha256"),
+            "skill_sha256": skill_sha256,
         },
         "runner_profile": profile,
         "grader_profile": {"effort": arguments.grader_effort, "model_alias": arguments.grader_model, "tools": []},
+        "trigger_records": trigger_record_report,
         "trigger_proof": trigger,
         "behavior": {
             "baseline_total": baseline_total,

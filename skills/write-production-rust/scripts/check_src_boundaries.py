@@ -27,25 +27,38 @@ class BoundaryInputError(ValueError):
     pass
 
 
+@dataclass(frozen=True)
+class LexedSource:
+    comments_masked: str
+    code_masked: str
+    string_literals: tuple[tuple[int, str], ...]
+
+
 BOUNDARY_RULES = (
-    Rule(
-        "test-cfg",
-        re.compile(r"#\s*!?\[\s*cfg(?:_attr)?\s*\([^\]]*\b(?:test|doctest)\b[^\]]*\)\s*\]", re.MULTILINE),
-    ),
-    Rule("test-cfg-macro", re.compile(r"\bcfg!\s*\([^)]*\b(?:test|doctest)\b[^)]*\)", re.MULTILINE)),
     Rule(
         "test-attribute",
         re.compile(
             r"#\s*!?\[\s*(?:(?:[A-Za-z_][A-Za-z0-9_]*::)*test|rstest|proptest|test_case)"
-            r"(?:\s*\([^\]]*\))?\s*\]",
+            r"\s*(?=[(\],])",
             re.MULTILINE,
         ),
     ),
-    Rule("test-module", re.compile(r"\bmod\s+tests?\b")),
-    Rule("test-module-path", re.compile(r"\b(?:crate|self|super)::tests?\b|::tests?::")),
+    Rule("test-module", re.compile(r"\bmod\s+(?:r#)?tests?\b")),
+    Rule(
+        "test-module-path",
+        re.compile(
+            r"\b(?:crate|self|super)::(?:r#)?tests?\b"
+            r"|::(?:r#)?tests\b"
+            r"|::(?:r#)?test::"
+        ),
+    ),
     Rule("test-crate", re.compile(r"\bextern\s+crate\s+test\b")),
 )
-STRING_LITERAL_START = re.compile(r'(?:br|r)(?P<hashes>#{0,255})"|b?"')
+CFG_RULES = (
+    Rule("test-cfg", re.compile(r"#\s*!?\[\s*cfg(?:_attr)?\s*\(", re.MULTILINE)),
+    Rule("test-cfg-macro", re.compile(r"\bcfg!\s*\(", re.MULTILINE)),
+)
+CFG_TEST_ATOM = re.compile(r"(?<![A-Za-z0-9_])(?:test_case|doctest|proptest|rstest|test)(?![A-Za-z0-9_])")
 TEST_PATH_COMPONENTS = frozenset({"test", "tests"})
 
 
@@ -129,40 +142,162 @@ def ordinary_string_end(source: str, body_start: int) -> int | None:
             escaped = True
         elif character == '"':
             return index
-        elif character == "\n":
-            return None
     return None
 
 
-def string_literals(source: str) -> list[tuple[int, str]]:
+def token_prefix_at(source: str, cursor: int, prefix: str) -> bool:
+    if not source.startswith(prefix, cursor):
+        return False
+    return cursor == 0 or (not source[cursor - 1].isalnum() and source[cursor - 1] != "_")
+
+
+def string_literal_at(source: str, cursor: int) -> tuple[int, int, int] | None:
+    for prefix in ("br", "r"):
+        if not token_prefix_at(source, cursor, prefix):
+            continue
+        quote = cursor + len(prefix)
+        while quote < len(source) and source[quote] == "#":
+            quote += 1
+        if quote >= len(source) or source[quote] != '"':
+            continue
+        hashes = source[cursor + len(prefix) : quote]
+        body_start = quote + 1
+        terminator = f'"{hashes}'
+        raw_body_end = source.find(terminator, body_start)
+        if raw_body_end != -1:
+            return body_start, raw_body_end, raw_body_end + len(terminator)
+
+    if token_prefix_at(source, cursor, 'b"'):
+        body_start = cursor + 2
+    elif source.startswith('"', cursor):
+        body_start = cursor + 1
+    else:
+        return None
+    body_end = ordinary_string_end(source, body_start)
+    return None if body_end is None else (body_start, body_end, body_end + 1)
+
+
+def char_literal_end(source: str, quote: int) -> int | None:
+    body_start = quote + 1
+    if body_start >= len(source) or source[body_start] in "\r\n'":
+        return None
+
+    if source[body_start] != "\\":
+        body_end = body_start + 1
+    elif body_start + 1 >= len(source):
+        return None
+    elif source[body_start + 1] == "x":
+        body_end = body_start + 4
+    elif source.startswith("u{", body_start + 1):
+        brace_end = source.find("}", body_start + 3)
+        if brace_end == -1:
+            return None
+        body_end = brace_end + 1
+    else:
+        body_end = body_start + 2
+
+    if body_end >= len(source) or source[body_end] != "'":
+        return None
+    return body_end + 1
+
+
+def mask_range(buffer: list[str], source: str, start: int, end: int) -> None:
+    for index in range(start, end):
+        if source[index] not in "\r\n":
+            buffer[index] = " "
+
+
+def block_comment_end(source: str, start: int) -> int:
+    depth = 1
+    cursor = start + 2
+    while cursor < len(source) and depth:
+        if source.startswith("/*", cursor):
+            depth += 1
+            cursor += 2
+        elif source.startswith("*/", cursor):
+            depth -= 1
+            cursor += 2
+        else:
+            cursor += 1
+    return cursor
+
+
+def lex_source(source: str) -> LexedSource:
+    comments_masked = list(source)
+    code_masked = list(source)
     literals: list[tuple[int, str]] = []
     cursor = 0
-    while match := STRING_LITERAL_START.search(source, cursor):
-        body_start = match.end()
-        hashes = match.group("hashes")
-        if hashes is None:
-            body_end = ordinary_string_end(source, body_start)
-            terminator_length = 1
-        else:
-            terminator = f'"{hashes}'
-            body_end = source.find(terminator, body_start)
-            terminator_length = len(terminator)
-        if body_end is None or body_end == -1:
-            cursor = body_start
+
+    while cursor < len(source):
+        if source.startswith("//", cursor):
+            comment_end = source.find("\n", cursor + 2)
+            comment_end = len(source) if comment_end == -1 else comment_end
+            mask_range(comments_masked, source, cursor, comment_end)
+            mask_range(code_masked, source, cursor, comment_end)
+            cursor = comment_end
             continue
-        literals.append((match.start(), source[body_start:body_end]))
-        cursor = body_end + terminator_length
-    return literals
+        if source.startswith("/*", cursor):
+            comment_end = block_comment_end(source, cursor)
+            mask_range(comments_masked, source, cursor, comment_end)
+            mask_range(code_masked, source, cursor, comment_end)
+            cursor = comment_end
+            continue
+        if literal := string_literal_at(source, cursor):
+            body_start, body_end, literal_end = literal
+            literals.append((cursor, source[body_start:body_end]))
+            mask_range(code_masked, source, cursor, literal_end)
+            cursor = literal_end
+            continue
+        if token_prefix_at(source, cursor, "b'"):
+            char_end = char_literal_end(source, cursor + 1)
+            if char_end is not None:
+                mask_range(code_masked, source, cursor, char_end)
+                cursor = char_end
+                continue
+        if source[cursor] == "'":
+            char_end = char_literal_end(source, cursor)
+            if char_end is not None:
+                mask_range(code_masked, source, cursor, char_end)
+                cursor = char_end
+                continue
+        cursor += 1
+
+    return LexedSource("".join(comments_masked), "".join(code_masked), tuple(literals))
+
+
+def balanced_parenthesis_end(source: str, opening: int) -> int | None:
+    depth = 0
+    for cursor in range(opening, len(source)):
+        if source[cursor] == "(":
+            depth += 1
+        elif source[cursor] == ")":
+            depth -= 1
+            if depth == 0:
+                return cursor
+    return None
+
+
+def cfg_violations(path: Path, source: str, code_masked: str) -> list[Violation]:
+    violations: list[Violation] = []
+    for rule in CFG_RULES:
+        for match in rule.pattern.finditer(code_masked):
+            opening = match.end() - 1
+            closing = balanced_parenthesis_end(code_masked, opening)
+            if closing is not None and CFG_TEST_ATOM.search(code_masked, opening + 1, closing):
+                violations.append(
+                    Violation(path, line_number(source, match.start()), rule.name, excerpt_for(source, match.start()))
+                )
+    return violations
 
 
 def contains_test_path(value: str) -> bool:
     return any(component in TEST_PATH_COMPONENTS for component in value.replace("\\", "/").split("/"))
 
 
-def test_path_violations(path: Path, source: str) -> list[Violation]:
+def test_path_violations(path: Path, source: str, literals: Sequence[tuple[int, str]]) -> list[Violation]:
     return [
         Violation(path, line_number(source, offset), "test-path-literal", excerpt_for(source, offset))
-        for offset, literal in string_literals(source)
+        for offset, literal in literals
         if contains_test_path(literal)
     ]
 
@@ -171,14 +306,18 @@ def scan_file(path: Path) -> list[Violation]:
     if path.is_symlink():
         return [Violation(path, 1, "symlink-source", "source file is a symbolic link")]
 
-    source = path.read_text(encoding="utf-8")
+    try:
+        source = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise BoundaryInputError(f"Rust source is not valid UTF-8: {path}") from error
+    lexed = lex_source(source)
     violations: list[Violation] = []
 
     if path_has_test_component_below_src(path):
         violations.append(Violation(path, 1, "test-source-path", "test/tests path component below src/"))
 
     for rule in BOUNDARY_RULES:
-        for match in rule.pattern.finditer(source):
+        for match in rule.pattern.finditer(lexed.comments_masked):
             violations.append(
                 Violation(
                     path=path,
@@ -188,7 +327,8 @@ def scan_file(path: Path) -> list[Violation]:
                 )
             )
 
-    violations.extend(test_path_violations(path, source))
+    violations.extend(cfg_violations(path, source, lexed.code_masked))
+    violations.extend(test_path_violations(path, source, lexed.string_literals))
 
     return violations
 
@@ -206,11 +346,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         source_files = discover_source_files(args.paths)
+        violations = [violation for path in source_files for violation in scan_file(path)]
     except BoundaryInputError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 
-    violations = [violation for path in source_files for violation in scan_file(path)]
     for violation in sorted(violations, key=lambda item: (str(item.path), item.line, item.rule)):
         print(f"{violation.path}:{violation.line}: {violation.rule}: {violation.excerpt}", file=sys.stderr)
 

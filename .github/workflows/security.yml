@@ -52,6 +52,11 @@ jobs:
           mkdir -p "$probe_root/allowed" "$probe_root/rejected"
           checksum="$(printf '%s' 'gitleaks-regression-probe' | sha256sum | cut -d ' ' -f 1)"
 
+          cat > "$probe_root/default-only.toml" <<'EOF'
+          [extend]
+          useDefault = true
+          EOF
+
           for repository in "$probe_root/allowed" "$probe_root/rejected"; do
             git -C "$repository" init --quiet
             git -C "$repository" config user.name "Gitleaks regression probe"
@@ -70,11 +75,32 @@ jobs:
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/rejected" commit --quiet --message "Add rejected secret"
 
+          if gitleaks git \
+            --config "$probe_root/default-only.toml" \
+            --no-banner \
+            --report-format json \
+            --report-path "$probe_root/control-report.json" \
+            "$probe_root/allowed"; then
+            echo "Default Gitleaks rules did not detect the checksum fixture" >&2
+            exit 1
+          fi
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == ".shell-quality-baseline.json")' \
+            "$probe_root/control-report.json" > /dev/null
+
           gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/allowed"
-          if gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/rejected"; then
+          if gitleaks git \
+            --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
+            --no-banner \
+            --report-format json \
+            --report-path "$probe_root/rejected-report.json" \
+            "$probe_root/rejected"; then
             echo "Gitleaks accepted a non-baseline secret-like value" >&2
             exit 1
           fi
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == ".shell-quality-baseline.json")' \
+            "$probe_root/rejected-report.json" > /dev/null
 
       - name: Run Semgrep community security rules
         run: >-
@@ -90,7 +116,12 @@ jobs:
           .
 
       - name: Scan Git history for secrets
-        run: gitleaks git --redact --verbose .
+        run: >-
+          gitleaks git
+          --config "$GITHUB_WORKSPACE/.gitleaks.toml"
+          --redact
+          --verbose
+          .
 
   trivy:
     name: Trivy filesystem

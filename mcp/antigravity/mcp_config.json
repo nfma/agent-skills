@@ -32,6 +32,9 @@
       "command": "/bin/sh",
       "args": ["-c", "exec \"$HOME/.local/bin/hf-mcp-remote\""]
     },
+    "notion": {
+      "serverUrl": "https://mcp.notion.com/mcp"
+    },
     "playwright": {
       "command": "/bin/sh",
       "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @playwright/mcp@0.0.79"]

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "suite": "sync-traycer-notion-trigger-behavior",
+  "case_pack_sha256": "954e622ac50bcbd0794f4fe6044256b6f8a2fcdbe76bdd7ae7c22e587e71db41",
+  "key_sha256": "d9248fe8e6e685525f5d5a701e27c0e276ba51ecb399ecad56f970e9f1842b70",
+  "case_ids": [
+    "board-status-pull",
+    "first-turn-new-story",
+    "move-ticket-and-complete",
+    "review-artifact-exclusion"
+  ],
+  "check_counts": {
+    "board-status-pull": 5,
+    "first-turn-new-story": 6,
+    "move-ticket-and-complete": 8,
+    "review-artifact-exclusion": 5
+  }
+}

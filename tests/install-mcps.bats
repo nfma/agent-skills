@@ -45,6 +45,30 @@ EOF
   [[ "$output" == *'invalid harness MCP fragment'* ]]
 }
 
+@test "rejects overridesPlugin outside a Codex stdio entry" {
+  fragment="$TEST_ROOT/invalid-claude-override.json"
+  jq '.mcpServers["browser-tools"].overridesPlugin = true' \
+    "$REPO_ROOT/mcp/claude/mcp-fragment.json" >"$fragment"
+
+  run env MCP_CLAUDE_FRAGMENT="$fragment" \
+    "$INSTALLER" --dry-run --harness cursor
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'invalid harness MCP fragment'* ]]
+}
+
+@test "rejects a non-positive Codex startup timeout" {
+  fragment="$TEST_ROOT/invalid-codex-timeout.json"
+  jq '.mcpServers["chrome-devtools"].startupTimeoutSec = 0' \
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
+
+  run env MCP_CODEX_FRAGMENT="$fragment" \
+    "$INSTALLER" --dry-run --harness cursor
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'invalid harness MCP fragment'* ]]
+}
+
 @test "rejects a fragment that no longer matches the baseline" {
   fragment="$TEST_ROOT/incomplete-fragment.json"
   jq 'del(.mcpServers.github)' \
@@ -103,6 +127,8 @@ EOF
   [[ "$output" == *'codex plugin remove github@claude-plugins-official'* ]]
   [[ "$output" == *'claude plugin uninstall --scope user --yes github@claude-plugins-official'* ]]
   [[ "$output" == *"codex mcp add github -- $INSTALL_HOME/.local/bin/github-mcp-keychain stdio"* ]]
+  [[ "$output" == *"codex mcp add chrome-devtools -- $INSTALL_HOME/.local/bin/chrome-devtools-vivaldi"* ]]
+  [[ "$output" == *"update-codex-mcp-config.cjs $INSTALL_HOME/.codex/config.toml chrome-devtools 20"* ]]
   [[ "$output" == *"claude mcp add --scope user github -- $INSTALL_HOME/.local/bin/github-mcp-keychain stdio"* ]]
   [ ! -e "$INSTALL_HOME/.local/bin/github-mcp-keychain" ]
   [ ! -e "$INSTALL_HOME/.agents/mcp-backups" ]
@@ -183,6 +209,144 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *'codex mcp remove browser-tools'* ]]
   [[ "$output" == *'codex mcp add browser-tools'* ]]
+}
+
+@test "overlays the Chrome DevTools plugin without removing its server" {
+  printf '%s\n' \
+    '{"transport":{"type":"stdio","command":"npx","args":["chrome-devtools-mcp@1.7.0"]}}' \
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+
+  run "$INSTALLER" --dry-run --harness codex
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Codex plugin ready: chrome-devtools-mcp@claude-plugins-official'* ]]
+  [[ "$output" != *'codex mcp remove chrome-devtools'* ]]
+  [[ "$output" == *"codex mcp add chrome-devtools -- $INSTALL_HOME/.local/bin/chrome-devtools-vivaldi"* ]]
+}
+
+@test "keeps a matching Vivaldi override with its startup timeout" {
+  jq -n \
+    --arg command "$INSTALL_HOME/.local/bin/chrome-devtools-vivaldi" \
+    '{transport:{type:"stdio",command:$command,args:[]},startup_timeout_sec:20}' \
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+
+  run "$INSTALLER" --dry-run --harness codex
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'Codex MCP ready: chrome-devtools'* ]]
+  [[ "$output" != *'codex mcp add chrome-devtools'* ]]
+}
+
+@test "fails verification when a plugin server masks a missing override" {
+  mkdir -p "$INSTALL_HOME/.codex"
+  cat >"$INSTALL_HOME/.codex/config.toml" <<'EOF'
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["chrome-devtools-mcp@1.7.0"]
+EOF
+  printf '%s\n' \
+    '{"transport":{"type":"stdio","command":"npx","args":["chrome-devtools-mcp@1.7.0"]}}' \
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+  export MCP_TEST_CODEX_ADD_NOOP=chrome-devtools
+
+  run "$INSTALLER" --harness codex
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'Codex MCP verification failed: chrome-devtools'* ]]
+}
+
+@test "Vivaldi wrapper launches the pinned MCP with a persistent profile" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  cat >"$wrapper_dir/npx" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*"
+EOF
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+  write_success_command vivaldi
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/vivaldi" \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "-y chrome-devtools-mcp@1.7.0 --categoryExtensions --executablePath $FAKE_BIN/vivaldi --userDataDir $INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
+  [ -d "$INSTALL_HOME/.cache/chrome-devtools-mcp/vivaldi-profile" ]
+}
+
+@test "Vivaldi wrapper fails closed when the browser is unavailable" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  write_success_command npx
+  cp "$FAKE_BIN/npx" "$wrapper_dir/npx"
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/missing-vivaldi" \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 69 ]
+  [[ "$output" == *'Vivaldi is unavailable'* ]]
+}
+
+@test "Vivaldi wrapper fails closed when HOME is unavailable" {
+  run env -u HOME "$VIVALDI_WRAPPER"
+
+  [ "$status" -eq 64 ]
+  [[ "$output" == *'HOME is unavailable'* ]]
+}
+
+@test "Vivaldi wrapper fails closed when the npx launcher is unavailable" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi"
+  write_success_command vivaldi
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/vivaldi" \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 69 ]
+  [[ "$output" == *'tracked npx launcher is unavailable'* ]]
+}
+
+@test "Vivaldi wrapper rejects a relative profile path" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  write_success_command npx
+  cp "$FAKE_BIN/npx" "$wrapper_dir/npx"
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+  write_success_command vivaldi
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/vivaldi" \
+    CHROME_DEVTOOLS_VIVALDI_PROFILE_DIR=relative/profile \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 64 ]
+  [[ "$output" == *'profile path must be absolute'* ]]
+}
+
+@test "Vivaldi wrapper refuses the root directory as a profile" {
+  wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
+  mkdir -p "$wrapper_dir"
+  cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
+  write_success_command npx
+  cp "$FAKE_BIN/npx" "$wrapper_dir/npx"
+  chmod +x "$wrapper_dir/chrome-devtools-vivaldi" "$wrapper_dir/npx"
+  write_success_command vivaldi
+
+  run env HOME="$INSTALL_HOME" \
+    CHROME_DEVTOOLS_VIVALDI_BIN="$FAKE_BIN/vivaldi" \
+    CHROME_DEVTOOLS_VIVALDI_PROFILE_DIR=/ \
+    "$wrapper_dir/chrome-devtools-vivaldi"
+
+  [ "$status" -eq 64 ]
+  [[ "$output" == *'refusing to use / as the profile path'* ]]
 }
 
 @test "keeps a matching Claude stdio MCP" {

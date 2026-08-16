@@ -53,8 +53,10 @@ jobs:
           trap 'rm -rf "$probe_root"' EXIT
           mkdir -p \
             "$probe_root/allowed" \
+            "$probe_root/allowed/evals/sync-traycer-notion-trigger" \
             "$probe_root/rejected" \
-            "$probe_root/wrong-path/sub"
+            "$probe_root/wrong-path/sub" \
+            "$probe_root/wrong-path/evals/other-suite"
           checksum="$(printf '%s' 'gitleaks-regression-probe' | sha256sum | cut -d ' ' -f 1)"
 
           cat > "$probe_root/default-only.toml" <<'EOF'
@@ -73,18 +75,31 @@ jobs:
 
           printf '  "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:%s"\n' \
             "$checksum" > "$probe_root/allowed/.shell-quality-baseline.json"
+          printf '  "key_sha256": "%s"\n' \
+            "$checksum" > \
+            "$probe_root/allowed/evals/sync-traycer-notion-trigger/key-manifest.json"
+          printf '  "key_manifest_sha256": "%s",\n  "key_sha256": "%s"\n' \
+            "$checksum" "$checksum" > \
+            "$probe_root/allowed/evals/sync-traycer-notion-trigger/proof-report.json"
           printf '  "api_key": "%s"\n' \
             "$checksum" > "$probe_root/rejected/.shell-quality-baseline.json"
           printf '  "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:%s"\n' \
             "$checksum" > "$probe_root/wrong-path/sub/.shell-quality-baseline.json"
+          printf '  "key_sha256": "%s"\n' \
+            "$checksum" > "$probe_root/wrong-path/evals/other-suite/key-manifest.json"
 
-          git -C "$probe_root/allowed" add .shell-quality-baseline.json
+          git -C "$probe_root/allowed" add \
+            .shell-quality-baseline.json \
+            evals/sync-traycer-notion-trigger/key-manifest.json \
+            evals/sync-traycer-notion-trigger/proof-report.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/allowed" commit --quiet --message "Add allowed checksum"
           git -C "$probe_root/rejected" add .shell-quality-baseline.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/rejected" commit --quiet --message "Add rejected secret"
-          git -C "$probe_root/wrong-path" add sub/.shell-quality-baseline.json
+          git -C "$probe_root/wrong-path" add \
+            sub/.shell-quality-baseline.json \
+            evals/other-suite/key-manifest.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/wrong-path" commit --quiet --message "Add wrong-path checksum"
 
@@ -125,6 +140,9 @@ jobs:
           fi
           jq -e \
             'any(.[]; .RuleID == "generic-api-key" and .File == "sub/.shell-quality-baseline.json")' \
+            "$probe_root/wrong-path-report.json" > /dev/null
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/other-suite/key-manifest.json")' \
             "$probe_root/wrong-path-report.json" > /dev/null
 
       - name: Run Semgrep community security rules

@@ -62,6 +62,23 @@ class CheckSrcBoundariesTests(unittest.TestCase):
             self.assertIn("test-module-path", rules)
             self.assertIn("test-path-literal", rules)
 
+    def test_rejects_test_components_in_ordinary_byte_and_raw_strings(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "src" / "assets.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                'const ONE: &str = "../tests/data.json";\n'
+                'const TWO: &[u8] = b"test";\n'
+                'const THREE: &str = r#"fixtures/tests/sample"#;\n'
+                'const SAFE: &str = "latest/results.json";\n'
+            )
+
+            violations = check_src_boundaries.scan_file(source)
+
+            path_violations = [violation for violation in violations if violation.rule == "test-path-literal"]
+            self.assertEqual(len(path_violations), 3)
+
     def test_rejects_test_subtree_below_src(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "src" / "tests" / "helper.rs"

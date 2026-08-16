@@ -148,8 +148,9 @@ class WriteProductionRustEvalTests(unittest.TestCase):
 
         self.assertEqual(grade["totals"], {"A": 3, "B": 2})
         self.assertEqual(self.runner.parse_grade(f"```json\n{response}\n```", criteria), grade)
+        incorrect_winner = response.replace('"winner": "A"', '"winner": "B"')
         with self.assertRaisesRegex(self.runner.EvalError, "winner disagrees"):
-            self.runner.parse_grade(response.replace('"winner": "A"', '"winner": "B"'), criteria)
+            self.runner.parse_grade(incorrect_winner, criteria)
         with self.assertRaisesRegex(self.runner.EvalError, "invalid JSON fence"):
             self.runner.parse_grade(f"```json\n{response}\n```\nextra", criteria)
 

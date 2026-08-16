@@ -92,8 +92,14 @@ def require_list(value: Any, label: str) -> list[Any]:
     return value
 
 
-def validated_case_pack(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
-    pack = read_json(path)
+def require_unnamed_prompt(value: Any, label: str) -> str:
+    prompt = require_string(value, label)
+    if SKILL_NAME.casefold() in prompt.casefold():
+        raise EvalError(f"{label} explicitly names the skill")
+    return prompt
+
+
+def validate_case_pack_identity(pack: Mapping[str, Any]) -> None:
     if (
         pack.get("schema_version") != SCHEMA_VERSION
         or pack.get("suite") != SUITE_NAME
@@ -101,46 +107,67 @@ def validated_case_pack(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]
     ):
         raise EvalError("case pack schema, suite, or skill mismatch")
 
-    trigger_cases: list[dict[str, Any]] = []
-    behavior_cases: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
-    for index, raw_case in enumerate(require_list(pack.get("trigger_cases"), "trigger_cases")):
-        if not isinstance(raw_case, dict):
-            raise EvalError(f"trigger case {index} must be an object")
-        case_id = require_string(raw_case.get("id"), f"trigger case {index}.id")
-        if case_id in seen_ids:
-            raise EvalError(f"duplicate case id: {case_id}")
-        seen_ids.add(case_id)
-        case: dict[str, Any] = {"id": case_id}
-        for variant in VARIANTS:
-            prompt = require_string(raw_case.get(f"{variant}_prompt"), f"{case_id}.{variant}_prompt")
-            if SKILL_NAME.casefold() in prompt.casefold():
-                raise EvalError(f"{case_id}.{variant} explicitly names the skill")
-            case[variant] = prompt
-        trigger_cases.append(case)
 
-    seen_ids.clear()
-    for index, raw_case in enumerate(require_list(pack.get("behavior_cases"), "behavior_cases")):
-        if not isinstance(raw_case, dict):
-            raise EvalError(f"behavior case {index} must be an object")
-        case_id = require_string(raw_case.get("id"), f"behavior case {index}.id")
-        if case_id in seen_ids:
-            raise EvalError(f"duplicate behavior case id: {case_id}")
-        seen_ids.add(case_id)
-        prompt = require_string(raw_case.get("prompt"), f"{case_id}.prompt")
-        if SKILL_NAME.casefold() in prompt.casefold():
-            raise EvalError(f"{case_id}.prompt explicitly names the skill")
-        raw_files = require_list(raw_case.get("guidance_files"), f"{case_id}.guidance_files")
-        guidance_files: list[str] = []
-        for raw_file in raw_files:
-            relative = require_string(raw_file, f"{case_id}.guidance_file")
-            candidate = (SKILL_ROOT / relative).resolve(strict=True)
-            if not path_is_within(candidate, SKILL_ROOT) or candidate.suffix not in {".md", ".txt"}:
-                raise EvalError(f"invalid guidance path: {relative}")
-            guidance_files.append(relative)
-        if "SKILL.md" not in guidance_files:
-            raise EvalError(f"{case_id} must inject SKILL.md")
-        behavior_cases.append({"id": case_id, "prompt": prompt, "guidance_files": guidance_files})
+def validated_trigger_case(raw_case: Any, index: int, seen_ids: set[str]) -> dict[str, Any]:
+    if not isinstance(raw_case, dict):
+        raise EvalError(f"trigger case {index} must be an object")
+    case_id = require_string(raw_case.get("id"), f"trigger case {index}.id")
+    if case_id in seen_ids:
+        raise EvalError(f"duplicate case id: {case_id}")
+    seen_ids.add(case_id)
+    case: dict[str, Any] = {"id": case_id}
+    for variant in VARIANTS:
+        label = f"{case_id}.{variant}_prompt"
+        case[variant] = require_unnamed_prompt(raw_case.get(f"{variant}_prompt"), label)
+    return case
+
+
+def validated_trigger_cases(pack: Mapping[str, Any]) -> list[dict[str, Any]]:
+    seen_ids: set[str] = set()
+    return [
+        validated_trigger_case(raw_case, index, seen_ids)
+        for index, raw_case in enumerate(require_list(pack.get("trigger_cases"), "trigger_cases"))
+    ]
+
+
+def validated_guidance_files(case_id: str, raw_files: Any) -> list[str]:
+    guidance_files: list[str] = []
+    for raw_file in require_list(raw_files, f"{case_id}.guidance_files"):
+        relative = require_string(raw_file, f"{case_id}.guidance_file")
+        candidate = (SKILL_ROOT / relative).resolve(strict=True)
+        if not path_is_within(candidate, SKILL_ROOT) or candidate.suffix not in {".md", ".txt"}:
+            raise EvalError(f"invalid guidance path: {relative}")
+        guidance_files.append(relative)
+    if "SKILL.md" not in guidance_files:
+        raise EvalError(f"{case_id} must inject SKILL.md")
+    return guidance_files
+
+
+def validated_behavior_case(raw_case: Any, index: int, seen_ids: set[str]) -> dict[str, Any]:
+    if not isinstance(raw_case, dict):
+        raise EvalError(f"behavior case {index} must be an object")
+    case_id = require_string(raw_case.get("id"), f"behavior case {index}.id")
+    if case_id in seen_ids:
+        raise EvalError(f"duplicate behavior case id: {case_id}")
+    seen_ids.add(case_id)
+    prompt = require_unnamed_prompt(raw_case.get("prompt"), f"{case_id}.prompt")
+    guidance_files = validated_guidance_files(case_id, raw_case.get("guidance_files"))
+    return {"id": case_id, "prompt": prompt, "guidance_files": guidance_files}
+
+
+def validated_behavior_cases(pack: Mapping[str, Any]) -> list[dict[str, Any]]:
+    seen_ids: set[str] = set()
+    return [
+        validated_behavior_case(raw_case, index, seen_ids)
+        for index, raw_case in enumerate(require_list(pack.get("behavior_cases"), "behavior_cases"))
+    ]
+
+
+def validated_case_pack(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    pack = read_json(path)
+    validate_case_pack_identity(pack)
+    trigger_cases = validated_trigger_cases(pack)
+    behavior_cases = validated_behavior_cases(pack)
 
     if len(trigger_cases) < 3 or len(behavior_cases) < 3:
         raise EvalError("case pack must contain at least three trigger and three behavior cases")
@@ -578,38 +605,63 @@ def grader_prompt(*, criteria: list[Any], response_a: str, response_b: str) -> s
     )
 
 
-def parse_grade(response: str, criteria: list[Any]) -> dict[str, Any]:
+def unwrap_json_fence(response: str) -> str:
     payload = response.strip()
-    if payload.startswith("```"):
-        lines = payload.splitlines()
-        if len(lines) < 3 or lines[0] not in {"```", "```json"} or lines[-1] != "```":
-            raise EvalError("grader response has an invalid JSON fence")
-        payload = "\n".join(lines[1:-1])
-        if "```" in payload:
-            raise EvalError("grader response contains a nested fence")
+    if not payload.startswith("```"):
+        return payload
+    lines = payload.splitlines()
+    if len(lines) < 3 or lines[0] not in {"```", "```json"} or lines[-1] != "```":
+        raise EvalError("grader response has an invalid JSON fence")
+    unfenced = "\n".join(lines[1:-1])
+    if "```" in unfenced:
+        raise EvalError("grader response contains a nested fence")
+    return unfenced
+
+
+def decode_grade(response: str) -> dict[str, Any]:
     try:
-        value: Any = json.loads(payload)
+        value: Any = json.loads(unwrap_json_fence(response))
     except json.JSONDecodeError as error:
         raise EvalError(f"grader response is not exact JSON: {error.msg}") from error
     if not isinstance(value, dict):
         raise EvalError("grader response must be an object")
+    return value
+
+
+def criterion_ids_for(criteria: list[Any]) -> set[str]:
     criterion_ids = {
         require_string(criterion.get("id"), "criterion.id") for criterion in criteria if isinstance(criterion, dict)
     }
     if len(criterion_ids) != len(criteria):
         raise EvalError("criterion ids must be unique")
+    return criterion_ids
+
+
+def candidate_total(scores: Mapping[str, Any], candidate: str, criterion_ids: set[str]) -> int:
+    candidate_scores = scores.get(candidate)
+    if not isinstance(candidate_scores, dict) or set(candidate_scores) != criterion_ids:
+        raise EvalError(f"grader {candidate} score keys do not match criteria")
+    if any(not isinstance(score, int) or score not in {0, 1, 2} for score in candidate_scores.values()):
+        raise EvalError(f"grader {candidate} scores must be integers from 0 to 2")
+    return sum(cast(dict[str, int], candidate_scores).values())
+
+
+def winner_from_totals(totals: Mapping[str, int]) -> str:
+    if totals["A"] == totals["B"]:
+        return "tie"
+    if totals["A"] > totals["B"]:
+        return "A"
+    return "B"
+
+
+def parse_grade(response: str, criteria: list[Any]) -> dict[str, Any]:
+    value = decode_grade(response)
+    criterion_ids = criterion_ids_for(criteria)
     scores = value.get("scores")
     if not isinstance(scores, dict) or set(scores) != {"A", "B"}:
         raise EvalError("grader scores must contain exactly A and B")
-    totals: dict[str, int] = {}
-    for candidate in ("A", "B"):
-        candidate_scores = scores.get(candidate)
-        if not isinstance(candidate_scores, dict) or set(candidate_scores) != criterion_ids:
-            raise EvalError(f"grader {candidate} score keys do not match criteria")
-        if any(not isinstance(score, int) or score not in {0, 1, 2} for score in candidate_scores.values()):
-            raise EvalError(f"grader {candidate} scores must be integers from 0 to 2")
-        totals[candidate] = sum(cast(dict[str, int], candidate_scores).values())
-    expected_winner = "tie" if totals["A"] == totals["B"] else ("A" if totals["A"] > totals["B"] else "B")
+    totals = {candidate: candidate_total(scores, candidate, criterion_ids) for candidate in ("A", "B")}
+    expected_winner = winner_from_totals(totals)
     if value.get("winner") != expected_winner:
         raise EvalError("grader winner disagrees with criterion totals")
     require_string(value.get("rationale"), "grader rationale")

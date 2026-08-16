@@ -44,11 +44,9 @@ BOUNDARY_RULES = (
     Rule("test-module", re.compile(r"\bmod\s+tests?\b")),
     Rule("test-module-path", re.compile(r"\b(?:crate|self|super)::tests?\b|::tests?::")),
     Rule("test-crate", re.compile(r"\bextern\s+crate\s+test\b")),
-    Rule(
-        "test-path-literal",
-        re.compile(r'(?:b?r#*|b)?"(?:tests?|[^"\n]*[/\\]tests?)(?:[/\\][^"\n]*)?"#*'),
-    ),
 )
+STRING_LITERAL_START = re.compile(r'(?:br|r)(?P<hashes>#{0,255})"|b?"')
+TEST_PATH_COMPONENTS = frozenset({"test", "tests"})
 
 
 def path_is_below_src(path: Path) -> bool:
@@ -65,27 +63,41 @@ def path_has_test_component_below_src(path: Path) -> bool:
     return any(part in {"test", "tests"} for part in parts[src_index + 1 :])
 
 
+def validated_input_path(input_path: Path) -> Path:
+    path = input_path.expanduser().absolute()
+    if not path.exists():
+        raise BoundaryInputError(f"path does not exist: {input_path}")
+    return path
+
+
+def add_explicit_source(path: Path, input_path: Path, source_files: set[Path]) -> bool:
+    if not path.is_file():
+        return False
+    if path.suffix != ".rs":
+        raise BoundaryInputError(f"expected a Rust source file: {input_path}")
+    if not path_is_below_src(path):
+        raise BoundaryInputError(f"explicit Rust file is outside src/: {input_path}")
+    source_files.add(path)
+    return True
+
+
+def sources_below(directory: Path) -> list[Path]:
+    candidates = (candidate.absolute() for candidate in directory.rglob("*.rs"))
+    return [
+        candidate
+        for candidate in candidates
+        if path_is_below_src(Path(directory.name, *candidate.relative_to(directory).parts))
+    ]
+
+
 def discover_source_files(inputs: Sequence[Path]) -> list[Path]:
     source_files: set[Path] = set()
 
     for input_path in inputs:
-        path = input_path.expanduser().absolute()
-        if not path.exists():
-            raise BoundaryInputError(f"path does not exist: {input_path}")
-
-        if path.is_file():
-            if path.suffix != ".rs":
-                raise BoundaryInputError(f"expected a Rust source file: {input_path}")
-            if not path_is_below_src(path):
-                raise BoundaryInputError(f"explicit Rust file is outside src/: {input_path}")
-            source_files.add(path)
+        path = validated_input_path(input_path)
+        if add_explicit_source(path, input_path, source_files):
             continue
-
-        for candidate in path.rglob("*.rs"):
-            candidate = candidate.absolute()
-            scoped_path = Path(path.name, *candidate.relative_to(path).parts)
-            if path_is_below_src(scoped_path):
-                source_files.add(candidate)
+        source_files.update(sources_below(path))
 
     if not source_files:
         joined = ", ".join(str(path) for path in inputs)
@@ -105,6 +117,54 @@ def excerpt_for(source: str, offset: int) -> str:
         end = len(source)
     excerpt = source[start:end].strip()
     return excerpt if len(excerpt) <= 160 else f"{excerpt[:157]}..."
+
+
+def ordinary_string_end(source: str, body_start: int) -> int | None:
+    escaped = False
+    for index in range(body_start, len(source)):
+        character = source[index]
+        if escaped:
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == '"':
+            return index
+        elif character == "\n":
+            return None
+    return None
+
+
+def string_literals(source: str) -> list[tuple[int, str]]:
+    literals: list[tuple[int, str]] = []
+    cursor = 0
+    while match := STRING_LITERAL_START.search(source, cursor):
+        body_start = match.end()
+        hashes = match.group("hashes")
+        if hashes is None:
+            body_end = ordinary_string_end(source, body_start)
+            terminator_length = 1
+        else:
+            terminator = f'"{hashes}'
+            body_end = source.find(terminator, body_start)
+            terminator_length = len(terminator)
+        if body_end is None or body_end == -1:
+            cursor = body_start
+            continue
+        literals.append((match.start(), source[body_start:body_end]))
+        cursor = body_end + terminator_length
+    return literals
+
+
+def contains_test_path(value: str) -> bool:
+    return any(component in TEST_PATH_COMPONENTS for component in value.replace("\\", "/").split("/"))
+
+
+def test_path_violations(path: Path, source: str) -> list[Violation]:
+    return [
+        Violation(path, line_number(source, offset), "test-path-literal", excerpt_for(source, offset))
+        for offset, literal in string_literals(source)
+        if contains_test_path(literal)
+    ]
 
 
 def scan_file(path: Path) -> list[Violation]:
@@ -127,6 +187,8 @@ def scan_file(path: Path) -> list[Violation]:
                     excerpt=excerpt_for(source, match.start()),
                 )
             )
+
+    violations.extend(test_path_violations(path, source))
 
     return violations
 

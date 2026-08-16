@@ -16,6 +16,7 @@ jobs:
   sonar:
     name: SonarQube Cloud
     runs-on: ubuntu-latest
+    environment: sonar
     timeout-minutes: 15
     steps:
       - name: Check out full history
@@ -29,7 +30,10 @@ jobs:
         id: token
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SECRETS_UNAVAILABLE: ${{ github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+          SECRETS_UNAVAILABLE: >-
+            ${{ github.actor == 'dependabot[bot]' ||
+            (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.fork) }}
         run: |
           if [ -n "$SONAR_TOKEN" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"

@@ -54,3 +54,28 @@ This is a passed proof for the verified Claude lane, not a production or
 four-harness portability claim. Cursor, Antigravity, and Codex remain unavailable
 in the current framework profile. The suite remains `draft`, human calibration
 is pending, and its overall production-evidence status is `not-proven`.
+
+## Other harness preflights
+
+Before a Codex model evaluation, copy the candidate bundle into an isolated
+workspace at `.agents/skills/sync-traycer-notion/` and run the no-model
+single-candidate preflight:
+
+```sh
+uv run --frozen --no-build python \
+  evals/sync-traycer-notion/codex-single-candidate-preflight.py \
+  --workspace /absolute/path/to/isolated/workspace \
+  --candidate /absolute/path/to/isolated/workspace/.agents/skills/sync-traycer-notion/SKILL.md
+```
+
+The emitted `skills.config` override is evidence-bound to the discovered
+competing paths and must be carried unchanged into the later Codex evaluation.
+The preflight calls only `codex debug prompt-input`; it never invokes a model.
+Codex's discovery roots and same-name behavior are documented in the
+[OpenAI Skills documentation](https://learn.chatgpt.com/docs/build-skills).
+
+Cursor has no equivalent no-model inventory command. Its clean-room contract is
+documented in
+[`CURSOR_ENVIRONMENT.md`](../sync-traycer-notion/CURSOR_ENVIRONMENT.md). Paid
+Codex and Cursor canaries remain blocked until their respective preflight
+contracts pass and the coordinator explicitly authorizes the calls.

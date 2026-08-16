@@ -594,8 +594,8 @@ verify_version_pins() {
   done
   grep -F -- "$(package_pin aikido)" "$wrapper_root/npx" >/dev/null \
     || die 'Aikido isolation wrapper is out of sync with the manifest'
-  grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-remote" >/dev/null \
-    || die 'Hugging Face bridge wrapper is out of sync with the manifest'
+  grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-filter.js" >/dev/null \
+    || die 'Hugging Face bridge filter is out of sync with the manifest'
 }
 
 verify_links() {

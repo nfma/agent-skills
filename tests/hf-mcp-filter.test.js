@@ -10,6 +10,7 @@ const test = require("node:test");
 const { spawn } = require("node:child_process");
 
 const filter = path.resolve(__dirname, "../mcp/bin/hf-mcp-filter.js");
+const manifest = require("../mcp/manifest.json");
 
 /**
  * @typedef {{
@@ -112,7 +113,7 @@ test("forwards valid messages and handles local protocol errors", async (context
     fs.readFileSync(harness.argsFile, "utf8").trim().split("\n"),
     [
       "-y",
-      "mcp-remote@0.1.38",
+      manifest.npmPackages["hf-bridge"],
       "https://huggingface.co/mcp",
       "--header",
       "Authorization: Bearer ${HF_MCP_TOKEN}",

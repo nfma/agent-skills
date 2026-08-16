@@ -1,0 +1,131 @@
+{
+  "behavior": {
+    "baseline_total": 30,
+    "grades": [
+      {
+        "case_id": "bounded-async-pipeline",
+        "errors": [],
+        "grader_model": "claude-opus-5",
+        "grader_trace_sha256": "52bf2299c771a829c33b2cad49117694b20b27e312a334ba970b6caca7805b12",
+        "scores": {
+          "baseline": {
+            "bounded-lazy-concurrency": 2,
+            "cancellation-contract": 1,
+            "fallible-no-panic": 2,
+            "input-order": 2,
+            "owned-concurrency": 2,
+            "scope-discipline": 2
+          },
+          "with_skill": {
+            "bounded-lazy-concurrency": 2,
+            "cancellation-contract": 2,
+            "fallible-no-panic": 2,
+            "input-order": 2,
+            "owned-concurrency": 2,
+            "scope-discipline": 2
+          }
+        },
+        "totals": {
+          "baseline": 11,
+          "with_skill": 12
+        },
+        "winner": "with_skill"
+      },
+      {
+        "case_id": "strict-source-boundary",
+        "errors": [],
+        "grader_model": "claude-opus-5",
+        "grader_trace_sha256": "724348b970e6247162421915af7b0127f8f251edab3262646810d77b468d51e1",
+        "scores": {
+          "baseline": {
+            "external-test-handoff": 0,
+            "no-reverse-dependency": 2,
+            "no-test-cfg": 2,
+            "no-test-only-seam": 2,
+            "production-domain-model": 2,
+            "src-only-scope": 0
+          },
+          "with_skill": {
+            "external-test-handoff": 2,
+            "no-reverse-dependency": 2,
+            "no-test-cfg": 2,
+            "no-test-only-seam": 2,
+            "production-domain-model": 2,
+            "src-only-scope": 2
+          }
+        },
+        "totals": {
+          "baseline": 8,
+          "with_skill": 12
+        },
+        "winner": "with_skill"
+      },
+      {
+        "case_id": "typed-functional-core",
+        "errors": [],
+        "grader_model": "claude-opus-5",
+        "grader_trace_sha256": "2ad5dc7ddcf40df13e01104acda92fcab5aa36be45fe5dc26492327fd9b019f0",
+        "scores": {
+          "baseline": {
+            "enum-not-booleans": 2,
+            "ownership-efficiency": 2,
+            "readable-composition": 1,
+            "structured-source-error": 2,
+            "total-field-parsing": 2,
+            "validated-percentage": 2
+          },
+          "with_skill": {
+            "enum-not-booleans": 2,
+            "ownership-efficiency": 2,
+            "readable-composition": 2,
+            "structured-source-error": 2,
+            "total-field-parsing": 2,
+            "validated-percentage": 2
+          }
+        },
+        "totals": {
+          "baseline": 11,
+          "with_skill": 12
+        },
+        "winner": "with_skill"
+      }
+    ],
+    "improvement_points": 6,
+    "no_case_regressions": true,
+    "with_skill_case_wins": 3,
+    "with_skill_total": 36
+  },
+  "claim_scope": "Claude Code trigger qualification and zero-tool behavior comparison; not cross-harness portability",
+  "generated_at": "2026-08-16T13:20:08+00:00",
+  "grader_profile": {
+    "effort": "high",
+    "model_alias": "opus",
+    "tools": []
+  },
+  "passed": true,
+  "run_manifest_sha256": "2a93974a0e6fa495673589ae11283ecf424599512297ec95b66db2114e8b505d",
+  "runner_profile": {
+    "behavior_tools": [],
+    "effort": "high",
+    "mcp_servers": [],
+    "model_alias": "sonnet",
+    "trigger_tools": [
+      "Read",
+      "Skill"
+    ]
+  },
+  "schema_version": 1,
+  "sealed_inputs": {
+    "case_pack_sha256": "8b3cf2660cf07f16792f4aa90d2136d62032c197963f4493c9c18a5b0bc23f0d",
+    "key_manifest_sha256": "ff7c459412ec8f17ec9564011ab20d874ab551e7b97750f8364791454e2e6828",
+    "key_sha256": "936addc0281565c75d02141f00c94d590c5c2c9b3fae0b5d6ccc366de27d6692",
+    "skill_sha256": "50bf4e6a6f7c649b5d0aba7d37d40dbd854a91a185ee80cfe8109217a67ef4e9"
+  },
+  "suite": "write-production-rust-trigger-behavior",
+  "trigger_proof": {
+    "baseline_isolated": true,
+    "near_miss_non_trigger": true,
+    "positive_automatic_trigger": true,
+    "trace_contract_passed": true
+  }
+}

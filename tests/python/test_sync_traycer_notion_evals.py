@@ -109,6 +109,13 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertEqual(evidence["suite_canonical_sha256"], suite_digest)
         self.assertEqual(key_manifest["key_sha256"], "PENDING-COORDINATOR-SEAL")
         self.assertEqual(calibration["status"], "pending")
+        self.assertEqual(calibration["clean_case_count"], 0)
+        self.assertEqual(calibration["seeded_case_count"], 0)
+        self.assertIsNone(calibration["critical_failure_recall"])
+        self.assertIsNone(calibration["noncritical_failure_agreement"])
+        self.assertIsNone(calibration["clean_acceptance_rate"])
+        self.assertEqual(calibration["calibration_set_sha256"], "PENDING-COORDINATOR-SEAL")
+        self.assertEqual(calibration["calibration_report_sha256"], "PENDING-COORDINATOR-SEAL")
         self.assertEqual(evidence["status"], "pending")
         expected_ids = {task["id"] for task in suite["tasks"] if task["kind"] == "positive"}
         self.assertEqual({case["task_id"] for case in key_manifest["cases"]}, expected_ids)

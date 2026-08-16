@@ -42,9 +42,8 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def write_json(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+def format_json(value: Mapping[str, Any]) -> str:
+    return json.dumps(value, indent=2, sort_keys=True) + "\n"
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -505,7 +504,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
         "skill_sha256": sha256_file(SKILL_ROOT / "SKILL.md"),
     }
     manifest_path = run_root / "run-manifest.json"
-    write_json(manifest_path, manifest)
+    manifest_path.write_text(format_json(manifest), encoding="utf-8")
     failures = sum(bool(record["errors"]) for record in records)
     print(f"wrote {manifest_path}")
     print(f"trace contract failures: {failures}")
@@ -795,7 +794,7 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         },
         "passed": passed,
     }
-    write_json(DEFAULT_PROOF_REPORT, report)
+    DEFAULT_PROOF_REPORT.write_text(format_json(report), encoding="utf-8")
     print(f"baseline semantic score: {baseline_total}")
     print(f"with-skill semantic score: {treatment_total}")
     print(f"automatic positive trigger: {trigger['positive_automatic_trigger']}")

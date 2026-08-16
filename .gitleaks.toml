@@ -27,11 +27,11 @@ id = "generic-api-key"
   ]
 
   [[rules.allowlists]]
-  description = "Ignore generated SHA-256 evidence fields in the Rust testing eval"
+  description = "Ignore generated SHA-256 evidence fields in the Notion sync eval"
   condition = "AND"
   regexTarget = "line"
   paths = [
-    '''^evals/test-rust-loaded-content/key-manifest\.json$''',
+    '''^evals/sync-traycer-notion/(key-manifest|calibration-manifest)\.json$''',
   ]
   regexes = [
     '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',

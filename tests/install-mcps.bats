@@ -29,7 +29,7 @@ setup() {
 
 @test "rejects an unsafe local command in a fragment" {
   fragment="$TEST_ROOT/unsafe-fragment.json"
-  cat > "$fragment" <<'EOF'
+  cat >"$fragment" <<'EOF'
 {
   "plugins": {"install": [], "remove": []},
   "mcpServers": {
@@ -48,7 +48,7 @@ EOF
 @test "rejects overridesPlugin outside a Codex stdio entry" {
   fragment="$TEST_ROOT/invalid-claude-override.json"
   jq '.mcpServers["browser-tools"].overridesPlugin = true' \
-    "$REPO_ROOT/mcp/claude/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/claude/mcp-fragment.json" >"$fragment"
 
   run env MCP_CLAUDE_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -60,7 +60,7 @@ EOF
 @test "rejects a non-positive Codex startup timeout" {
   fragment="$TEST_ROOT/invalid-codex-timeout.json"
   jq '.mcpServers["chrome-devtools"].startupTimeoutSec = 0' \
-    "$REPO_ROOT/mcp/codex/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
 
   run env MCP_CODEX_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -72,7 +72,7 @@ EOF
 @test "rejects a fragment that no longer matches the baseline" {
   fragment="$TEST_ROOT/incomplete-fragment.json"
   jq 'del(.mcpServers.github)' \
-    "$REPO_ROOT/mcp/codex/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
 
   run env MCP_CODEX_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -84,7 +84,7 @@ EOF
 @test "rejects an unpinned package in a fragment" {
   fragment="$TEST_ROOT/unpinned-fragment.json"
   jq '(.mcpServers["browser-tools"].args[1]) = "@agentdeskai/browser-tools-mcp@latest"' \
-    "$REPO_ROOT/mcp/codex/mcp-fragment.json" > "$fragment"
+    "$REPO_ROOT/mcp/codex/mcp-fragment.json" >"$fragment"
 
   run env MCP_CODEX_FRAGMENT="$fragment" \
     "$INSTALLER" --dry-run --harness cursor
@@ -136,7 +136,7 @@ EOF
 
 @test "installs Cursor links and backs up an existing config" {
   mkdir -p "$INSTALL_HOME/.cursor"
-  printf 'existing-config\n' > "$INSTALL_HOME/.cursor/mcp.json"
+  printf 'existing-config\n' >"$INSTALL_HOME/.cursor/mcp.json"
 
   run "$INSTALLER" --harness cursor
 
@@ -190,7 +190,7 @@ EOF
   jq -n \
     --arg command "$INSTALL_HOME/.local/bin/npx" \
     '{transport:{type:"stdio",command:$command,args:["-y","@agentdeskai/browser-tools-mcp@1.2.0"]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-browser-tools.json"
+    >"$MCP_TEST_STATE/codex-mcp-browser-tools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -202,7 +202,7 @@ EOF
 @test "replaces a mismatched Codex stdio MCP" {
   printf '%s\n' \
     '{"transport":{"type":"stdio","command":"/unexpected","args":[]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-browser-tools.json"
+    >"$MCP_TEST_STATE/codex-mcp-browser-tools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -214,7 +214,7 @@ EOF
 @test "overlays the Chrome DevTools plugin without removing its server" {
   printf '%s\n' \
     '{"transport":{"type":"stdio","command":"npx","args":["chrome-devtools-mcp@1.7.0"]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -228,7 +228,7 @@ EOF
   jq -n \
     --arg command "$INSTALL_HOME/.local/bin/chrome-devtools-vivaldi" \
     '{transport:{type:"stdio",command:$command,args:[]},startup_timeout_sec:20}' \
-    > "$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
 
   run "$INSTALLER" --dry-run --harness codex
 
@@ -239,14 +239,14 @@ EOF
 
 @test "fails verification when a plugin server masks a missing override" {
   mkdir -p "$INSTALL_HOME/.codex"
-  cat > "$INSTALL_HOME/.codex/config.toml" <<'EOF'
+  cat >"$INSTALL_HOME/.codex/config.toml" <<'EOF'
 [mcp_servers.chrome-devtools]
 command = "npx"
 args = ["chrome-devtools-mcp@1.7.0"]
 EOF
   printf '%s\n' \
     '{"transport":{"type":"stdio","command":"npx","args":["chrome-devtools-mcp@1.7.0"]}}' \
-    > "$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
+    >"$MCP_TEST_STATE/codex-mcp-chrome-devtools.json"
   export MCP_TEST_CODEX_ADD_NOOP=chrome-devtools
 
   run "$INSTALLER" --harness codex
@@ -259,7 +259,7 @@ EOF
   wrapper_dir="$TEST_ROOT/vivaldi-wrapper"
   mkdir -p "$wrapper_dir"
   cp "$VIVALDI_WRAPPER" "$wrapper_dir/chrome-devtools-vivaldi"
-  cat > "$wrapper_dir/npx" <<'EOF'
+  cat >"$wrapper_dir/npx" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*"
 EOF
@@ -353,7 +353,7 @@ EOF
   jq -n \
     --arg command "$INSTALL_HOME/.local/bin/github-mcp-keychain" \
     '{mcpServers:{github:{type:"stdio",command:$command,args:["stdio"]}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -406,7 +406,7 @@ EOF
 @test "keeps a matching Claude HTTP MCP" {
   jq -n \
     '{mcpServers:{hf:{type:"http",url:"https://huggingface.co/mcp"}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -418,7 +418,7 @@ EOF
 @test "replaces a mismatched Claude HTTP MCP" {
   jq -n \
     '{mcpServers:{hf:{type:"http",url:"https://example.invalid/mcp"}}}' \
-    > "$INSTALL_HOME/.claude.json"
+    >"$INSTALL_HOME/.claude.json"
 
   run "$INSTALLER" --dry-run --harness claude
 
@@ -437,7 +437,7 @@ EOF
 }
 
 @test "refuses to overwrite an existing backup" {
-  cat > "$FAKE_BIN/date" <<'EOF'
+  cat >"$FAKE_BIN/date" <<'EOF'
 #!/bin/sh
 printf '20000101-000000\n'
 EOF
@@ -445,7 +445,7 @@ EOF
   mkdir -p \
     "$INSTALL_HOME/.local/bin" \
     "$INSTALL_HOME/.agents/mcp-backups/20000101-000000"
-  printf 'existing-wrapper\n' > "$INSTALL_HOME/.local/bin/aikido-mcp-isolated-home.cjs"
+  printf 'existing-wrapper\n' >"$INSTALL_HOME/.local/bin/aikido-mcp-isolated-home.cjs"
   printf 'existing-backup\n' > \
     "$INSTALL_HOME/.agents/mcp-backups/20000101-000000/local-bin-aikido-mcp-isolated-home.cjs"
 

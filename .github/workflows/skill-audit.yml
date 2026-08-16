@@ -1,0 +1,48 @@
+name: Skill audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit all skills
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vendor/skill-audit/skill-audit/package-lock.json
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+          cache: true
+
+      - name: Build vendored skill-audit
+        run: ./scripts/prepare-vendored-skills.sh
+
+      - name: Test vendored skill-audit
+        run: |
+          npm test --prefix vendor/skill-audit/skill-audit
+          npm audit --prefix vendor/skill-audit/skill-audit --audit-level=high
+
+      - name: Audit every skill
+        run: node scripts/audit-skills.mjs

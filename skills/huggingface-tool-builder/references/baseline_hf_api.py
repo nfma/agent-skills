@@ -48,6 +48,8 @@ def main() -> int:
     url = f"https://huggingface.co/api/models?limit={limit}"
 
     req = urllib.request.Request(url, headers=headers)
+    # The origin is fixed to huggingface.co and the only interpolated value is digits-only.
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     with urllib.request.urlopen(req) as resp:
         sys.stdout.write(resp.read().decode("utf-8"))
     return 0

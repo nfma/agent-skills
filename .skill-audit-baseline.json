@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "selfAuditedSkills": [
+    {
+      "skill": "skill-audit",
+      "reason": "The runner spec-validates this skill, while CI validates its self-referential detection corpus with the complete test and dependency-audit suites."
+    }
+  ],
+  "acceptedFindings": [
+    {
+      "skill": "huggingface-gradio",
+      "id": "PII-007",
+      "severity": "high",
+      "file": "SKILL.md",
+      "line": 287,
+      "evidence": "# {\"Result\": \"/tmp/gradio/.../image.webp\", \"Seed\": 1117868604}",
+      "reason": "The ten-digit value is a generated image seed, not a Vietnamese social-insurance identifier."
+    },
+    {
+      "skill": "huggingface-spaces",
+      "id": "CE06",
+      "severity": "high",
+      "file": "references/3d-cuda-extensions.md (code block)",
+      "line": 1,
+      "evidence": "os.system(\"cd /home/user/app/hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh\")",
+      "reason": "This is a fixed local build command in documentation, with no caller-controlled interpolation."
+    },
+    {
+      "skill": "huggingface-spaces",
+      "id": "CE06",
+      "severity": "high",
+      "file": "references/3d-models.md (code block)",
+      "line": 1,
+      "evidence": "os.system(",
+      "reason": "This documented invocation uses a fixed local command rather than caller-controlled input."
+    },
+    {
+      "skill": "huggingface-spaces",
+      "id": "CE06",
+      "severity": "high",
+      "file": "references/3d-models.md (code block)",
+      "line": 4,
+      "evidence": "os.system(\"cd /home/user/app/hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh\")",
+      "reason": "This is a fixed local build command in documentation, with no caller-controlled interpolation."
+    },
+    {
+      "skill": "huggingface-spaces",
+      "id": "CL01",
+      "severity": "critical",
+      "file": "references/debugging.md (code block)",
+      "line": 1,
+      "evidence": "ssh -i ~/.ssh/hf_dev -o BatchMode=yes -o StrictHostKeyChecking=accept-new \\",
+      "reason": "The documentation references a local SSH key path but contains no credential material."
+    },
+    {
+      "skill": "huggingface-tool-builder",
+      "id": "CE-016",
+      "severity": "critical",
+      "file": "references/find_models_by_paper.sh",
+      "line": 203,
+      "evidence": "            echo \"$model_data\" | base64 -d | jq -r '",
+      "reason": "Decoded JSON is piped to jq for field extraction, not to a shell or interpreter."
+    },
+    {
+      "skill": "transformers-js",
+      "id": "PII-002",
+      "severity": "high",
+      "file": "SKILL.md",
+      "line": 53,
+      "evidence": "// Output: [{ label: 'POSITIVE', score: 0.999817686 }]",
+      "reason": "The nine-digit value is an example model confidence score, not a Vietnamese identity number."
+    }
+  ]
+}

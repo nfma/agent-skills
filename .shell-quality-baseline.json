@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "reviewNotes": {
+    "shellcheck": "Only imported Hugging Face examples are accepted; exact locations gate changes.",
+    "shfmt": "Imported formatting is preserved; SHA-256 diff fingerprints gate changes."
+  },
+  "acceptedFindings": {
+    "shellcheck": [
+      "skills/huggingface-tool-builder/references/find_models_by_paper.sh:123:1:SC2034:warning:CURL_CMD appears unused. Verify use (or export if used externally).",
+      "skills/huggingface-tool-builder/references/find_models_by_paper.sh:230:8:SC2016:info:Expressions don't expand in single quotes, use double quotes for that.",
+      "skills/huggingface-tool-builder/references/find_models_by_paper.sh:34:12:SC2016:info:Expressions don't expand in single quotes, use double quotes for that.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:103:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:114:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:115:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:120:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:129:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:144:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:61:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:64:9:SC2001:style:See if you can use ${variable//search/replace} instead.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:68:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:71:9:SC2001:style:See if you can use ${variable//search/replace} instead.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:75:11:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:78:9:SC2001:style:See if you can use ${variable//search/replace} instead.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:83:15:SC2155:warning:Declare and assign separately to avoid masking return values.",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:86:13:SC2001:style:See if you can use ${variable//search/replace} instead."
+    ],
+    "shfmt": [
+      "skills/huggingface-tool-builder/references/baseline_hf_api.sh:fb40937f4dfad29e92343a94415760c4f6b4565d11fcb0277e00e5ca60bbdc55",
+      "skills/huggingface-tool-builder/references/find_models_by_paper.sh:f36b188d2cdb530fc65b8ec081525dfcd0d8c5f0bc6228b7c4e32afa288db019",
+      "skills/huggingface-tool-builder/references/hf_enrich_models.sh:c12a53549b8c419953acb8300253b31bc5c2b4333b10df482ff28c2f4bf5d9c5",
+      "skills/huggingface-tool-builder/references/hf_model_card_frontmatter.sh:8d1e83983155473e3ca05ad4fdbb18d89b6c25d013f70dad5ba74e5740670666",
+      "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:704570cf09825dc86e068af916722b374782d7e079028db59f05de0e1827cf66"
+    ]
+  }
+}

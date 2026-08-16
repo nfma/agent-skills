@@ -21,9 +21,7 @@ fi
 log_file="$HOME/Library/Logs/hf-mcp-remote.log"
 
 start_bridge() {
-  exec "$launcher_root/nvm-default-exec" node "$filter" \
-    "$npx_launcher" -y mcp-remote@0.1.38 "https://huggingface.co/mcp" \
-    --header 'Authorization: Bearer ${HF_MCP_TOKEN}'
+  exec "$launcher_root/nvm-default-exec" node "$filter"
 }
 
 if [ "${HF_MCP_LOG_STDERR:-1}" = 0 ]; then

@@ -2,6 +2,8 @@
 
 set -eu
 
+# Assigning CDPATH only for cd prevents inherited values from changing output.
+# shellcheck disable=SC1007
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 skill_audit_dir="$repo_root/vendor/skill-audit/skill-audit"
 

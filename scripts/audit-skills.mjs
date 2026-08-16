@@ -52,27 +52,15 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const skillsRoot = resolve(repositoryRoot, "skills");
 const baselinePath = resolve(repositoryRoot, ".skill-audit-baseline.json");
 const ignoredDirectories = new Set([".git", "node_modules"]);
-const skillAuditDistUrl = new URL(
-  "../vendor/skill-audit/skill-audit/dist/",
-  import.meta.url,
+const skillAudit = await import(
+  new URL("../vendor/skill-audit/dist/skill-audit.mjs", import.meta.url).href
 );
-
-const { scanDependencies } = /** @type {DependencyModule} */ (
-  await import(new URL("deps.js", skillAuditDistUrl).href)
-);
-const { reportGroupedResults } = /** @type {ReporterModule} */ (
-  await import(new URL("grouped-reporter.js", skillAuditDistUrl).href)
-);
+const { scanDependencies } = /** @type {DependencyModule} */ (skillAudit);
+const { reportGroupedResults } = /** @type {ReporterModule} */ (skillAudit);
 const { createGroupedAuditResult, groupSecurityFindings } =
-  /** @type {ScoringModule} */ (
-    await import(new URL("scoring.js", skillAuditDistUrl).href)
-  );
-const { auditSecurity } = /** @type {SecurityModule} */ (
-  await import(new URL("security.js", skillAuditDistUrl).href)
-);
-const { validateSkillSpec } = /** @type {SpecModule} */ (
-  await import(new URL("spec.js", skillAuditDistUrl).href)
-);
+  /** @type {ScoringModule} */ (skillAudit);
+const { auditSecurity } = /** @type {SecurityModule} */ (skillAudit);
+const { validateSkillSpec } = /** @type {SpecModule} */ (skillAudit);
 
 /** @returns {AuditBaseline} */
 function loadBaseline() {

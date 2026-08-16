@@ -2,15 +2,16 @@
   "name": "agent-skills",
   "private": true,
   "scripts": {
-    "format:check": "prettier --check \".github/**/*.yml\" \".*-baseline.json\" \"eslint.config.mjs\" \"mcp/bin/*.{js,cjs}\" \"package*.json\" \"scripts/*.mjs\" \"skills/huggingface-tool-builder/references/*.tsx\" \"tests/**/*.js\" \"tsconfig.json\"",
+    "format:check": "prettier --check \".github/**/*.yml\" \".*-baseline.json\" \".skill-audit-release.json\" \"eslint.config.mjs\" \"mcp/bin/*.{js,cjs}\" \"package*.json\" \"scripts/*.mjs\" \"skills/huggingface-tool-builder/references/*.tsx\" \"tests/**/*.js\" \"tsconfig.json\"",
     "lint:js": "eslint mcp/bin scripts tests skills/huggingface-tool-builder/references/baseline_hf_api.tsx --max-warnings 0",
     "lint:python": "node scripts/check-python-quality.mjs",
     "lint:shell": "node scripts/check-shell-quality.mjs",
-    "test": "npm run test:installer && npm run test:codex-config && npm run test:sync-skills && npm run test:hf-filter && npm run test:workflow-security && npm run test:python",
+    "test": "npm run test:installer && npm run test:codex-config && npm run test:sync-skills && npm run test:hf-filter && npm run test:skill-audit-release && npm run test:workflow-security && npm run test:python",
     "test:codex-config": "node --test tests/update-codex-mcp-config.test.js",
     "test:hf-filter": "node --test tests/hf-mcp-filter.test.js",
     "test:installer": "bats tests/install-mcps.bats",
     "test:python": "PYTHONDONTWRITEBYTECODE=1 uv run --frozen python -m unittest discover -s tests/python -p 'test_*.py'",
+    "test:skill-audit-release": "./scripts/prepare-vendored-skills.sh && node --test tests/skill-audit-release.test.js",
     "test:sync-skills": "bats tests/sync-agent-skills.bats",
     "test:workflow-security": "node --test tests/sonar-workflow.test.js",
     "typecheck": "node ./node_modules/typescript-7/bin/tsc --project tsconfig.json"

@@ -36,3 +36,12 @@ id = "generic-api-key"
   regexes = [
     '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
   ]
+
+  [[rules.allowlists]]
+  description = "Ignore generated SHA-256 evidence fields in the Rust loaded-content eval"
+  condition = "AND"
+  regexTarget = "line"
+  paths = ['''^evals/test-rust-loaded-content/key-manifest\.json$''']
+  regexes = [
+    '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
+  ]

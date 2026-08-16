@@ -26,7 +26,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -170,8 +169,6 @@ jobs:
           --metrics=off
           --exclude node_modules
           --exclude .venv
-          --exclude vendor/skill-audit/skill-audit/node_modules
-          --exclude vendor/skill-audit/skill-audit/dist
           .
 
       - name: Scan Git history for secrets
@@ -190,7 +187,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          submodules: recursive
 
       - name: Set up Trivy
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
@@ -206,6 +202,4 @@ jobs:
           --exit-code 1
           --skip-dirs node_modules
           --skip-dirs .venv
-          --skip-dirs vendor/skill-audit/skill-audit/node_modules
-          --skip-dirs vendor/skill-audit/skill-audit/dist
           .

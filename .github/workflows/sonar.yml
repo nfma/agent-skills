@@ -42,7 +42,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          submodules: recursive
 
       - name: Check for SonarQube Cloud token
         if: steps.trust.outputs.trusted == 'true'

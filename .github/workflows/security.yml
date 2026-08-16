@@ -43,6 +43,39 @@ jobs:
           echo "$RUNNER_TEMP/ci-tools" >> "$GITHUB_PATH"
           uv sync --frozen --no-build
 
+      - name: Verify narrow Gitleaks allowlist
+        run: |
+          set -eu
+
+          probe_root="$(mktemp -d)"
+          trap 'rm -rf "$probe_root"' EXIT
+          mkdir -p "$probe_root/allowed" "$probe_root/rejected"
+          checksum="$(printf '%s' 'gitleaks-regression-probe' | sha256sum | cut -d ' ' -f 1)"
+
+          for repository in "$probe_root/allowed" "$probe_root/rejected"; do
+            git -C "$repository" init --quiet
+            git -C "$repository" config user.name "Gitleaks regression probe"
+            git -C "$repository" config user.email "gitleaks-probe@example.invalid"
+          done
+
+          printf '  "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:%s"\n' \
+            "$checksum" > "$probe_root/allowed/.shell-quality-baseline.json"
+          printf '  "api_key": "%s"\n' \
+            "$checksum" > "$probe_root/rejected/.shell-quality-baseline.json"
+
+          git -C "$probe_root/allowed" add .shell-quality-baseline.json
+          git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+            -C "$probe_root/allowed" commit --quiet --message "Add allowed checksum"
+          git -C "$probe_root/rejected" add .shell-quality-baseline.json
+          git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+            -C "$probe_root/rejected" commit --quiet --message "Add rejected secret"
+
+          gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/allowed"
+          if gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/rejected"; then
+            echo "Gitleaks accepted a non-baseline secret-like value" >&2
+            exit 1
+          fi
+
       - name: Run Semgrep community security rules
         run: >-
           uv run --frozen --no-build semgrep scan

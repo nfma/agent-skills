@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: UP045  # Keep the verifier executable on Python 3.9.
 """Snapshot Git-authored content and verify writes stayed in package tests/ roots."""
 
 from __future__ import annotations
@@ -126,6 +127,30 @@ def _local_gitlinks(root: Path) -> dict[str, str]:
     return gitlinks
 
 
+def _resolve_gitlink_repository(
+    root: Path,
+    repository: Path,
+    relative: str,
+    logical: str,
+    visited: set[Path],
+) -> Optional[Path]:
+    candidate = repository / relative
+    if not candidate.is_dir():
+        return None
+    resolved = candidate.resolve(strict=True)
+    if not _inside(resolved, root):
+        raise BoundaryError(f"submodule escapes the workspace: {logical}")
+    try:
+        top_level = Path(os.fsdecode(_git_bytes(resolved, ["rev-parse", "--show-toplevel"])).strip()).resolve(
+            strict=True
+        )
+    except BoundaryError:
+        return None
+    if top_level != resolved or resolved in visited:
+        return None
+    return resolved
+
+
 def _git_repositories(root: Path) -> tuple[list[tuple[str, Path]], dict[str, str], list[str]]:
     repositories: list[tuple[str, Path]] = [("", root)]
     gitlinks: dict[str, str] = {}
@@ -138,21 +163,8 @@ def _git_repositories(root: Path) -> tuple[list[tuple[str, Path]], dict[str, str
         for relative, object_id in _local_gitlinks(repository).items():
             logical = _join_repo_path(prefix, relative)
             gitlinks[logical] = object_id
-            candidate = repository / relative
-            if not candidate.is_dir():
-                unavailable.append(logical)
-                continue
-            resolved = candidate.resolve(strict=True)
-            if not _inside(resolved, root):
-                raise BoundaryError(f"submodule escapes the workspace: {logical}")
-            try:
-                top_level = Path(os.fsdecode(_git_bytes(resolved, ["rev-parse", "--show-toplevel"])).strip()).resolve(
-                    strict=True
-                )
-            except BoundaryError:
-                unavailable.append(logical)
-                continue
-            if top_level != resolved or resolved in visited:
+            resolved = _resolve_gitlink_repository(root, repository, relative, logical, visited)
+            if resolved is None:
                 unavailable.append(logical)
                 continue
             visited.add(resolved)
@@ -217,19 +229,22 @@ def _matches_scratch_exclusion(relative: str, exclusions: Iterable[str]) -> bool
 
 
 def _git_ignores_path(root: Path, relative: str) -> bool:
-    command = ["git", "-C", str(root), "check-ignore", "--no-index", "-q", "--", relative]
-    try:
-        result = subprocess.run(  # nosec B603
-            command,
-            check=False,
-            capture_output=True,
-        )
-    except OSError as exc:
-        raise BoundaryError(f"cannot run Git: {exc}") from exc
-    if result.returncode not in {0, 1}:
-        detail = result.stderr.decode(errors="replace").strip()
-        raise BoundaryError(f"Git check-ignore failed for {relative}: {detail}")
-    return result.returncode == 0
+    for candidate in (relative, f"{relative.rstrip('/')}/"):
+        command = ["git", "-C", str(root), "check-ignore", "--no-index", "-q", "--", candidate]
+        try:
+            result = subprocess.run(  # nosec B603
+                command,
+                check=False,
+                capture_output=True,
+            )
+        except OSError as exc:
+            raise BoundaryError(f"cannot run Git: {exc}") from exc
+        if result.returncode not in {0, 1}:
+            detail = result.stderr.decode(errors="replace").strip()
+            raise BoundaryError(f"Git check-ignore failed for {relative}: {detail}")
+        if result.returncode == 0:
+            return True
+    return False
 
 
 def _scratch_exclusions(root: Path, raw_paths: Iterable[str], test_roots: list[str]) -> list[str]:
@@ -431,6 +446,58 @@ def _normalise_approved_deletions(raw_paths: Iterable[str], roots: list[str]) ->
     return approved
 
 
+def _new_move_identity(
+    relative: str,
+    before: dict[str, dict[str, Any]],
+    after: dict[str, dict[str, Any]],
+    roots: list[str],
+) -> Optional[tuple[str, int]]:
+    previous = before.get(relative)
+    current = after.get(relative)
+    if previous and previous.get("kind") != "missing":
+        return None
+    if not current or current.get("kind") != "file" or not _is_allowed(relative, roots):
+        return None
+    size = int(current.get("size", -1))
+    if size <= 0:
+        return None
+    return str(current.get("sha256")), size
+
+
+def _clean_source_identity(
+    source: str,
+    before: dict[str, dict[str, Any]],
+    clean_tracked: set[str],
+    roots: list[str],
+) -> Optional[tuple[str, int]]:
+    if source not in clean_tracked:
+        return None
+    previous = before.get(source, {})
+    if previous.get("kind") != "file" or not _is_allowed(source, roots):
+        return None
+    size = int(previous.get("size", -1))
+    if size <= 0:
+        return None
+    return str(previous.get("sha256")), size
+
+
+def _take_matching_destination(
+    source: str,
+    identity: tuple[str, int],
+    destinations: dict[tuple[str, int], list[str]],
+) -> Optional[str]:
+    candidates = [
+        candidate
+        for candidate in destinations.get(identity, [])
+        if Path(candidate).suffix.casefold() == Path(source).suffix.casefold()
+    ]
+    if not candidates:
+        return None
+    destination = candidates[0]
+    destinations[identity].remove(destination)
+    return destination
+
+
 def _detect_clean_moves(
     before: dict[str, dict[str, Any]],
     after: dict[str, dict[str, Any]],
@@ -441,38 +508,18 @@ def _detect_clean_moves(
 ) -> dict[str, str]:
     destinations: dict[tuple[str, int], list[str]] = {}
     for relative in changed:
-        previous = before.get(relative)
-        current = after.get(relative)
-        if previous and previous.get("kind") != "missing":
-            continue
-        if not current or current.get("kind") != "file" or not _is_allowed(relative, roots):
-            continue
-        size = int(current.get("size", -1))
-        if size <= 0:
-            continue
-        key = (str(current.get("sha256")), size)
-        destinations.setdefault(key, []).append(relative)
+        identity = _new_move_identity(relative, before, after, roots)
+        if identity is not None:
+            destinations.setdefault(identity, []).append(relative)
 
     moves: dict[str, str] = {}
     for source in sorted(deleted_files):
-        if source not in clean_tracked:
-            continue
-        previous = before.get(source, {})
-        if previous.get("kind") != "file" or not _is_allowed(source, roots):
-            continue
-        size = int(previous.get("size", -1))
-        if size <= 0:
-            continue
-        key = (str(previous.get("sha256")), size)
-        candidates = [
-            candidate
-            for candidate in destinations.get(key, [])
-            if Path(candidate).suffix.casefold() == Path(source).suffix.casefold()
-        ]
-        if candidates:
-            destination = candidates[0]
+        identity = _clean_source_identity(source, before, clean_tracked, roots)
+        if identity is not None:
+            destination = _take_matching_destination(source, identity, destinations)
+            if destination is None:
+                continue
             moves[source] = destination
-            destinations[key].remove(destination)
     return moves
 
 
@@ -551,6 +598,49 @@ def _snapshot_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _deleted_files(
+    before: dict[str, dict[str, Any]],
+    after: dict[str, dict[str, Any]],
+    changed: list[str],
+) -> set[str]:
+    return {
+        relative
+        for relative in changed
+        if before.get(relative, {}).get("kind") == "file" and after.get(relative, {}).get("kind") != "file"
+    }
+
+
+def _changed_path_violation(
+    relative: str,
+    current: Optional[dict[str, Any]],
+    roots: list[str],
+    deletions: set[str],
+    clean_tracked: set[str],
+    approved: set[str],
+) -> Optional[str]:
+    if not _is_allowed(relative, roots):
+        return relative
+    if relative in deletions:
+        if relative not in clean_tracked:
+            return f"{relative} (baseline-dirty or untracked test deletion)"
+        if relative not in approved:
+            return f"{relative} (unapproved clean test deletion)"
+    if current and current.get("kind") in INVALID_CHANGED_KINDS:
+        return f"{relative} ({current.get('kind')})"
+    return None
+
+
+def _print_verification_notices(
+    excluded_scratch: list[str],
+    moves: dict[str, str],
+    gitlinks: dict[str, str],
+    unavailable_gitlinks: list[str],
+) -> None:
+    _print_ignored_notice(excluded_scratch)
+    _print_move_notice(moves)
+    _print_gitlink_notice(gitlinks, unavailable_gitlinks)
+
+
 def _verify_command(args: argparse.Namespace) -> int:
     root = _resolve_root(args.workspace)
     _assert_git_root(root)
@@ -579,14 +669,9 @@ def _verify_command(args: argparse.Namespace) -> int:
     )
     changed = sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
     clean_tracked = set(payload["clean_tracked_test_files"])
-    deleted_files = {
-        relative
-        for relative in changed
-        if before.get(relative, {}).get("kind") not in {None, "directory", "missing"}
-        and after.get(relative, {}).get("kind") in {None, "missing"}
-    }
+    deleted_files = _deleted_files(before, after, changed)
     moves = _detect_clean_moves(before, after, changed, deleted_files, clean_tracked, roots)
-    deletions = deleted_files - set(moves)
+    deletions = deleted_files
 
     violations: list[str] = []
     new_builtin_scratch = sorted(
@@ -596,18 +681,18 @@ def _verify_command(args: argparse.Namespace) -> int:
     )
     violations.extend(f"{path} (new scratch root appeared during the run)" for path in new_builtin_scratch)
     for relative in changed:
-        current = after.get(relative)
-        if not _is_allowed(relative, roots):
-            violations.append(relative)
-        elif relative in deletions:
-            if relative not in clean_tracked:
-                violations.append(f"{relative} (baseline-dirty or untracked test deletion)")
-            elif relative not in approved:
-                violations.append(f"{relative} (unapproved clean test deletion)")
-        elif current and current.get("kind") in INVALID_CHANGED_KINDS:
-            violations.append(f"{relative} ({current.get('kind')})")
+        violation = _changed_path_violation(
+            relative,
+            after.get(relative),
+            roots,
+            deletions,
+            clean_tracked,
+            approved,
+        )
+        if violation is not None:
+            violations.append(violation)
 
-    unused_approvals = sorted(approved - deletions - set(moves))
+    unused_approvals = sorted(approved - deletions)
     violations.extend(f"{path} (approved deletion was not observed)" for path in unused_approvals)
 
     excluded_scratch = sorted(path for path in ignored if _matches_scratch_exclusion(path, scratch_exclusions))
@@ -616,17 +701,13 @@ def _verify_command(args: argparse.Namespace) -> int:
         for relative in violations:
             print(f"  {relative}", file=sys.stderr)
         print(f"clean moves={len(moves)}; approved deletions={len(approved)}")
-        _print_ignored_notice(excluded_scratch)
-        _print_move_notice(moves)
-        _print_gitlink_notice(gitlinks, unavailable_gitlinks)
+        _print_verification_notices(excluded_scratch, moves, gitlinks, unavailable_gitlinks)
         return 1
     print(
         f"boundary ok: {len(changed)} changed entries within package tests/ roots; "
         f"clean moves={len(moves)}; approved deletions={len(approved)}"
     )
-    _print_ignored_notice(excluded_scratch)
-    _print_move_notice(moves)
-    _print_gitlink_notice(gitlinks, unavailable_gitlinks)
+    _print_verification_notices(excluded_scratch, moves, gitlinks, unavailable_gitlinks)
     return 0
 
 
@@ -665,7 +746,7 @@ def main(argv: Optional[list[str]] = None) -> int:  # noqa: UP045 -- Python 3.9 
     args = _parser().parse_args(argv)
     try:
         return int(args.handler(args))
-    except BoundaryError as exc:
+    except (BoundaryError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

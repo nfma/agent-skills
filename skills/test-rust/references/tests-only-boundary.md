@@ -61,9 +61,10 @@ reviewed property or faster evidence subsumes it, and obtain user approval. Pass
 each approved repository-relative path to verification with
 `--allow-test-deletion`; the verifier rejects blanket or mismatched approvals.
 Non-empty same-content renames within allowed test roots and the same file suffix
-are paired by content digest and reported as exact source-to-destination moves.
-Zero-byte files, cross-kind copies, and renames combined with edits are not
-provably lossless and still require approval for deletion of the original.
+are paired by content digest and reported as exact source-to-destination audit
+context. Pairing does not prove provenance or waive consent: every clean tracked
+source deletion still requires exact approval. Zero-byte files, cross-kind
+copies, and renames combined with edits are not paired.
 
 For repository tools:
 

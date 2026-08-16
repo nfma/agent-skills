@@ -5,27 +5,27 @@ Recheck by 2026-11-15 or on any drift signal below.
 
 ## Capability table
 
-| Technique/tool | Tests-only status | Required existing capability |
-| --- | --- | --- |
-| `std` integration and CLI tests | Available | Public library API or binary target |
-| Tables, bounded exhaustive, metamorphic/differential loops | Available | Oracle expressible with current dependencies |
-| Proptest/QuickCheck | Requires wiring | Existing dev-dependency |
-| Stateful/model PBT | Requires wiring | Existing dependency/API; current Proptest model is sequential |
-| Trybuild/compile-UI | Requires wiring | Existing dev-dependency/harness |
-| Snapshot/approval libraries | Requires wiring | Existing dependency; redirect pending output |
-| Tokio paused time | Requires wiring | Existing Tokio `test-util` feature |
-| Loom | Requires wiring; otherwise unavailable | Production synchronization/cfg and manifest already compatible |
-| Shuttle | Requires wiring; otherwise unavailable | Production code already uses compatible primitives/features |
-| Turmoil | Requires wiring; otherwise unavailable | Production networking already simulator-compatible |
-| Kani integration harness | Available when installed | `cargo kani --tests`, `#[cfg(kani)]`, public API; no manifest dependency needed |
-| Miri/sanitizers | Run-only when installed and setup-complete | Supported toolchain/component, no first-run sysroot/setup mutation, reachable path |
-| Cargo Fuzz | Structurally unavailable to author | Conventional root `fuzz/` package; existing harness run-only in disposable copy |
-| Criterion | Structurally unavailable to author | Conventional `benches/` plus manifest entry; existing benches run-only |
-| Nextest | Available when installed | Use for tests; run existing doctests separately with Cargo |
-| cargo-semver-checks | Available when installed | Explicit authorized registry, revision, root, or rustdoc baseline; required toolchain already installed |
-| cargo-llvm-cov | Available when installed | Redirect target, profiles, and reports; coverage remains diagnostic |
-| Lean | Available when installed | Sources under `tests/formal/lean`; generated state external |
-| TLA+/TLC | Available when installed | Models under `tests/formal/tla`; TLC state external |
+| Technique/tool                                             | Tests-only status                                          | Required existing capability                                                                                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `std` integration and CLI tests                            | Available                                                  | Public library API or binary target                                                                                                     |
+| Tables, bounded exhaustive, metamorphic/differential loops | Available                                                  | Oracle expressible with current dependencies                                                                                            |
+| Proptest/QuickCheck                                        | Requires wiring                                            | Existing dev-dependency                                                                                                                 |
+| Stateful/model PBT                                         | Requires wiring                                            | Existing dependency/API; current Proptest model is sequential                                                                           |
+| Trybuild/compile-UI                                        | Requires wiring                                            | Existing dev-dependency/harness                                                                                                         |
+| Snapshot/approval libraries                                | Requires wiring                                            | Existing dependency; redirect pending output                                                                                            |
+| Tokio paused time                                          | Requires wiring                                            | Existing Tokio `test-util` feature                                                                                                      |
+| Loom                                                       | Requires wiring; otherwise unavailable                     | Production synchronization/cfg and manifest already compatible                                                                          |
+| Shuttle                                                    | Requires wiring; otherwise unavailable                     | Production code already uses compatible primitives/features                                                                             |
+| Turmoil                                                    | Requires wiring; otherwise unavailable                     | Production networking already simulator-compatible                                                                                      |
+| Kani integration harness                                   | Available when installed                                   | `cargo kani --tests`, `#[cfg(kani)]`, public API; no manifest dependency needed                                                         |
+| Miri/sanitizers                                            | Run-only when installed and setup-complete                 | Supported toolchain/component, no first-run sysroot/setup mutation, reachable path                                                      |
+| Cargo Fuzz                                                 | Structurally unavailable to author                         | Conventional root `fuzz/` package; existing harness run-only in disposable copy                                                         |
+| Criterion                                                  | Structurally unavailable to author                         | Conventional `benches/` plus manifest entry; existing benches run-only                                                                  |
+| Nextest                                                    | Available when installed                                   | Use for tests; run existing doctests separately with Cargo                                                                              |
+| cargo-semver-checks                                        | Available when installed                                   | Explicit authorized registry, revision, root, or rustdoc baseline; required toolchain already installed                                 |
+| cargo-llvm-cov                                             | Available when installed                                   | Redirect target, profiles, and reports; coverage remains diagnostic                                                                     |
+| Lean                                                       | Available when the required toolchain is already installed | Direct sources under `tests/formal/lean`; no proof holes; generated `.lake`/`.olean`/`.ilean` external or Lake run in a disposable copy |
+| TLA+/TLC                                                   | Available when installed                                   | Models under `tests/formal/tla`; TLC state external                                                                                     |
 
 "Available" means the skill can author or run evidence without changing a
 forbidden repository path. It does not mean the technique is strategically

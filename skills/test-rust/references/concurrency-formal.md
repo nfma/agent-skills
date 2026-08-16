@@ -2,15 +2,15 @@
 
 ## Control the source of nondeterminism
 
-| Risk | Lowest candidate | Boundary condition | Escalate when |
-| --- | --- | --- | --- |
-| Timer, timeout, retry, backoff | Existing Tokio paused time or public clock seam | Tokio `test-util` or seam already exists | Multiple actors/network faults change ordering |
-| Sequential stateful workflow | Model-based PBT | Existing PBT dependency | Concurrent schedules change results |
-| Small lock/atomic/channel primitive | Loom | Production synchronization/cfg and manifest already support Loom | State space or scenario outgrows exhaustive model |
-| Larger task/thread scenario | Shuttle | Code already uses compatible primitives/features | Protocol safety/liveness itself is disputed |
-| Delay, partition, disconnect, crash/restart | Turmoil | Production networking is already simulator-compatible | Abstract protocol state needs exhaustive analysis |
-| Bounded public Rust property | Kani | Kani installed; harness reachable under `tests/` | Invariant is unbounded or protocol-level |
-| Protocol safety/liveness | TLA+ with TLC | Tool installed; stable model and bridge | Proof/model assumptions need stronger reasoning |
+| Risk                                        | Lowest candidate                                | Boundary condition                                               | Escalate when                                     |
+| ------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| Timer, timeout, retry, backoff              | Existing Tokio paused time or public clock seam | Tokio `test-util` or seam already exists                         | Multiple actors/network faults change ordering    |
+| Sequential stateful workflow                | Model-based PBT                                 | Existing PBT dependency                                          | Concurrent schedules change results               |
+| Small lock/atomic/channel primitive         | Loom                                            | Production synchronization/cfg and manifest already support Loom | State space or scenario outgrows exhaustive model |
+| Larger task/thread scenario                 | Shuttle                                         | Code already uses compatible primitives/features                 | Protocol safety/liveness itself is disputed       |
+| Delay, partition, disconnect, crash/restart | Turmoil                                         | Production networking is already simulator-compatible            | Abstract protocol state needs exhaustive analysis |
+| Bounded public Rust property                | Kani                                            | Kani installed; harness reachable under `tests/`                 | Invariant is unbounded or protocol-level          |
+| Protocol safety/liveness                    | TLA+ with TLC                                   | Tool installed; stable model and bridge                          | Proof/model assumptions need stronger reasoning   |
 
 Never use wall-clock sleeps for synchronization. A passing random schedule is a
 sample. A passing bounded exploration establishes only its explicit bounds and
@@ -44,14 +44,15 @@ Subjective complexity alone is not a trigger.
 Choose:
 
 - **Lean** for stable pure domain logic with inductive or unbounded mathematical
-  invariants;
+  invariants; then follow `lean-business-logic.md` for proof and bridge rules;
 - **TLA+ with TLC** for concurrent/distributed actions, safety, and liveness;
 - **Kani** for bounded executable Rust properties; or
 - **ordinary/state-machine PBT** when sampling and shrinking adequately control
   the risk.
 
-Author Lean/TLA+ source below `tests/formal/`. Keep generated `.lake`, TLC state,
-and bulk reports external or use a disposable copy. Do not install the tools.
+Author Lean/TLA+ source below `tests/formal/`. Keep generated `.lake`, `.olean`,
+`.ilean`, TLC state, and bulk reports external or use a disposable copy. Do not
+install the tools.
 
 ## Implementation bridge
 

@@ -8,7 +8,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import shutil
 
 # The runner invokes fixed local tools without a shell.
@@ -36,6 +35,11 @@ EXPECTED_TLA_FILES = (
     "SettlementLivenessBug.tla",
     "SettlementLivenessBug.cfg",
 )
+REQUIRED_CASE_IDS = {"lean-business-logic", "pbt-mutation", "tla-protocol"}
+SOURCE_LIBRARY_PATH = Path("src/lib.rs")
+LEAN_SOURCE_PATH = Path("tests/formal/lean/CreditAllocation.lean")
+LEAN_MODEL_SCOPE_MARKER = "-- proof-scope: model-only; does-not-prove-rust"
+PROTEST_SIGNATURE_LIMIT = 1000
 
 
 class EvalError(RuntimeError):
@@ -152,38 +156,39 @@ def command_text(result: Mapping[str, Any]) -> str:
     return stdout + "\n" + stderr
 
 
+def _validated_case(raw_case: Any, suite_path: Path, seen: set[str]) -> Dict[str, Any]:
+    if not isinstance(raw_case, dict):
+        raise EvalError("every execution case must be an object")
+    case_id = raw_case.get("id")
+    fixture = raw_case.get("fixture")
+    prompt = raw_case.get("prompt")
+    if not isinstance(case_id, str) or not case_id:
+        raise EvalError("every execution case needs non-empty id, fixture, and prompt")
+    if not all(isinstance(item, str) and item for item in (fixture, prompt)):
+        raise EvalError("every execution case needs non-empty id, fixture, and prompt")
+    if case_id in seen:
+        raise EvalError(f"duplicate execution case id: {case_id}")
+    seen.add(case_id)
+    fixture_root = (suite_path.parent / str(fixture)).resolve(strict=True)
+    if not path_is_within(fixture_root, suite_path.parent / "fixtures"):
+        raise EvalError(f"fixture escapes the suite: {fixture}")
+    if SKILL_NAME.casefold() in str(prompt).casefold():
+        raise EvalError(f"{case_id} prompt explicitly names the skill")
+    return {**raw_case, "fixture_root": fixture_root}
+
+
 def validated_suite(path: Path) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     suite = read_json(path)
-    if (
-        suite.get("schema_version") != SCHEMA_VERSION
-        or suite.get("suite") != SUITE_NAME
-        or suite.get("skill_name") != SKILL_NAME
-    ):
+    identity = (suite.get("schema_version"), suite.get("suite"), suite.get("skill_name"))
+    if identity != (SCHEMA_VERSION, SUITE_NAME, SKILL_NAME):
         raise EvalError("suite schema, name, or skill does not match the runner")
     raw_cases = suite.get("cases")
     if not isinstance(raw_cases, list) or not raw_cases:
         raise EvalError("suite cases must be a non-empty list")
-    cases: List[Dict[str, Any]] = []
-    seen = set()
-    for raw_case in raw_cases:
-        if not isinstance(raw_case, dict):
-            raise EvalError("every execution case must be an object")
-        case_id = raw_case.get("id")
-        fixture = raw_case.get("fixture")
-        prompt = raw_case.get("prompt")
-        if not all(isinstance(item, str) and item for item in (case_id, fixture, prompt)):
-            raise EvalError("every execution case needs non-empty id, fixture, and prompt")
-        if case_id in seen:
-            raise EvalError(f"duplicate execution case id: {case_id}")
-        seen.add(case_id)
-        fixture_root = (path.parent / str(fixture)).resolve(strict=True)
-        if not path_is_within(fixture_root, path.parent / "fixtures"):
-            raise EvalError(f"fixture escapes the suite: {fixture}")
-        if SKILL_NAME.casefold() in str(prompt).casefold():
-            raise EvalError(f"{case_id} prompt explicitly names the skill")
-        cases.append({**raw_case, "fixture_root": fixture_root})
-    if {case["id"] for case in cases} != {"pbt-mutation", "tla-protocol"}:
-        raise EvalError("the production suite must contain the PBT/mutation and TLA protocol cases")
+    seen: set[str] = set()
+    cases = [_validated_case(raw_case, path, seen) for raw_case in raw_cases]
+    if {case["id"] for case in cases} != REQUIRED_CASE_IDS:
+        raise EvalError(f"the production suite must contain exactly {sorted(REQUIRED_CASE_IDS)}")
     return suite, cases
 
 
@@ -315,6 +320,26 @@ def tool_uses(events: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     return uses
 
 
+def _tool_input(use: Mapping[str, Any]) -> Mapping[str, Any]:
+    inputs = use.get("input")
+    return inputs if isinstance(inputs, dict) else {}
+
+
+def _invoked_skill(use: Mapping[str, Any]) -> Optional[str]:
+    skill = _tool_input(use).get("skill")
+    if use.get("name") == "Skill" and isinstance(skill, str):
+        return skill
+    return None
+
+
+def _edited_path(use: Mapping[str, Any]) -> Optional[str]:
+    if use.get("name") not in {"Edit", "Write"}:
+        return None
+    inputs = _tool_input(use)
+    path = inputs.get("file_path") or inputs.get("path")
+    return path if isinstance(path, str) else None
+
+
 def claude_summary(result: Mapping[str, Any]) -> Dict[str, Any]:
     events = parse_stream_events(Path(str(result["stdout_path"])))
     init_events = [event for event in events if event.get("type") == "system" and event.get("subtype") == "init"]
@@ -324,18 +349,8 @@ def claude_summary(result: Mapping[str, Any]) -> Dict[str, Any]:
     uses = tool_uses(events)
     initialization = init_events[0]
     final = result_events[0]
-    invoked_skills = []
-    edited_paths = []
-    for use in uses:
-        inputs = use.get("input")
-        if not isinstance(inputs, dict):
-            inputs = {}
-        if use.get("name") == "Skill" and isinstance(inputs.get("skill"), str):
-            invoked_skills.append(inputs["skill"])
-        if use.get("name") in {"Edit", "Write"}:
-            path = inputs.get("file_path") or inputs.get("path")
-            if isinstance(path, str):
-                edited_paths.append(path)
+    invoked_skills = [skill for use in uses if (skill := _invoked_skill(use)) is not None]
+    edited_paths = [path for use in uses if (path := _edited_path(use)) is not None]
     return {
         "advertised_skills": initialization.get("skills", []),
         "advertised_tools": initialization.get("tools", []),
@@ -436,15 +451,20 @@ def copy_workspace(workspace: Path, destination: Path) -> None:
 
 def proptest_failure_signature(result: Mapping[str, Any]) -> Optional[str]:
     text = command_text(result)
-    match = re.search(
-        r"(minimal failing input:\s*.*?)(?:\n\s*successes:|\n\s*local rejects:|\n\s*global rejects:)",
-        text,
-        flags=re.DOTALL,
-    )
-    if match:
-        return re.sub(r"\s+", " ", match.group(1)).strip()
+    section: List[str] = []
+    collecting = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("minimal failing input:"):
+            collecting = True
+        elif collecting and stripped.startswith(("successes:", "local rejects:", "global rejects:")):
+            break
+        if collecting:
+            section.append(line)
+    if section:
+        return " ".join("\n".join(section).split())[:PROTEST_SIGNATURE_LIMIT]
     if "Test failed:" in text:
-        return re.sub(r"\s+", " ", text[text.index("Test failed:") :])[:1000]
+        return " ".join(text[text.index("Test failed:") :].split())[:PROTEST_SIGNATURE_LIMIT]
     return None
 
 
@@ -475,16 +495,9 @@ def classify_mutants(
     }
 
 
-def evaluate_pbt_mutation(
-    workspace: Path,
-    evidence: Path,
-    arguments: argparse.Namespace,
-) -> Tuple[Dict[str, Any], List[str]]:
+def _property_artifact_errors(workspace: Path, property_file: Path) -> List[str]:
     errors: List[str] = []
-    property_file = workspace / "tests/property.rs"
     persistence_file = workspace / "tests/proptest-regressions/property.txt"
-    if not property_file.is_file():
-        return {}, ["tests/property.rs was not authored"]
     if not persistence_file.is_file():
         errors.append("tests/proptest-regressions/property.txt was not authored")
     property_source = property_file.read_text(encoding="utf-8")
@@ -496,24 +509,22 @@ def evaluate_pbt_mutation(
     ):
         if required not in property_source:
             errors.append(f"tests/property.rs is missing {required}")
+    return errors
 
-    correct = run_cargo_test(
-        workspace,
-        evidence,
-        evidence / "targets/correct",
-        "cargo-test-correct",
-    )
-    if correct["exit_code"] != 0:
-        errors.append("the unmodified codec test suite did not pass")
 
-    replay_results = []
-    signatures = []
+def _run_checksum_replays(
+    workspace: Path,
+    evidence: Path,
+) -> Tuple[List[Dict[str, Any]], List[str], List[str], List[str]]:
+    errors: List[str] = []
+    replay_results: List[Dict[str, Any]] = []
+    signatures: List[str] = []
     regression_hashes: List[str] = []
     for trial in (1, 2):
         defect = evidence / "defects" / f"checksum-{trial}"
         copy_workspace(workspace, defect)
         apply_unique_replacement(
-            defect / "src/lib.rs",
+            defect / SOURCE_LIBRARY_PATH,
             "if actual != declared {",
             "if actual != declared && actual.wrapping_add(1) != declared {",
         )
@@ -536,7 +547,15 @@ def evaluate_pbt_mutation(
         errors.append("fixed-seed Proptest defect replays produced different minimal failures")
     if not regression_hashes:
         errors.append("the failing Proptest run did not persist a concrete regression")
+    return replay_results, signatures, regression_hashes, errors
 
+
+def _run_mutation_evaluation(
+    workspace: Path,
+    evidence: Path,
+    arguments: argparse.Namespace,
+) -> Tuple[Dict[str, Any], Dict[str, Any], List[str]]:
+    errors: List[str] = []
     mutation_output = evidence / "mutation-output"
     mutation = run_command(
         (
@@ -546,7 +565,7 @@ def evaluate_pbt_mutation(
             str(workspace),
             "--no-config",
             "--file",
-            "src/lib.rs",
+            SOURCE_LIBRARY_PATH.as_posix(),
             "--re",
             "replace parse| in parse$|normalize_checksum|diagnostic_bucket",
             "--output",
@@ -587,6 +606,33 @@ def evaluate_pbt_mutation(
         errors.append("cargo-mutants produced no unviable generic-return mutant")
     if classification.get("unexplained_survivors"):
         errors.append("cargo-mutants left unexplained viable survivors")
+    return mutation, classification, errors
+
+
+def evaluate_pbt_mutation(
+    workspace: Path,
+    evidence: Path,
+    arguments: argparse.Namespace,
+) -> Tuple[Dict[str, Any], List[str]]:
+    property_file = workspace / "tests/property.rs"
+    if not property_file.is_file():
+        return {}, ["tests/property.rs was not authored"]
+    errors = _property_artifact_errors(workspace, property_file)
+    correct = run_cargo_test(
+        workspace,
+        evidence,
+        evidence / "targets/correct",
+        "cargo-test-correct",
+    )
+    if correct["exit_code"] != 0:
+        errors.append("the unmodified codec test suite did not pass")
+    replay_results, signatures, regression_hashes, replay_errors = _run_checksum_replays(
+        workspace,
+        evidence,
+    )
+    errors.extend(replay_errors)
+    mutation, classification, mutation_errors = _run_mutation_evaluation(workspace, evidence, arguments)
+    errors.extend(mutation_errors)
 
     return {
         "cargo_test_correct": correct,
@@ -599,10 +645,21 @@ def evaluate_pbt_mutation(
 
 
 def parse_distinct_states(text: str) -> Optional[int]:
-    matches = re.findall(r"([\d,]+) distinct states found", text)
-    if not matches:
-        return None
-    return max(int(value.replace(",", "")) for value in matches)
+    marker = " distinct states found"
+    values: List[int] = []
+    for line in text.splitlines():
+        prefix, separator, _ = line.partition(marker)
+        if not separator:
+            continue
+        tokens = prefix.rsplit(maxsplit=1)
+        if not tokens:
+            continue
+        token = tokens[-1]
+        try:
+            values.append(int(token.replace(",", "")))
+        except ValueError:
+            continue
+    return max(values) if values else None
 
 
 def run_tlc(
@@ -664,7 +721,7 @@ def evaluate_tla_protocol(
     defect = evidence / "defects/protocol-duplicate-ack"
     copy_workspace(workspace, defect)
     apply_unique_replacement(
-        defect / "src/lib.rs",
+        defect / SOURCE_LIBRARY_PATH,
         "Event::Acknowledge if self.delivered && !self.terminal => {",
         "Event::Acknowledge if self.delivered => {",
     )
@@ -717,6 +774,216 @@ def evaluate_tla_protocol(
     }, errors
 
 
+def run_lean(
+    lean_bin: Path,
+    source: Path,
+    evidence: Path,
+    label: str,
+    timeout_seconds: int,
+) -> Dict[str, Any]:
+    output = evidence / "lean-output" / f"{label}.olean"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return run_command(
+        (str(lean_bin), "--json", "-o", str(output), str(source)),
+        cwd=source.parent,
+        output_directory=evidence,
+        label=label,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def _lean_code_without_comments_or_strings(source: str) -> str:
+    masked: List[str] = []
+    index = 0
+    block_depth = 0
+    in_line_comment = False
+    in_string = False
+    escaped = False
+    while index < len(source):
+        character = source[index]
+        pair = source[index : index + 2]
+        if in_line_comment:
+            if character == "\n":
+                in_line_comment = False
+                masked.append(character)
+            else:
+                masked.append(" ")
+            index += 1
+            continue
+        if block_depth:
+            if pair == "/-":
+                block_depth += 1
+                masked.extend((" ", " "))
+                index += 2
+            elif pair == "-/":
+                block_depth -= 1
+                masked.extend((" ", " "))
+                index += 2
+            else:
+                masked.append("\n" if character == "\n" else " ")
+                index += 1
+            continue
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            masked.append("\n" if character == "\n" else " ")
+            index += 1
+            continue
+        if pair == "--":
+            in_line_comment = True
+            masked.extend((" ", " "))
+            index += 2
+        elif pair == "/-":
+            block_depth = 1
+            masked.extend((" ", " "))
+            index += 2
+        elif character == '"':
+            in_string = True
+            masked.append(" ")
+            index += 1
+        else:
+            masked.append(character)
+            index += 1
+    return "".join(masked)
+
+
+def _lean_declaration_errors(source: str) -> List[str]:
+    code = _lean_code_without_comments_or_strings(source)
+    normalized = "".join(character if character.isalnum() or character == "_" else " " for character in code)
+    tokens = set(normalized.casefold().split())
+    errors = []
+    if "axiom" in tokens:
+        errors.append(f"{LEAN_SOURCE_PATH.as_posix()} contains forbidden axiom declaration")
+    # `constant` is not a Lean 4.33 command, but keep the conservative guard explicit.
+    if "constant" in tokens:
+        errors.append(f"{LEAN_SOURCE_PATH.as_posix()} contains forbidden constant declaration")
+    return errors
+
+
+def _lean_json_messages(result: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    messages: List[Dict[str, Any]] = []
+    for path_key in ("stdout_path", "stderr_path"):
+        text = Path(str(result[path_key])).read_text(encoding="utf-8", errors="replace")
+        for line in text.splitlines():
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                messages.append(payload)
+    return messages
+
+
+def _lean_proof_errors(result: Mapping[str, Any]) -> List[str]:
+    for message in _lean_json_messages(result):
+        kind = str(message.get("kind", "")).casefold()
+        data = str(message.get("data", ""))
+        normalized_data = " ".join(
+            "".join(character if character.isalnum() else " " for character in data.casefold()).split()
+        )
+        if kind == "hassorry" or normalized_data == "declaration uses sorry":
+            return ["Lean proof contains sorry/admit"]
+    return []
+
+
+def _lean_artifact_errors(workspace: Path) -> List[str]:
+    errors: List[str] = []
+    rust_test = workspace / "tests/credit_allocation.rs"
+    lean_source = workspace / LEAN_SOURCE_PATH
+    if not rust_test.is_file():
+        errors.append("tests/credit_allocation.rs was not authored")
+    if not lean_source.is_file():
+        errors.append(f"{LEAN_SOURCE_PATH.as_posix()} was not authored")
+        return errors
+    source = lean_source.read_text(encoding="utf-8")
+    for required in (
+        "def applyCredits : Nat → List Nat → Nat",
+        "applyCredits (subtotal - credit) rest",
+        "theorem applyCredits_le_subtotal",
+    ):
+        if required not in source:
+            errors.append(f"{LEAN_SOURCE_PATH.as_posix()} is missing {required}")
+    if LEAN_MODEL_SCOPE_MARKER not in {line.strip() for line in source.splitlines()}:
+        errors.append(f"{LEAN_SOURCE_PATH.as_posix()} omits the model-to-Rust proof limitation")
+    errors.extend(_lean_declaration_errors(source))
+    return errors
+
+
+def evaluate_lean_business_logic(
+    workspace: Path,
+    evidence: Path,
+    arguments: argparse.Namespace,
+) -> Tuple[Dict[str, Any], List[str]]:
+    errors = _lean_artifact_errors(workspace)
+    if errors:
+        return {}, errors
+    correct_rust = run_cargo_test(
+        workspace,
+        evidence,
+        evidence / "targets/lean-rust-correct",
+        "cargo-test-lean-rust-correct",
+    )
+    if correct_rust["exit_code"] != 0:
+        errors.append("the unmodified credit-allocation tests did not pass")
+
+    rust_defect = evidence / "defects/lean-rust-credit-increase"
+    copy_workspace(workspace, rust_defect)
+    apply_unique_replacement(
+        rust_defect / SOURCE_LIBRARY_PATH,
+        "remaining.saturating_sub(*credit)",
+        "remaining.saturating_add(*credit)",
+    )
+    defect_rust = run_cargo_test(
+        rust_defect,
+        evidence,
+        evidence / "targets/lean-rust-defect",
+        "cargo-test-lean-rust-defect",
+    )
+    if defect_rust["exit_code"] == 0:
+        errors.append("the Rust conformance tests missed the credit-increase defect")
+
+    lean_bin = Path(arguments.lean_bin).expanduser().resolve(strict=True)
+    correct_lean = run_lean(
+        lean_bin,
+        workspace / LEAN_SOURCE_PATH,
+        evidence,
+        "lean-correct",
+        arguments.lean_timeout_seconds,
+    )
+    errors.extend(_lean_proof_errors(correct_lean))
+    if correct_lean["exit_code"] != 0:
+        errors.append("Lean rejected the correct credit-allocation proof")
+
+    lean_defect = evidence / "defects/lean-model-credit-increase"
+    copy_workspace(workspace, lean_defect)
+    apply_unique_replacement(
+        lean_defect / LEAN_SOURCE_PATH,
+        "applyCredits (subtotal - credit) rest",
+        "applyCredits (subtotal + credit) rest",
+    )
+    defect_lean = run_lean(
+        lean_bin,
+        lean_defect / LEAN_SOURCE_PATH,
+        evidence,
+        "lean-seeded-defect",
+        arguments.lean_timeout_seconds,
+    )
+    if defect_lean["exit_code"] == 0:
+        errors.append("Lean accepted the seeded credit-increase model defect")
+
+    return {
+        "cargo_test_correct": correct_rust,
+        "cargo_test_seeded_defect": defect_rust,
+        "lean_bin_sha256": sha256_file(lean_bin),
+        "lean_correct": correct_lean,
+        "lean_seeded_defect": defect_lean,
+    }, errors
+
+
 def version_result(argv: Sequence[str], cwd: Path, evidence: Path, label: str) -> Dict[str, Any]:
     return run_command(
         argv,
@@ -725,6 +992,82 @@ def version_result(argv: Sequence[str], cwd: Path, evidence: Path, label: str) -
         label=label,
         timeout_seconds=30,
     )
+
+
+def _required_tool_path(
+    raw_path: Optional[str],
+    *,
+    flag: str,
+    case_id: str,
+    executable: bool,
+) -> Path:
+    if not raw_path:
+        raise EvalError(f"{flag} is required for case {case_id}")
+    try:
+        path = Path(raw_path).expanduser().resolve(strict=True)
+    except OSError as error:
+        raise EvalError(f"{flag} for case {case_id} is unavailable: {raw_path}") from error
+    if not path.is_file() or (executable and not os.access(path, os.X_OK)):
+        raise EvalError(f"{flag} for case {case_id} is unavailable: {raw_path}")
+    return path
+
+
+def _resolve_selected_tool_paths(
+    arguments: argparse.Namespace,
+    selected_case_ids: set[str],
+) -> Dict[str, Path]:
+    paths: Dict[str, Path] = {}
+    if "lean-business-logic" in selected_case_ids:
+        paths["lean"] = _required_tool_path(
+            arguments.lean_bin,
+            flag="--lean-bin",
+            case_id="lean-business-logic",
+            executable=True,
+        )
+        arguments.lean_bin = str(paths["lean"])
+    if "tla-protocol" in selected_case_ids:
+        paths["tla2tools"] = _required_tool_path(
+            arguments.tla2tools_jar,
+            flag="--tla2tools-jar",
+            case_id="tla-protocol",
+            executable=False,
+        )
+        arguments.tla2tools_jar = str(paths["tla2tools"])
+    return paths
+
+
+def _selected_tool_versions(
+    arguments: argparse.Namespace,
+    selected_case_ids: set[str],
+    versions_root: Path,
+    tool_paths: Mapping[str, Path],
+) -> Dict[str, Dict[str, Any]]:
+    versions = {
+        "cargo": version_result(("cargo", "--version"), REPOSITORY_ROOT, versions_root, "cargo"),
+        "claude": version_result(
+            (arguments.claude_bin, "--version"),
+            REPOSITORY_ROOT,
+            versions_root,
+            "claude",
+        ),
+    }
+    if "pbt-mutation" in selected_case_ids:
+        versions["cargo_mutants"] = version_result(
+            ("cargo", "mutants", "--version"),
+            REPOSITORY_ROOT,
+            versions_root,
+            "cargo-mutants",
+        )
+    if "tla-protocol" in selected_case_ids:
+        versions["java"] = version_result(("java", "-version"), REPOSITORY_ROOT, versions_root, "java")
+    if "lean-business-logic" in selected_case_ids:
+        versions["lean"] = version_result(
+            (str(tool_paths["lean"]), "--version"),
+            REPOSITORY_ROOT,
+            versions_root,
+            "lean",
+        )
+    return versions
 
 
 def warm_dependency_cache(
@@ -748,6 +1091,21 @@ def warm_dependency_cache(
             raise EvalError(f"dependency preflight failed for {case_id}")
         results[case_id] = result
     return results
+
+
+def evaluate_case(
+    case_id: str,
+    workspace: Path,
+    evidence: Path,
+    arguments: argparse.Namespace,
+) -> Tuple[Dict[str, Any], List[str]]:
+    if case_id == "pbt-mutation":
+        return evaluate_pbt_mutation(workspace, evidence, arguments)
+    if case_id == "tla-protocol":
+        return evaluate_tla_protocol(workspace, evidence, arguments)
+    if case_id == "lean-business-logic":
+        return evaluate_lean_business_logic(workspace, evidence, arguments)
+    raise EvalError(f"unsupported execution case: {case_id}")
 
 
 def run_case(
@@ -784,10 +1142,7 @@ def run_case(
 
     evaluation: Dict[str, Any] = {}
     if boundary_after_agent["exit_code"] == 0 and agent.get("success") is True:
-        if case_id == "pbt-mutation":
-            evaluation, evaluation_errors = evaluate_pbt_mutation(workspace, record_root, arguments)
-        else:
-            evaluation, evaluation_errors = evaluate_tla_protocol(workspace, record_root, arguments)
+        evaluation, evaluation_errors = evaluate_case(case_id, workspace, record_root, arguments)
         errors.extend(evaluation_errors)
     boundary_after_tools = verify_boundary(
         workspace,
@@ -817,6 +1172,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
     suite, cases = validated_suite(suite_path)
     selected_case_ids = set(arguments.case or [case["id"] for case in cases])
     cases = [case for case in cases if case["id"] in selected_case_ids]
+    tool_paths = _resolve_selected_tool_paths(arguments, selected_case_ids)
     arms = arguments.arm or ["baseline", "with_skill"]
     partial = len(cases) != len(suite["cases"]) or len(arms) != 2
     if arguments.output:
@@ -827,22 +1183,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
         )
     fixture_hashes_before = {str(case["id"]): sha256_tree(Path(str(case["fixture_root"]))) for case in cases}
     versions_root = run_root / "versions"
-    versions = {
-        "cargo": version_result(("cargo", "--version"), REPOSITORY_ROOT, versions_root, "cargo"),
-        "cargo_mutants": version_result(
-            ("cargo", "mutants", "--version"),
-            REPOSITORY_ROOT,
-            versions_root,
-            "cargo-mutants",
-        ),
-        "claude": version_result(
-            (arguments.claude_bin, "--version"),
-            REPOSITORY_ROOT,
-            versions_root,
-            "claude",
-        ),
-        "java": version_result(("java", "-version"), REPOSITORY_ROOT, versions_root, "java"),
-    }
+    versions = _selected_tool_versions(arguments, selected_case_ids, versions_root, tool_paths)
     dependency_preflight = warm_dependency_cache(cases, run_root)
     records = []
     for case in cases:
@@ -910,8 +1251,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--case",
         action="append",
-        choices=("pbt-mutation", "tla-protocol"),
-        help="run only one case; repeat to select both",
+        choices=tuple(sorted(REQUIRED_CASE_IDS)),
+        help="run only one case; repeat to select more than one",
     )
     parser.add_argument(
         "--arm",
@@ -927,7 +1268,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mutation-timeout-seconds", type=int, default=900)
     parser.add_argument("--mutant-timeout-seconds", type=int, default=30)
     parser.add_argument("--tlc-timeout-seconds", type=int, default=180)
-    parser.add_argument("--tla2tools-jar", required=True)
+    parser.add_argument("--lean-timeout-seconds", type=int, default=180)
+    parser.add_argument("--lean-bin", default=None)
+    parser.add_argument("--tla2tools-jar", default=None)
     return parser
 
 
@@ -935,7 +1278,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         arguments = build_parser().parse_args(argv)
         return run_suite(arguments)
-    except (EvalError, FileNotFoundError, OSError, ValueError) as error:
+    except (EvalError, OSError, ValueError) as error:
         print(f"execution eval error: {error}", file=sys.stderr)
         return 2
 

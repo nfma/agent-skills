@@ -201,17 +201,26 @@ Read [the concurrency and formal-method guide](references/concurrency-formal.md)
 completely before testing async ordering, distributed protocols, Lean models,
 TLA+ specifications, or Kani harnesses.
 
+When Lean is selected, also read
+[the Lean business-logic proof guide](references/lean-business-logic.md)
+completely before authoring or running a proof.
+
 - Never use wall-clock sleeps as synchronization.
 - Use paused time, Loom, Shuttle, or Turmoil only when their required production
   and manifest wiring already exists.
 - Use Kani integration harnesses under `tests/` only when Kani is installed and
   the property is bounded and reachable through the public API.
-- Use Lean for stable pure logic with inductive or unbounded invariants.
+- Use Lean for stable pure business logic with inductive, recursive, algebraic,
+  or unbounded invariants. Require a checked named theorem; never accept
+  `sorry`, `admit`, new axioms, or unchecked native/code-generation shortcuts.
 - Use TLA+ for severe concurrent/distributed safety or liveness properties.
 - Require a named invariant, stable specification, owner, explicit assumptions,
   and feasible black-box Rust conformance bridge before formalizing.
 - Keep TLC state, traces, and bulk output in external scratch, and say so in the
   portfolio whenever TLA+ is selected.
+- Keep Lean `.lake`, `.olean`, and `.ilean` output external or run Lake in a
+  disposable copy. State representation, overflow, saturation, rounding, and
+  theorem-to-Rust mapping assumptions explicitly.
 
 Retire or update a formal model when its assumptions, mapping, owner, or risk
 case no longer holds. A passing stale model is not evidence about shipped Rust.

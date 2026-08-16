@@ -4,17 +4,9 @@
   "skill_name": "test-rust",
   "snapshot_date": "2026-08-16",
   "execution_policy": {
-    "arms": [
-      "baseline",
-      "with_skill"
-    ],
+    "arms": ["baseline", "with_skill"],
     "trials_per_arm": 1,
-    "agent_tools": [
-      "Read",
-      "Skill",
-      "Edit",
-      "Write"
-    ],
+    "agent_tools": ["Read", "Skill", "Edit", "Write"],
     "network_during_agent_run": false,
     "coordinator_dependency_preflight": "cargo fetch --locked in a disposable copy",
     "test_and_mutation_network": false,
@@ -26,9 +18,14 @@
     "with_skill_pass_rate": 1.0,
     "critical_boundary_violations": 0,
     "positive_skill_load_rate": 1.0,
-    "seeded_defects_detected": 4
+    "seeded_defects_detected": 6
   },
   "pinned_tools": {
+    "lean": {
+      "release": "v4.33.0",
+      "source": "https://github.com/leanprover/lean4/releases/download/v4.33.0/lean-4.33.0-darwin_aarch64.tar.zst",
+      "observed_sha256": "db5274b669be270af048b5e4f1e0ce571df6750e411956b3e1e6fcc2012410c2"
+    },
     "tla2tools": {
       "release": "v1.7.4",
       "source": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
@@ -48,6 +45,12 @@
       "fixture": "fixtures/tla-protocol",
       "purpose": "Author executable Rust conformance evidence and TLC-checkable safety/liveness models.",
       "prompt": "Add tests-only evidence for the settlement protocol. Work only below this concrete package's tests/ directory and do not run commands. Create tests/protocol.rs with black-box public-API scenarios that detect duplicate acknowledgement settlement and exercise retry/crash behavior. Under tests/formal/tla/, create Settlement.tla plus Settlement.cfg for the correct finite model, SettlementSafetyBug.tla plus its cfg with a seeded duplicate-settlement safety defect, and SettlementLivenessBug.tla plus its cfg with a seeded retry-forever liveness defect. The correct model must check at-most-once settlement as an invariant and eventual terminal resolution as a temporal property under explicit fairness. The safety-bug model must violate the invariant; the liveness-bug model must violate the temporal property. Keep TLC state external and state clearly in file comments that the model does not prove the Rust implementation. Do not edit source, manifests, lockfiles, CI, benches, fuzz targets, doctests, or inline tests. The coordinator will run Cargo and TLC after your edits."
+    },
+    {
+      "id": "lean-business-logic",
+      "fixture": "fixtures/lean-business-logic",
+      "purpose": "Author a checked Lean 4 proof for an unbounded business invariant and executable Rust conformance evidence.",
+      "prompt": "Add tests-only evidence for this credit-allocation rule. Work only below this concrete package's tests/ directory and do not run commands. Create tests/credit_allocation.rs with a named published example and a black-box property named credits_never_increase_charge that exercises the public apply_credits API over semantic subtotal and credit-list partitions. Under tests/formal/lean/, create CreditAllocation.lean using only Lean's bundled libraries. Define the recursive model exactly as `def applyCredits : Nat → List Nat → Nat`, with the non-empty equation calling `applyCredits (subtotal - credit) rest`, and prove the unbounded theorem `applyCredits_le_subtotal (subtotal : Nat) (credits : List Nat) : applyCredits subtotal credits ≤ subtotal` by induction. Do not use `sorry`, `admit`, new axioms, or unchecked code generation. Include the exact marker line `-- proof-scope: model-only; does-not-prove-rust`, then state the Nat/u64 and saturating-subtraction correspondence, overflow assumptions, theorem-to-test mapping, and that the Lean model does not prove the Rust implementation. Keep Lean output external. Do not edit source, manifests, lockfiles, CI, benches, fuzz targets, doctests, or inline tests. The coordinator will compile the Rust tests, seed a Rust defect, typecheck the Lean proof, and seed a Lean model defect after your edits."
     }
   ]
 }

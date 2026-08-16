@@ -80,6 +80,20 @@ class TestRustBoundariesTests(unittest.TestCase):
         source = (SCRIPT_ROOT / "check_tests_boundaries.py").read_text(encoding="utf-8")
         ast.parse(source, feature_version=(3, 9))
 
+    def test_missing_baseline_reports_clean_input_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workspace = root / "workspace"
+            _package(workspace)
+            missing_baseline = root / "missing-baseline.json"
+
+            result = _run("verify", workspace, "--baseline", missing_baseline)
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("error:", result.stderr)
+            self.assertIn(str(missing_baseline), result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
     def test_allows_only_changes_below_concrete_package_tests(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -302,6 +316,31 @@ class TestRustBoundariesTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(".idea", result.stdout)
 
+    def test_operator_can_predeclare_absent_trailing_slash_ignored_scratch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workspace = root / "workspace"
+            package = _package(workspace)
+            (workspace / ".gitignore").write_text("build/\n", encoding="utf-8")
+            _git(workspace, "add", ".gitignore")
+            _git(workspace, "commit", "-qm", "ignore absent build output")
+            baseline = root / "baseline.json"
+
+            snapshot = _run(
+                "snapshot",
+                workspace,
+                "--output",
+                baseline,
+                "--package-root",
+                package,
+                "--exclude-scratch",
+                "build",
+            )
+
+            self.assertEqual(snapshot.returncode, 0, snapshot.stderr)
+            payload = json.loads(baseline.read_text(encoding="utf-8"))
+            self.assertIn("build", payload["scratch_exclusions"])
+
     def test_rejects_unignored_or_protected_scratch_exclusion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -447,7 +486,7 @@ class TestRustBoundariesTests(unittest.TestCase):
             )
             self.assertEqual(approved.returncode, 0, approved.stderr)
 
-    def test_allows_clean_tracked_test_move_without_deletion_approval(self) -> None:
+    def test_clean_tracked_test_move_still_requires_deletion_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             workspace = root / "workspace"
@@ -462,11 +501,48 @@ class TestRustBoundariesTests(unittest.TestCase):
             self.assertEqual(_snapshot(workspace, baseline, package).returncode, 0)
 
             original.rename(tests / "new_name.rs")
+            unapproved = _run("verify", workspace, "--baseline", baseline)
+
+            self.assertEqual(unapproved.returncode, 1)
+            self.assertIn("unapproved clean test deletion", unapproved.stderr)
+            self.assertIn("clean moves=1", unapproved.stdout)
+            self.assertIn("clean move: tests/old_name.rs -> tests/new_name.rs", unapproved.stdout)
+
+            approved = _run(
+                "verify",
+                workspace,
+                "--baseline",
+                baseline,
+                "--allow-test-deletion",
+                "tests/old_name.rs",
+            )
+
+            self.assertEqual(approved.returncode, 0, approved.stderr)
+            self.assertIn("clean move: tests/old_name.rs -> tests/new_name.rs", approved.stdout)
+
+    def test_same_suffix_content_match_does_not_waive_deletion_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workspace = root / "workspace"
+            package = _package(workspace)
+            tests = package / "tests"
+            tests.mkdir()
+            original = tests / "old_case.rs"
+            original.write_text("// SPDX-License-Identifier: MIT\n", encoding="utf-8")
+            _git(workspace, "add", "tests/old_case.rs")
+            _git(workspace, "commit", "-qm", "add important test")
+            baseline = root / "baseline.json"
+            self.assertEqual(_snapshot(workspace, baseline, package).returncode, 0)
+
+            original.unlink()
+            fixtures = tests / "fixtures"
+            fixtures.mkdir()
+            (fixtures / "header_sample.rs").write_text("// SPDX-License-Identifier: MIT\n", encoding="utf-8")
             result = _run("verify", workspace, "--baseline", baseline)
 
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("clean moves=1", result.stdout)
-            self.assertIn("clean move: tests/old_name.rs -> tests/new_name.rs", result.stdout)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unapproved clean test deletion", result.stderr)
+            self.assertIn("clean move: tests/old_case.rs -> tests/fixtures/header_sample.rs", result.stdout)
 
     def test_identical_fixture_bytes_do_not_disguise_test_deletion_as_move(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -513,6 +589,51 @@ class TestRustBoundariesTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("unapproved clean test deletion", result.stderr)
             self.assertIn("clean moves=0", result.stdout)
+
+    def test_file_replaced_by_directory_requires_deletion_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workspace = root / "workspace"
+            package = _package(workspace)
+            tests = package / "tests"
+            tests.mkdir()
+            original = tests / "important_test.rs"
+            original.write_text("#[test]\nfn important() {}\n", encoding="utf-8")
+            _git(workspace, "add", "tests/important_test.rs")
+            _git(workspace, "commit", "-qm", "add important test")
+            baseline = root / "baseline.json"
+            self.assertEqual(_snapshot(workspace, baseline, package).returncode, 0)
+
+            original.unlink()
+            original.mkdir()
+            (original / "subtest.rs").write_text("// replacement\n", encoding="utf-8")
+            result = _run("verify", workspace, "--baseline", baseline)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unapproved clean test deletion", result.stderr)
+
+    def test_file_replaced_by_symlink_is_classified_as_deletion(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            workspace = root / "workspace"
+            package = _package(workspace)
+            tests = package / "tests"
+            tests.mkdir()
+            original = tests / "important_test.rs"
+            original.write_text("#[test]\nfn important() {}\n", encoding="utf-8")
+            _git(workspace, "add", "tests/important_test.rs")
+            _git(workspace, "commit", "-qm", "add important test")
+            baseline = root / "baseline.json"
+            self.assertEqual(_snapshot(workspace, baseline, package).returncode, 0)
+
+            original.unlink()
+            target = tests / "replacement.rs"
+            target.write_text("// replacement\n", encoding="utf-8")
+            original.symlink_to(target.name)
+            result = _run("verify", workspace, "--baseline", baseline)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unapproved clean test deletion", result.stderr)
 
     def test_approved_move_is_observed_and_not_reported_as_stale(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

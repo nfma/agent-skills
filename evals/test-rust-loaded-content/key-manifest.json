@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "test-rust-loaded-content-evals",
+  "case_pack_sha256": "d3e493144c8f0f086a45006af5e4dc09947ec6d82b1d0c6eb86b51408cbfa28a",
+  "key_sha256": "ddc7a0cd45c66c2479a1407dfe4e276fcd074cc79653812d511e35050da1d7c8",
+  "cases": [
+    {"case_id": "lds-01", "check_count": 8},
+    {"case_id": "lds-02", "check_count": 10},
+    {"case_id": "lds-03", "check_count": 10},
+    {"case_id": "lds-04", "check_count": 10}
+  ]
+}

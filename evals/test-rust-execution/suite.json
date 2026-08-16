@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "suite": "test-rust-production-execution",
+  "skill_name": "test-rust",
+  "snapshot_date": "2026-08-16",
+  "execution_policy": {
+    "arms": [
+      "baseline",
+      "with_skill"
+    ],
+    "trials_per_arm": 1,
+    "agent_tools": [
+      "Read",
+      "Skill",
+      "Edit",
+      "Write"
+    ],
+    "network_during_agent_run": false,
+    "coordinator_dependency_preflight": "cargo fetch --locked in a disposable copy",
+    "test_and_mutation_network": false,
+    "fixture_source_immutable": true,
+    "workspace_disposable": true,
+    "generated_output_external": true
+  },
+  "thresholds": {
+    "with_skill_pass_rate": 1.0,
+    "critical_boundary_violations": 0,
+    "positive_skill_load_rate": 1.0,
+    "seeded_defects_detected": 4
+  },
+  "pinned_tools": {
+    "tla2tools": {
+      "release": "v1.7.4",
+      "source": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
+      "published_sha1": "bee4a54f3ee3d4afc347c3240ec2d9e93b075104",
+      "observed_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+    }
+  },
+  "cases": [
+    {
+      "id": "pbt-mutation",
+      "fixture": "fixtures/pbt-mutation",
+      "purpose": "Author deterministic semantic Proptest properties and demonstrate meaningful mutation detection.",
+      "prompt": "Add the smallest defensible external test portfolio for this checksum-framed codec. Work only below this concrete package's tests/ directory. Proptest is already pinned as a dev-dependency and Cargo.lock is committed. Create tests/property.rs with a deterministic property named corrupted_checksum_is_rejected, domain-semantic payload generation, a fixed local/PR seed, and Direct failure persistence in a source-controlled tests/proptest-regressions/property.txt file whose parent already exists. Retain a small named example for the published ABC checksum vector. Do not edit source, manifests, lockfiles, CI, benches, fuzz targets, doctests, or inline tests. Do not run commands; the evaluation coordinator will compile, replay, inject a checksum defect, and run cargo-mutants after your edits."
+    },
+    {
+      "id": "tla-protocol",
+      "fixture": "fixtures/tla-protocol",
+      "purpose": "Author executable Rust conformance evidence and TLC-checkable safety/liveness models.",
+      "prompt": "Add tests-only evidence for the settlement protocol. Work only below this concrete package's tests/ directory and do not run commands. Create tests/protocol.rs with black-box public-API scenarios that detect duplicate acknowledgement settlement and exercise retry/crash behavior. Under tests/formal/tla/, create Settlement.tla plus Settlement.cfg for the correct finite model, SettlementSafetyBug.tla plus its cfg with a seeded duplicate-settlement safety defect, and SettlementLivenessBug.tla plus its cfg with a seeded retry-forever liveness defect. The correct model must check at-most-once settlement as an invariant and eventual terminal resolution as a temporal property under explicit fairness. The safety-bug model must violate the invariant; the liveness-bug model must violate the temporal property. Keep TLC state external and state clearly in file comments that the model does not prove the Rust implementation. Do not edit source, manifests, lockfiles, CI, benches, fuzz targets, doctests, or inline tests. The coordinator will run Cargo and TLC after your edits."
+    }
+  ]
+}

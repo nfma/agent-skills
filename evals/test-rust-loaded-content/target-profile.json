@@ -1,0 +1,47 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "test-rust-loaded-content-evals",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "notice": "Observed Claude Code lane only. The host's broader startup skill inventory is visible in traces, but the callable tool inventory is restricted to Read and Skill and every accepted event is normalized from complete stream-json evidence.",
+  "lanes": [
+    {
+      "lane_id": "claude-sonnet-5-xhigh",
+      "host": "Claude Code 2.1.233",
+      "model": "claude-sonnet-5",
+      "reasoning": "xhigh",
+      "availability": "verified",
+      "load_state_observation": {
+        "method": "Fresh Claude Code print-mode stream-json contexts with native project skill discovery; inspect system-init inventory and exact Skill tool events.",
+        "positive_signal": "System init lists test-rust and the complete trace contains Skill(test-rust).",
+        "negative_signal": "System init lists test-rust and the complete trace contains no Skill(test-rust) event.",
+        "reliability": "reliable"
+      },
+      "safety_controls": {
+        "host_mode": "Print mode, dontAsk permissions, no session persistence, no Chrome, project settings only, strict empty MCP configuration.",
+        "sandbox": "Coordinator-owned inert task roots with an empty task surface and read-only copies of the finalized skill bundle.",
+        "trace_method": "Capture complete stream-json from system init through terminal result; reject any event outside native Skill loading and bundle-local Read.",
+        "task_surface": "Description-only inert cases; the logical fixture root contains zero task files and has matching pre/post SHA-256.",
+        "skill_install": "Finalized bundle copied without symlinks to each fresh project-native .claude/skills/test-rust root and made read-only.",
+        "allowed_read_surfaces": ["fixture-root", "skill-bundle"],
+        "forbidden_event_kinds": [
+          "background-task",
+          "external-service-call",
+          "filesystem-write",
+          "mcp-call",
+          "network-call",
+          "shell-execution",
+          "subagent-delegation",
+          "version-control-write"
+        ],
+        "qualification_status": "verified",
+        "qualification_evidence_path": "coordinator-evidence://rust-testing-skill/loaded-content/final-proof-round-2/qualification.json",
+        "qualification_evidence_sha256": "447aa637f42fc9fc04132e537423d9b41501d226fd8d5979523bf7e8fdbf8c9e",
+        "qualification_notes": [],
+        "reliability": "reliable",
+        "recheck_date": "2026-11-16"
+      }
+    }
+  ]
+}

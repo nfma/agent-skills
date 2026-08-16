@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "skill_name": "sync-traycer-notion",
+  "status": "pending",
+  "reviewer": null,
+  "reviewed_at": null,
+  "expires_at": null,
+  "sample_size": 0,
+  "binary_agreement": null,
+  "ordinal_weighted_agreement": null,
+  "critical_disagreements": null,
+  "key_sha256": "PENDING-COORDINATOR-SEAL"
+}

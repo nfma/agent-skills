@@ -1,47 +1,56 @@
-# Trigger and behavior proof
+# Claude trigger and deterministic behavior proof
 
-This suite compares fresh Claude Code sessions with no project skill installed
-against fresh sessions where `sync-traycer-notion` is installed as a project
-skill. Evaluation prompts never name or invoke the skill.
+This runner is the execution bridge for the only currently verified lane in the
+repository production-eval framework. The runner reads the 20-task production
+suite from `evals/sync-traycer-notion/suite.json`, runs three fresh trials per
+task, and compares each positive treatment response with a no-skill baseline.
+Near-miss tasks run only with the project skill installed.
 
-The runner permits only Claude's `Skill` and `Read` tools, disables MCP servers,
-instructs the model to plan without executing, and records the session
-initialization plus every tool event. This proves discovery and automatic
-triggering on the tested Claude Code profile. It is not a claim of zero-tool
-portability across other harnesses.
+Evaluation prompts never name or invoke the skill. Claude Code must discover the
+project skill and automatically invoke it for positive tasks while abstaining on
+near-misses. MCP servers and live mutation tools are unavailable. The runner
+uses the frozen qualified Claude profile: Claude Opus 5 `[1m]`, xhigh effort,
+plan permission mode, project settings only, and `Skill`, `Read`, `Glob`, and
+`Grep` tools.
 
-The answer-bearing grading key and raw traces stay outside the repository. The
-committed key manifest seals their digests and check counts before either arm is
-run. The proof report contains only hashes, check identifiers, and aggregate
-scores.
+The answer-bearing deterministic grading key and all raw traces remain outside
+the repository. The committed key manifest seals their digests and check counts
+before either arm runs. The public proof report contains aggregate results,
+check identifiers, and hashes that bind the full external evidence.
 
 Run from the repository root:
 
 ```sh
 uv run --frozen --no-build python \
   evals/sync-traycer-notion-trigger/run-trigger-evals.py run \
-  --output-dir /absolute/path/outside/the/repository
+  --output-dir /absolute/path/outside/the/repository \
+  --max-budget-usd 1.00 \
+  --timeout-seconds 420 \
+  --jobs 4
 
 uv run --frozen --no-build python \
   evals/sync-traycer-notion-trigger/run-trigger-evals.py grade \
   --run-manifest /absolute/path/outside/the/repository/run-manifest.json \
   --key /absolute/path/outside/the/repository/key.json \
-  --output evals/sync-traycer-notion-trigger/proof-report.json
+  --output /absolute/path/outside/the/repository/proof-report.json
 ```
 
 ## Recorded result
 
-The committed proof report records a 2026-08-16 run with Claude Code 2.1.233,
-Claude Opus 5, and xhigh effort:
+The committed proof report records the 2026-08-16 qualified Claude Code run:
 
-- 16 fresh sessions completed with zero trace-contract failures.
-- All 4 positive treatment prompts automatically invoked the skill.
-- All 4 treatment near misses discovered but did not invoke the skill.
-- The no-skill baseline passed 16/24 behavioral checks (66.7%).
-- The with-skill arm passed 23/24 checks (95.8%), an improvement of 7 checks
-  and 29.2 percentage points.
+- 90/90 fresh sessions completed with zero trace-contract failures.
+- All 30 positive treatment trials discovered and automatically invoked the
+  skill.
+- All 30 treatment near-misses discovered the skill and did not invoke it.
+- All 30 baseline trials were isolated from the target skill.
+- Baseline behavior passed 98/135 sealed checks (72.6%).
+- With-skill behavior passed 133/135 checks (98.5%), an improvement of 35
+  checks and 25.9 percentage points.
+- The run consumed 2,903,012 input tokens, 789,087 output tokens, and
+  $30.745629 according to Claude's result events.
 
-The one missed treatment check was the frozen `identity-before-create` pattern.
-The answer queried the story identity at step 10 and created it at step 13, but
-the check's bounded regular expression did not span that JSON structure. The
-frozen key was not changed after seeing this answer.
+This is a passed proof for the verified Claude lane, not a production or
+four-harness portability claim. Cursor, Antigravity, and Codex remain unavailable
+in the current framework profile. The suite remains `draft`, human calibration
+is pending, and its overall production-evidence status is `not-proven`.

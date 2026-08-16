@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import tempfile
@@ -10,7 +11,11 @@ from types import ModuleType
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/run-trigger-evals.py"
-CASE_PACK = REPOSITORY_ROOT / "skills/sync-traycer-notion/assets/trigger-behavior-evals.json"
+CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
+PRODUCTION_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/key-manifest.json"
+CALIBRATION_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/calibration-manifest.json"
+EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/evidence-manifest.json"
+PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 
 
 def load_runner() -> ModuleType:
@@ -35,7 +40,7 @@ def valid_trace(*, discovered: bool, invoke: bool) -> bytes:
             "model": "claude-opus-test",
             "session_id": "session-test",
             "skills": skills,
-            "tools": ["Read", "Skill"],
+            "tools": ["Glob", "Grep", "Read", "Skill"],
             "mcp_servers": [],
         }
     ]
@@ -73,12 +78,52 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         cls.runner = load_runner()
 
     def test_frozen_case_pack_is_valid_and_never_names_skill(self) -> None:
-        _pack, cases = self.runner.validated_case_pack(CASE_PACK)
+        pack, cases = self.runner.validated_case_pack(CASE_PACK)
 
-        self.assertGreaterEqual(len(cases), 3)
+        self.assertEqual(len(cases), 20)
+        self.assertEqual(sum(case["variant"] == "positive" for case in cases), 10)
+        self.assertEqual(sum(case["variant"] == "near_miss" for case in cases), 10)
+        self.assertGreaterEqual(
+            sum(task["kind"] == "positive" and task["class"] == "regression" for task in pack["tasks"]),
+            2,
+        )
+        self.assertGreaterEqual(
+            sum(task["kind"] == "near-miss" and task["class"] == "regression" for task in pack["tasks"]),
+            2,
+        )
         for case in cases:
-            self.assertNotIn("sync-traycer-notion", case["positive"].casefold())
-            self.assertNotIn("sync-traycer-notion", case["near_miss"].casefold())
+            self.assertNotIn("sync-traycer-notion", case["prompt"].casefold())
+
+    def test_production_manifests_bind_the_draft_suite(self) -> None:
+        suite = json.loads(CASE_PACK.read_text(encoding="utf-8"))
+        canonical = json.dumps(suite, separators=(",", ":"), sort_keys=True).encode()
+        suite_digest = hashlib.sha256(canonical).hexdigest()
+        key_manifest = json.loads(PRODUCTION_KEY_MANIFEST.read_text(encoding="utf-8"))
+        calibration = json.loads(CALIBRATION_MANIFEST.read_text(encoding="utf-8"))
+        evidence = json.loads(EVIDENCE_MANIFEST.read_text(encoding="utf-8"))
+
+        self.assertEqual(suite["status"], "draft")
+        self.assertEqual(key_manifest["suite_canonical_sha256"], suite_digest)
+        self.assertEqual(evidence["suite_canonical_sha256"], suite_digest)
+        self.assertEqual(key_manifest["key_sha256"], "PENDING-COORDINATOR-SEAL")
+        self.assertEqual(calibration["status"], "pending")
+        self.assertEqual(evidence["status"], "pending")
+        expected_ids = {task["id"] for task in suite["tasks"] if task["kind"] == "positive"}
+        self.assertEqual({case["task_id"] for case in key_manifest["cases"]}, expected_ids)
+
+    def test_public_proof_records_improvement_without_production_promotion(self) -> None:
+        report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))
+
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["record_count"], 90)
+        self.assertTrue(report["trigger_proof"]["positive_automatic_trigger"])
+        self.assertTrue(report["trigger_proof"]["near_miss_non_trigger"])
+        self.assertGreater(
+            report["behavior"]["with_skill"]["score_percent"],
+            report["behavior"]["baseline"]["score_percent"],
+        )
+        self.assertEqual(report["production_contract"]["suite_status"], "draft")
+        self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
 
     def test_trace_proves_project_discovery_and_automatic_invocation(self) -> None:
         events = self.runner.parse_stream_json(valid_trace(discovered=True, invoke=True))

@@ -9,10 +9,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock as mock
 from pathlib import Path
 from types import ModuleType
 from typing import cast
-from unittest import mock
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RELAY = REPOSITORY_ROOT / "skills/orchestrate-risk-scaled-review/scripts/agy_review_relay.py"

@@ -5,7 +5,7 @@
 // standard MCP traffic unchanged.
 const { spawn } = require("child_process");
 const path = require("node:path");
-const readline = require("readline");
+const readline = require("node:readline");
 
 if (process.argv.length !== 2) {
   throw new Error("hf-mcp-filter.js does not accept arguments");

@@ -1,6 +1,11 @@
 ---
 name: huggingface-datasets
 description: Use this skill for Hugging Face Dataset Viewer API workflows that fetch subset/split metadata, paginate rows, search text, apply filters, download parquet URLs, and read size or statistics.
+metadata:
+  skill-audit-context-reads: dataset_id, config, split, query, auth_status, local_paths
+  skill-audit-context-requires: dataset_goal
+  skill-audit-context-writes: query_results, downloaded_files, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Hugging Face Dataset Viewer

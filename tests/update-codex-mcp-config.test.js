@@ -32,12 +32,16 @@ function withConfig(source, callback) {
 /**
  * @param {string} configPath
  * @param {string} [timeout]
+ * @param {NodeJS.ProcessEnv} [environment]
  */
-function runUpdater(configPath, timeout = "20") {
+function runUpdater(configPath, timeout = "20", environment = {}) {
   return spawnSync(
     process.execPath,
     [updater, configPath, "chrome-devtools", timeout],
-    { encoding: "utf8" },
+    {
+      encoding: "utf8",
+      env: { ...process.env, ...environment },
+    },
   );
 }
 
@@ -158,6 +162,58 @@ test("updates a symlink target without replacing the symlink", () => {
       fs.readFileSync(targetPath, "utf8"),
       /startup_timeout_sec = 20/,
     );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("validates and reads the config through one file descriptor", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "codex-mcp-config-"));
+  const configPath = path.join(directory, "config.toml");
+  const replacementPath = path.join(directory, "replacement.toml");
+  const preloadPath = path.join(directory, "replace-before-path-read.cjs");
+  fs.writeFileSync(
+    configPath,
+    `[mcp_servers.chrome-devtools]\ncommand = "trusted"\n`,
+    { mode: 0o600 },
+  );
+  fs.writeFileSync(
+    replacementPath,
+    `[mcp_servers.chrome-devtools]\ncommand = "attacker"\n`,
+    { mode: 0o600 },
+  );
+  fs.writeFileSync(
+    preloadPath,
+    `"use strict";
+const fs = require("node:fs");
+const path = require("node:path");
+const originalReadFileSync = fs.readFileSync;
+const raceTarget = fs.realpathSync(process.env.CODEX_TEST_RACE_TARGET);
+let replaced = false;
+fs.readFileSync = function readFileSync(candidate, ...args) {
+  if (!replaced && typeof candidate === "string" && path.resolve(candidate) === raceTarget) {
+    replaced = true;
+    fs.renameSync(process.env.CODEX_TEST_RACE_REPLACEMENT, candidate);
+  }
+  return originalReadFileSync.call(this, candidate, ...args);
+};
+`,
+    { mode: 0o600 },
+  );
+
+  try {
+    const result = runUpdater(configPath, "20", {
+      CODEX_TEST_RACE_REPLACEMENT: replacementPath,
+      CODEX_TEST_RACE_TARGET: configPath,
+      NODE_OPTIONS: `--require=${preloadPath}`,
+    });
+    assert.equal(result.status, 0, result.stderr);
+
+    const updated = fs.readFileSync(configPath, "utf8");
+    assert.match(updated, /command = "trusted"/);
+    assert.doesNotMatch(updated, /command = "attacker"/);
+    assert.match(updated, /startup_timeout_sec = 20/);
+    assert.equal(fs.existsSync(replacementPath), true);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

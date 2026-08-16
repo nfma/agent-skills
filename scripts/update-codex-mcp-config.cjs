@@ -38,11 +38,23 @@ let source;
 let sourceMode;
 try {
   configPath = fs.realpathSync(requestedConfigPath);
-  if (!fs.statSync(configPath).isFile()) {
+  const openFlags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0);
+  const configDescriptor = fs.openSync(configPath, openFlags);
+  let isRegularFile = false;
+  try {
+    const metadata = fs.fstatSync(configDescriptor);
+    isRegularFile = metadata.isFile();
+    if (isRegularFile) {
+      source = fs.readFileSync(configDescriptor, "utf8");
+      sourceMode = metadata.mode & 0o777;
+    }
+  } finally {
+    fs.closeSync(configDescriptor);
+  }
+
+  if (!isRegularFile) {
     fail(`config path is not a regular file: ${requestedConfigPath}`, 66);
   }
-  source = fs.readFileSync(configPath, "utf8");
-  sourceMode = fs.statSync(configPath).mode & 0o777;
 } catch (error) {
   fail(`cannot read ${requestedConfigPath}: ${error.message}`, 66);
 }

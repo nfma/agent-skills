@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "version": "0.10.2",
+  "tag": "v0.10.2",
+  "sourceRepository": "nfma/skill-audit",
+  "sourceCommit": "852f68e532799e89fd9fc48f9f86350873ab1bdd",
+  "buildWorkflow": ".github/workflows/release.yml@852f68e532799e89fd9fc48f9f86350873ab1bdd",
+  "minimumNode": "24.0.0",
+  "executable": {
+    "name": "skill-audit-v0.10.2.mjs",
+    "sha256": "cf381b1be26deee23ac467f30f6544ad81a85c228dfd52a1a1f48eb67eb94324",
+    "sizeBytes": 189315,
+    "exports": [
+      "scanDependencies",
+      "reportGroupedResults",
+      "createGroupedAuditResult",
+      "groupSecurityFindings",
+      "auditSecurity",
+      "validateSkillSpec"
+    ],
+    "embeddedRulesSha256": "1aee9d581159ae564695c2e9931a4f0439557ee226a53b7f8099ee585a874fae"
+  },
+  "documentation": {
+    "files": [
+      {
+        "path": "SKILL.md",
+        "sha256": "70340e257aab11a99ddb7a690f23a34ab0cbbb42bfdcd73cdc47fb3c16b3ac63"
+      },
+      {
+        "path": "references/compliance-frameworks.md",
+        "sha256": "45c7de303ca7c4bd5be356a4e38ae8ae95e360998d64b65237f36b97ba79ef51"
+      },
+      {
+        "path": "references/intelligence-sources.md",
+        "sha256": "d7b2fafb4c45fdbc1223ad0cac0bd7576ff75e76060639c0ff4b468a74d156d2"
+      },
+      {
+        "path": "references/pii-patterns.md",
+        "sha256": "513e19104e28713349d9595abb17cc668d06c578cff40387f12ba89f25c01999"
+      },
+      {
+        "path": "references/postinstall-safety.md",
+        "sha256": "9c2704b954fc14ed41c3e209f566956774ba91932dfa6d46d0f6c8b5f2ba2a64"
+      },
+      {
+        "path": "references/scoring-methodology.md",
+        "sha256": "97ad1cfd450c5ebbb8734dc664eec6e5c5ad0f09ff9cbb0f1ed4e47360f04a1e"
+      }
+    ],
+    "upstreamDocsSha256": "98304b0264662eeea0a387ac116d81dbbb2148f94d7c11b44b846659203081fc"
+  }
+}

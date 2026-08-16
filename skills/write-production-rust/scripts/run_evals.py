@@ -24,6 +24,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CASE_PACK = SKILL_ROOT / "assets/trigger-behavior-evals.json"
 DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/write-production-rust/semantic-key-manifest.json"
+DEFAULT_PROOF_REPORT = REPOSITORY_ROOT / "evals/write-production-rust/proof-report.json"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
 TRIGGER_TOOLS = ("Read", "Skill")
@@ -795,12 +796,12 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         },
         "passed": passed,
     }
-    write_json(arguments.output.expanduser().resolve(), report)
+    write_json(DEFAULT_PROOF_REPORT, report)
     print(f"baseline semantic score: {baseline_total}")
     print(f"with-skill semantic score: {treatment_total}")
     print(f"automatic positive trigger: {trigger['positive_automatic_trigger']}")
     print(f"near-miss non-trigger: {trigger['near_miss_non_trigger']}")
-    print(f"wrote {arguments.output.expanduser().resolve()}")
+    print(f"wrote {DEFAULT_PROOF_REPORT}")
     return 0 if passed else 1
 
 
@@ -822,7 +823,6 @@ def build_parser() -> argparse.ArgumentParser:
     grade_parser.add_argument("--run-manifest", type=Path, required=True)
     grade_parser.add_argument("--key", type=Path, required=True)
     grade_parser.add_argument("--key-manifest", type=Path, default=DEFAULT_KEY_MANIFEST)
-    grade_parser.add_argument("--output", type=Path, required=True)
     grade_parser.add_argument("--claude-bin", default="claude")
     grade_parser.add_argument("--grader-model", default="opus")
     grade_parser.add_argument("--grader-effort", default="high")

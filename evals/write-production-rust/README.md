@@ -26,6 +26,5 @@ python skills/write-production-rust/scripts/run_evals.py run \
 
 python skills/write-production-rust/scripts/run_evals.py grade \
   --run-manifest /absolute/path/outside/the/repository/run-manifest.json \
-  --key /absolute/path/outside/the/repository/semantic-key.json \
-  --output evals/write-production-rust/proof-report.json
+  --key /absolute/path/outside/the/repository/semantic-key.json
 ```

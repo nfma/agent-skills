@@ -154,10 +154,28 @@ class WriteProductionRustEvalTests(unittest.TestCase):
             self.runner.parse_grade(f"```json\n{response}\n```\nextra", criteria)
 
     def test_raw_outputs_and_semantic_key_must_stay_outside_repository(self) -> None:
+        self.assertEqual(
+            self.runner.DEFAULT_PROOF_REPORT,
+            REPOSITORY_ROOT / "evals/write-production-rust/proof-report.json",
+        )
+
         with self.assertRaisesRegex(self.runner.EvalError, "outside the repository"):
             self.runner.require_external_output_directory(REPOSITORY_ROOT / "eval-output")
         with tempfile.TemporaryDirectory() as temporary_directory:
-            external = Path(temporary_directory) / "fresh"
+            temporary_root = Path(temporary_directory)
+            parser = self.runner.build_parser()
+            arguments = parser.parse_args(
+                [
+                    "grade",
+                    "--run-manifest",
+                    str(temporary_root / "run-manifest.json"),
+                    "--key",
+                    str(temporary_root / "semantic-key.json"),
+                ]
+            )
+            self.assertFalse(hasattr(arguments, "output"))
+
+            external = temporary_root / "fresh"
             self.assertEqual(self.runner.require_external_output_directory(external), external.resolve())
 
 

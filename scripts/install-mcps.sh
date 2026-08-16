@@ -11,6 +11,7 @@ wrapper_root="$repo_root/mcp/bin"
 install_home=${MCP_INSTALL_HOME:-"${HOME:-}"}
 security_bin=${MCP_SECURITY_BIN:-/usr/bin/security}
 node_check_bin=${MCP_NODE_CHECK_BIN:-"$wrapper_root/nvm-default-exec"}
+codex_config_updater="$repo_root/scripts/update-codex-mcp-config.cjs"
 
 dry_run=0
 selected_harnesses=0
@@ -103,6 +104,8 @@ fi
 [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
 [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
 [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
+[ -r "$codex_config_updater" ] ||
+  die "Codex config updater is unavailable at $codex_config_updater"
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command is unavailable: $1"
@@ -116,8 +119,9 @@ keychain_item_available() {
 }
 
 validate_harness_fragment() {
-  fragment_file=$1
-  jq -e '
+  harness_name=$1
+  fragment_file=$2
+  jq -e --arg harness "$harness_name" '
     (.plugins.install | type == "array") and
     (.plugins.remove | type == "array") and
     all(.plugins.install[];
@@ -134,10 +138,18 @@ validate_harness_fragment() {
         (.value.localCommand | test("^[A-Za-z0-9._-]+$")) and
         (.value.args | type == "array") and
         all(.value.args[]; type == "string") and
-        ((.value.overridesPlugin // false) | type == "boolean")
+        ((.value | has("overridesPlugin") | not) or
+          ($harness == "codex" and
+           (.value.overridesPlugin | type == "boolean"))) and
+        ((.value | has("startupTimeoutSec") | not) or
+          ($harness == "codex" and
+           (.value.startupTimeoutSec | type == "number") and
+           .value.startupTimeoutSec > 0))
       elif .value.type == "http" then
         (.value.url | type == "string") and
-        (.value.url | test("^https://"))
+        (.value.url | test("^https://")) and
+        (.value | has("overridesPlugin") | not) and
+        (.value | has("startupTimeoutSec") | not)
       else
         false
       end)
@@ -164,8 +176,8 @@ preflight() {
 
   jq -e '.schemaVersion == 1 and (.baseline | length > 0)' "$manifest" >/dev/null ||
     die 'manifest is invalid'
-  validate_harness_fragment "$codex_fragment"
-  validate_harness_fragment "$claude_fragment"
+  validate_harness_fragment codex "$codex_fragment"
+  validate_harness_fragment claude "$claude_fragment"
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/cursor/mcp.json" >/dev/null ||
     die 'Cursor MCP config is invalid'
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null ||
@@ -394,19 +406,45 @@ package_pin() {
   jq -er --arg package_name "$1" '.npmPackages[$package_name]' "$manifest"
 }
 
+codex_stdio_matches() {
+  current_json=$1
+  expected_command=$2
+  expected_args=$3
+  expected_startup_timeout=$4
+
+  printf '%s' "$current_json" |
+    jq -e --arg command "$expected_command" \
+      --argjson args "$expected_args" \
+      --arg startup_timeout "$expected_startup_timeout" '
+        .transport.type == "stdio" and
+        .transport.command == $command and
+        .transport.args == $args and
+        ($startup_timeout == "" or
+         .startup_timeout_sec == ($startup_timeout | tonumber))
+      ' >/dev/null
+}
+
+codex_http_matches() {
+  current_json=$1
+  expected_url=$2
+
+  printf '%s' "$current_json" |
+    jq -e --arg url "$expected_url" \
+      '.transport.type == "streamable_http" and .transport.url == $url' \
+      >/dev/null
+}
+
 reconcile_codex_stdio() {
   server_name=$1
   server_command=$2
   overrides_plugin=$3
-  shift 3
+  startup_timeout=$4
+  shift 4
   expected_args=$(json_args "$@")
   current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg command "$server_command" --argjson args "$expected_args" \
-         '.transport.type == "stdio" and .transport.command == $command and .transport.args == $args' \
-         >/dev/null; then
+  if [ -n "$current_json" ] && codex_stdio_matches \
+       "$current_json" "$server_command" "$expected_args" "$startup_timeout"; then
     note "Codex MCP ready: $server_name"
     return 0
   fi
@@ -417,6 +455,10 @@ reconcile_codex_stdio() {
     run_command codex mcp remove "$server_name"
   fi
   run_command codex mcp add "$server_name" -- "$server_command" "$@"
+  if [ -n "$startup_timeout" ]; then
+    run_command "$node_check_bin" node "$codex_config_updater" \
+      "$install_home/.codex/config.toml" "$server_name" "$startup_timeout"
+  fi
 }
 
 reconcile_codex_http() {
@@ -424,11 +466,7 @@ reconcile_codex_http() {
   server_url=$2
   current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
 
-  if [ -n "$current_json" ] &&
-     printf '%s' "$current_json" |
-       jq -e --arg url "$server_url" \
-         '.transport.type == "streamable_http" and .transport.url == $url' \
-         >/dev/null; then
+  if [ -n "$current_json" ] && codex_http_matches "$current_json" "$server_url"; then
     note "Codex MCP ready: $server_name"
     return 0
   fi
@@ -506,6 +544,8 @@ install_fragment_mcps() {
       stdio)
         local_command=$(printf '%s' "$server_entry" | jq -r '.value.localCommand')
         overrides_plugin=$(printf '%s' "$server_entry" | jq -r '.value.overridesPlugin // false')
+        startup_timeout=$(printf '%s' "$server_entry" |
+          jq -r 'if .value | has("startupTimeoutSec") then .value.startupTimeoutSec else empty end')
         if [ "$overrides_plugin" = true ]; then
           overrides_plugin=1
         else
@@ -515,7 +555,8 @@ install_fragment_mcps() {
         if [ "$server_arg_count" -eq 0 ]; then
           if [ "$harness_name" = codex ]; then
             reconcile_codex_stdio \
-              "$server_name" "$install_home/.local/bin/$local_command" "$overrides_plugin"
+              "$server_name" "$install_home/.local/bin/$local_command" \
+              "$overrides_plugin" "$startup_timeout"
           else
             reconcile_claude_stdio "$server_name" "$install_home/.local/bin/$local_command"
           fi
@@ -527,7 +568,7 @@ install_fragment_mcps() {
           if [ "$harness_name" = codex ]; then
             reconcile_codex_stdio \
               "$server_name" "$install_home/.local/bin/$local_command" \
-              "$overrides_plugin" "${server_args[@]}"
+              "$overrides_plugin" "$startup_timeout" "${server_args[@]}"
           else
             reconcile_claude_stdio \
               "$server_name" "$install_home/.local/bin/$local_command" "${server_args[@]}"
@@ -629,6 +670,32 @@ verify_links() {
   fi
 }
 
+verify_codex_entry() {
+  server_entry=$1
+  server_name=$(printf '%s' "$server_entry" | jq -r '.key')
+  server_type=$(printf '%s' "$server_entry" | jq -r '.value.type')
+  current_json=$(codex mcp get "$server_name" --json 2>/dev/null || true)
+  [ -n "$current_json" ] || die "Codex MCP verification failed: $server_name"
+
+  case "$server_type" in
+    stdio)
+      local_command=$(printf '%s' "$server_entry" | jq -r '.value.localCommand')
+      expected_command="$install_home/.local/bin/$local_command"
+      expected_args=$(printf '%s' "$server_entry" | jq -c '.value.args')
+      expected_startup_timeout=$(printf '%s' "$server_entry" |
+        jq -r 'if .value | has("startupTimeoutSec") then .value.startupTimeoutSec else empty end')
+      codex_stdio_matches "$current_json" "$expected_command" \
+        "$expected_args" "$expected_startup_timeout" ||
+        die "Codex MCP verification failed: $server_name"
+      ;;
+    http)
+      expected_url=$(printf '%s' "$server_entry" | jq -r '.value.url')
+      codex_http_matches "$current_json" "$expected_url" ||
+        die "Codex MCP verification failed: $server_name"
+      ;;
+  esac
+}
+
 verify_installed_state() {
   verify_no_literal_credentials
   verify_baseline_configs
@@ -636,10 +703,9 @@ verify_installed_state() {
   if [ "$dry_run" -eq 0 ]; then
     verify_links
     if [ "$install_codex" -eq 1 ]; then
-      while IFS= read -r server_name; do
-        codex mcp get "$server_name" --json >/dev/null ||
-          die "Codex MCP verification failed: $server_name"
-      done < <(jq -r '.mcpServers | keys[]' "$codex_fragment")
+      while IFS= read -r server_entry; do
+        verify_codex_entry "$server_entry"
+      done < <(jq -c '.mcpServers | to_entries[]' "$codex_fragment")
     fi
     if [ "$install_claude" -eq 1 ]; then
       while IFS= read -r server_name; do

@@ -35,7 +35,8 @@
       "type": "stdio",
       "localCommand": "chrome-devtools-vivaldi",
       "args": [],
-      "overridesPlugin": true
+      "overridesPlugin": true,
+      "startupTimeoutSec": 20
     },
     "excalidraw": {
       "type": "stdio",

@@ -66,7 +66,8 @@ plugin has the same limitation, so Claude uses that wrapper directly as well.
 Codex keeps the native Chrome DevTools plugin installed for its bundled skills,
 but overlays its MCP server with the tracked `chrome-devtools-vivaldi` launcher.
 The launcher uses `/Applications/Vivaldi.app` and a persistent browser profile
-under `~/.cache/chrome-devtools-mcp/vivaldi-profile`. Set
+under `~/.cache/chrome-devtools-mcp/vivaldi-profile`; the Codex fragment also
+owns its 20-second startup timeout. Set
 `CHROME_DEVTOOLS_VIVALDI_BIN` or `CHROME_DEVTOOLS_VIVALDI_PROFILE_DIR` to
 override those machine-local paths.
 

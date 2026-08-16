@@ -58,6 +58,10 @@
       "localCommand": "hf-mcp-remote",
       "args": []
     },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
     "serena": {
       "type": "stdio",
       "localCommand": "serena-mcp",

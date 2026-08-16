@@ -15,19 +15,26 @@ Cursor, and Antigravity.
   that can safely be linked into those harnesses.
 - `mcp/bin/` contains portable launchers that resolve credentials from local
   Keychain-backed stores at runtime.
-- `vendor/skill-audit` pins the separately maintained `nfma/skill-audit` fork.
-- `skills/skill-audit` links to the installable directory inside that submodule.
+- `.skill-audit-release.json` pins the attested immutable `nfma/skill-audit`
+  release descriptor byte-for-byte.
+- `skills/skill-audit` contains the descriptor-verified installable
+  documentation; the ignored executable is installed under
+  `vendor/skill-audit/dist/`.
 - `LICENSES/` and `THIRD_PARTY.md` preserve upstream licensing and provenance.
 
-Clone with submodules:
+Clone and prepare the pinned audit executable:
 
 ```sh
-git clone --recurse-submodules https://github.com/nfma/agent-skills.git
+git clone https://github.com/nfma/agent-skills.git
 cd agent-skills
 ./scripts/prepare-vendored-skills.sh
 ```
 
-The preparation step installs `skill-audit` dependencies without running lifecycle scripts, builds its ignored `dist/` runtime, and verifies the local CLI version.
+The preparation step derives the immutable GitHub Release URL from the tracked
+descriptor, verifies the download before execution, and checks its version,
+export contract, embedded rules, side-effect-free import, documentation, and a
+fixed legacy-and-portable contract corpus. A correctly installed executable is
+verified locally without requiring the network.
 
 To install a skill, symlink its directory under `skills/` into `~/.agents/skills/`. Harness-specific discovery links can continue pointing at `~/.agents/skills`.
 
@@ -104,6 +111,12 @@ security add-generic-password -U \
 Store the Hugging Face token the same way under the `HF_TOKEN` service. OAuth
 and Keychain contents remain machine-local.
 
+Notion uses its official hosted MCP endpoint and per-harness OAuth. After
+installing the shared baseline, authenticate Codex with
+`codex mcp login notion`; use `/mcp` in Claude Code; and complete the OAuth
+prompt when Cursor or Antigravity first connects. See Notion's
+[connection guide](https://developers.notion.com/guides/mcp/get-started-with-mcp).
+
 The installer uses the pinned Bats-core test framework; the JSON-line filter
 uses Node's built-in test runner:
 
@@ -115,18 +128,19 @@ npm test
 
 ## Automated skill auditing
 
-Every pull request and every push to `main` builds and tests the pinned
-`skill-audit` submodule, installs pinned Trivy, and audits every skill under
-`skills/`. Recursive discovery includes skills added later without changing the
-workflow. The audit blocks high or critical findings and risk scores of 3 or
-higher.
+Every pull request and every push to `main` installs the descriptor-pinned
+`skill-audit` release, verifies the executable and descriptor attestations,
+installs pinned Trivy, and audits every skill under `skills/`. Recursive
+discovery includes skills added later without changing the workflow. The audit
+blocks high or critical findings and risk scores of 3 or higher.
 
 Reviewed false positives are recorded as exact fingerprints in
 `.skill-audit-baseline.json`. A change to the finding's skill, identifier,
 severity, file, line, or evidence requires fresh review, and stale entries fail
-the workflow. `skill-audit` itself is spec-validated by the runner, then built,
-dependency-audited, and tested separately because its source contains the
-detection signatures it is designed to find.
+the workflow. `skill-audit` itself is spec-validated by the runner while the
+consumer verifies the released executable's provenance and contract. Its
+self-referential source tests and dependency audits run in the upstream release
+workflow bound by the descriptor.
 
 Run the same audit locally after preparing the vendored CLI:
 
@@ -135,8 +149,8 @@ Run the same audit locally after preparing the vendored CLI:
 node scripts/audit-skills.mjs
 ```
 
-The workflow consumes the GitHub-pinned source directly; it never publishes
-`skill-audit` to npm.
+The workflow consumes the immutable GitHub Release directly; it never installs
+or publishes `skill-audit` through npm.
 
 ## Quality and security gates
 
@@ -158,8 +172,9 @@ security gates:
 First-party code must be clean. Existing findings in imported skill examples
 are recorded as exact fingerprints in `.python-quality-baseline.json` and
 `.shell-quality-baseline.json`; new or stale fingerprints fail CI and require
-review. Dependabot checks the root npm and uv dependencies, GitHub Actions, and
-the `skill-audit` submodule pin every week.
+review. Dependabot checks the root npm and uv dependencies and GitHub Actions
+every week. The immutable `skill-audit` release pin is upgraded explicitly with
+provenance review.
 
 SonarQube Cloud is configured for organization `nfma` and project
 `nfma_agent-skills`. Disable Automatic Analysis under **Administration →
@@ -195,8 +210,8 @@ the job. The workflow waits for the quality gate when the scan runs.
 
 Treat this repository as the source of truth. Edit tracked skill and MCP files
 here rather than installed copies. Update `skill-audit` in its own repository,
-update the pinned submodule commit here, then rerun
-`./scripts/prepare-vendored-skills.sh`.
+publish an immutable attested release, port the reviewed documentation, replace
+the byte-exact descriptor pin, then rerun `./scripts/prepare-vendored-skills.sh`.
 
 ## License
 

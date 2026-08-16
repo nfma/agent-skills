@@ -14,3 +14,12 @@ id = "generic-api-key"
   regexes = [
     '''^\s*"skills/[A-Za-z0-9_./-]+\.sh:[a-f0-9]{64}"[,]?\s*$''',
   ]
+
+  [[rules.allowlists]]
+  description = "Ignore sealed grading-key digests in the Traycer Notion eval proof"
+  condition = "AND"
+  regexTarget = "line"
+  paths = ['''^evals/sync-traycer-notion-trigger/(key-manifest|proof-report)\.json$''']
+  regexes = [
+    '''^\s*"(key_sha256|key_manifest_sha256)": "[a-f0-9]{64}"[,]?\s*$''',
+  ]

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "skill_name": "hexagonal-architecture",
+  "status": "pending",
+  "suite_canonical_sha256": "45ce3de70e288fc6d3ef07c557f35ff0513deac2aafb1d10d00ece61a4580deb",
+  "harness_profile_canonical_sha256": "b544b9c06baebd2498147c44f2ade7df4c8857d206920a756c0ca5d4f66cd917",
+  "aggregate_report_sha256": "PENDING-COORDINATOR-SEAL",
+  "evaluated_at": null,
+  "expires_at": null,
+  "harnesses": [
+    {
+      "harness": "cursor",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "antigravity",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "codex",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "claude-code",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    }
+  ]
+}

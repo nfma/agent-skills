@@ -13,15 +13,24 @@ const dependabotWorkflow = readFileSync(
 );
 
 /**
+ * @param {string} contents
+ * @param {string} name
+ * @returns {string}
+ */
+function workflowStepFrom(contents, name) {
+  const marker = `      - name: ${name}\n`;
+  const start = contents.indexOf(marker);
+  assert.notEqual(start, -1, `missing workflow step: ${name}`);
+  const next = contents.indexOf("\n      - name:", start + marker.length);
+  return contents.slice(start, next === -1 ? contents.length : next);
+}
+
+/**
  * @param {string} name
  * @returns {string}
  */
 function workflowStep(name) {
-  const marker = `      - name: ${name}\n`;
-  const start = workflow.indexOf(marker);
-  assert.notEqual(start, -1, `missing workflow step: ${name}`);
-  const next = workflow.indexOf("\n      - name:", start + marker.length);
-  return workflow.slice(start, next === -1 ? workflow.length : next);
+  return workflowStepFrom(workflow, name);
 }
 
 test("classifies pull-request trust before checkout without loading secrets", () => {
@@ -102,4 +111,35 @@ test("grants only merge permissions and forces squash auto-merge", () => {
     /gh pr merge --repo "\$GH_REPO" --auto --squash "\$PR_NUMBER"/,
   );
   assert.doesNotMatch(dependabotWorkflow, /--merge\b|--rebase\b/);
+});
+
+test("auto-merges only patch and minor source-dependency updates", () => {
+  const metadata = workflowStepFrom(
+    dependabotWorkflow,
+    "Inspect Dependabot update",
+  );
+  const merge = workflowStepFrom(
+    dependabotWorkflow,
+    "Enable squash auto-merge",
+  );
+  const manual = workflowStepFrom(
+    dependabotWorkflow,
+    "Explain manual review requirement",
+  );
+
+  assert.match(
+    metadata,
+    /dependabot\/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3\.1\.0/,
+  );
+  assert.match(merge, /package-ecosystem == 'npm'/);
+  assert.match(merge, /package-ecosystem == 'uv'/);
+  assert.match(merge, /package-ecosystem == 'gitsubmodule'/);
+  assert.doesNotMatch(merge, /package-ecosystem == 'github-actions'/);
+  assert.match(merge, /update-type == 'version-update:semver-patch'/);
+  assert.match(merge, /update-type == 'version-update:semver-minor'/);
+  assert.doesNotMatch(merge, /version-update:semver-major/);
+  assert.match(manual, /package-ecosystem != 'npm'/);
+  assert.match(manual, /update-type != 'version-update:semver-patch'/);
+  assert.match(manual, /update-type != 'version-update:semver-minor'/);
+  assert.doesNotMatch(manual, /gh pr merge/);
 });

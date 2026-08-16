@@ -16,6 +16,8 @@ PRODUCTION_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/key-manif
 CALIBRATION_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/calibration-manifest.json"
 EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/evidence-manifest.json"
 PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
+SKILL = REPOSITORY_ROOT / "skills/sync-traycer-notion/SKILL.md"
+ADAPTER = REPOSITORY_ROOT / "skills/sync-traycer-notion/references/notion-task-list.md"
 
 
 def load_runner() -> ModuleType:
@@ -110,6 +112,16 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertEqual(evidence["status"], "pending")
         expected_ids = {task["id"] for task in suite["tasks"] if task["kind"] == "positive"}
         self.assertEqual({case["task_id"] for case in key_manifest["cases"]}, expected_ids)
+
+    def test_skill_uses_native_notion_subtask_relations(self) -> None:
+        skill = SKILL.read_text(encoding="utf-8")
+        adapter = ADAPTER.read_text(encoding="utf-8")
+
+        self.assertIn("native `Parent task`", skill)
+        self.assertIn("reciprocal `Sub-task` relation", skill)
+        self.assertIn("| `Parent task` | `Parent task` | relation, limit 1 |", adapter)
+        self.assertIn("| `Sub-task` | `Sub-task` | reciprocal relation |", adapter)
+        self.assertIn("Temporary compatibility mirror", adapter)
 
     def test_public_proof_records_improvement_without_production_promotion(self) -> None:
         report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))

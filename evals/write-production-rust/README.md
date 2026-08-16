@@ -21,8 +21,7 @@ portability.
 Run from the repository root:
 
 ```sh
-python skills/write-production-rust/scripts/run_evals.py run \
-  --output-dir /absolute/path/outside/the/repository
+python skills/write-production-rust/scripts/run_evals.py run
 
 python skills/write-production-rust/scripts/run_evals.py grade \
   --run-manifest /absolute/path/outside/the/repository/run-manifest.json \

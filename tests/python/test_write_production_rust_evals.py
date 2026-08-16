@@ -160,10 +160,11 @@ class WriteProductionRustEvalTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(self.runner.EvalError, "outside the repository"):
-            self.runner.require_external_output_directory(REPOSITORY_ROOT / "eval-output")
+            self.runner.require_external_input(CASE_PACK, "semantic key")
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_root = Path(temporary_directory)
             parser = self.runner.build_parser()
+            run_arguments = parser.parse_args(["run"])
             arguments = parser.parse_args(
                 [
                     "grade",
@@ -173,10 +174,12 @@ class WriteProductionRustEvalTests(unittest.TestCase):
                     str(temporary_root / "semantic-key.json"),
                 ]
             )
+            self.assertFalse(hasattr(run_arguments, "output_dir"))
             self.assertFalse(hasattr(arguments, "output"))
 
-            external = temporary_root / "fresh"
-            self.assertEqual(self.runner.require_external_output_directory(external), external.resolve())
+            external = self.runner.create_external_output_directory(temporary_root)
+            self.assertEqual(external.parent, temporary_root.resolve())
+            self.assertTrue(external.name.startswith(f"{self.runner.SUITE_NAME}-"))
 
 
 if __name__ == "__main__":

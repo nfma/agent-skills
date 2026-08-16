@@ -12,6 +12,7 @@ import shutil
 # This runner invokes one user-selected local executable with fixed argv and no shell.
 import subprocess  # nosec B404
 import sys
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -66,14 +67,12 @@ def path_is_within(path: Path, parent: Path) -> bool:
     return True
 
 
-def require_external_output_directory(path: Path) -> Path:
-    resolved = path.expanduser().resolve()
-    if path_is_within(resolved, REPOSITORY_ROOT):
-        raise EvalError("raw evaluation output must be outside the repository")
-    if resolved.exists() and any(resolved.iterdir()):
-        raise EvalError(f"output directory must be absent or empty: {resolved}")
-    resolved.mkdir(parents=True, exist_ok=True)
-    return resolved
+def create_external_output_directory(parent: Path | None = None) -> Path:
+    output_directory = Path(tempfile.mkdtemp(prefix=f"{SUITE_NAME}-", dir=parent)).resolve()
+    if path_is_within(output_directory, REPOSITORY_ROOT):
+        shutil.rmtree(output_directory)
+        raise EvalError("the system temporary directory must be outside the repository")
+    return output_directory
 
 
 def require_external_input(path: Path, label: str) -> Path:
@@ -474,7 +473,7 @@ def claude_version(claude_bin: str) -> str:
 def run_suite(arguments: argparse.Namespace) -> int:
     case_pack_path = arguments.case_pack.expanduser().resolve(strict=True)
     _pack, trigger_cases, behavior_cases = validated_case_pack(case_pack_path)
-    run_root = require_external_output_directory(arguments.output_dir)
+    run_root = create_external_output_directory()
     records: list[dict[str, Any]] = []
 
     for case in trigger_cases:
@@ -811,7 +810,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="run fresh trigger and behavior sessions")
     run_parser.add_argument("--case-pack", type=Path, default=DEFAULT_CASE_PACK)
-    run_parser.add_argument("--output-dir", type=Path, required=True)
     run_parser.add_argument("--claude-bin", default="claude")
     run_parser.add_argument("--model", default="sonnet")
     run_parser.add_argument("--effort", default="high")

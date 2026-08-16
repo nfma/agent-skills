@@ -19,7 +19,7 @@
       "skills/huggingface-paper-publisher/scripts/paper_manager.py:150:27:MEDIUM:HIGH:B615:Unsafe Hugging Face Hub download without revision pinning in hf_hub_download()",
       "skills/huggingface-tool-builder/references/baseline_hf_api.py:53:10:MEDIUM:HIGH:B310:Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
       "skills/orchestrate-risk-scaled-review/scripts/agy_review_relay.py:10:1:LOW:HIGH:B404:Consider possible security implications associated with the subprocess module.",
-      "skills/orchestrate-risk-scaled-review/scripts/agy_review_relay.py:285:21:LOW:HIGH:B603:subprocess call - check for execution of untrusted input.",
+      "skills/orchestrate-risk-scaled-review/scripts/agy_review_relay.py:338:21:LOW:HIGH:B603:subprocess call - check for execution of untrusted input.",
       "skills/train-sentence-transformers/scripts/mine_hard_negatives.py:137:9:MEDIUM:HIGH:B615:Unsafe Hugging Face Hub download without revision pinning in load_dataset()",
       "skills/train-sentence-transformers/scripts/mine_hard_negatives.py:139:14:MEDIUM:HIGH:B615:Unsafe Hugging Face Hub download without revision pinning in load_dataset()",
       "skills/train-sentence-transformers/scripts/mine_hard_negatives.py:149:13:MEDIUM:HIGH:B615:Unsafe Hugging Face Hub download without revision pinning in load_dataset()",

@@ -41,11 +41,11 @@ jobs:
         run: |
           ./scripts/install-linux-ci-tools.sh "$RUNNER_TEMP/ci-tools"
           echo "$RUNNER_TEMP/ci-tools" >> "$GITHUB_PATH"
-          uv sync --frozen
+          uv sync --frozen --no-build
 
       - name: Run Semgrep community security rules
         run: >-
-          uv run --frozen semgrep scan
+          uv run --frozen --no-build semgrep scan
           --config p/default
           --config p/security-audit
           --error

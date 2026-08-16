@@ -36,4 +36,11 @@ export default typescriptEslint.config(
       "security/detect-non-literal-fs-filename": "off",
     },
   },
+  {
+    files: ["tests/hf-mcp-filter.test.js"],
+    rules: {
+      // The test creates and removes only paths beneath its private mkdtemp root.
+      "security/detect-non-literal-fs-filename": "off",
+    },
+  },
 );

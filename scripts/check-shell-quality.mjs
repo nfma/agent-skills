@@ -6,6 +6,8 @@ import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { checkQualityBaseline, uniqueSorted } from "./quality-baseline.mjs";
+
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const vendorRoot = resolve(repositoryRoot, "vendor/skill-audit/skill-audit");
 const baselinePath = resolve(repositoryRoot, ".shell-quality-baseline.json");
@@ -78,7 +80,7 @@ function trackedShellFiles(root, prefix = "") {
 const shellFiles = [
   ...trackedShellFiles(repositoryRoot),
   ...trackedShellFiles(vendorRoot, "vendor/skill-audit/skill-audit/"),
-].sort();
+].sort((left, right) => left.localeCompare(right));
 
 if (shellFiles.length === 0) throw new Error("No tracked shell files found");
 
@@ -124,11 +126,6 @@ for (const file of shellFiles) {
   shfmt.push(`${file}:${digest}`);
 }
 
-/** @param {string[]} findings */
-function uniqueSorted(findings) {
-  return [...new Set(findings)].sort();
-}
-
 const current = {
   shellcheck: uniqueSorted(shellcheck),
   shfmt: uniqueSorted(shfmt),
@@ -140,51 +137,11 @@ const reviewNotes = {
     "Imported and vendored formatting is preserved; SHA-256 diff fingerprints gate changes.",
 };
 
-if (printBaseline) {
-  console.log(
-    JSON.stringify(
-      { version: 1, reviewNotes, acceptedFindings: current },
-      null,
-      2,
-    ),
-  );
-  process.exit(0);
-}
-
-const baseline =
-  /** @type {{ version: number, reviewNotes?: Record<string, string>, acceptedFindings: Record<string, string[]> }} */ (
-    // The path is fixed to the repository root and never accepts user input.
-    JSON.parse(readFileSync(baselinePath, "utf8"))
-  );
-if (baseline.version !== 1) {
-  throw new Error(
-    `Unsupported shell quality baseline version: ${baseline.version}`,
-  );
-}
-
-let failed = false;
-for (const [tool, findings] of Object.entries(current)) {
-  const accepted = new Set(baseline.acceptedFindings[tool] ?? []);
-  const actual = new Set(findings);
-  const newFindings = findings.filter((finding) => !accepted.has(finding));
-  const staleFindings = [...accepted].filter((finding) => !actual.has(finding));
-
-  console.log(`${tool}: ${findings.length} accepted finding(s)`);
-  if (newFindings.length > 0) {
-    failed = true;
-    console.error(`\n${tool}: new findings`);
-    for (const finding of newFindings) console.error(`- ${finding}`);
-  }
-  if (staleFindings.length > 0) {
-    failed = true;
-    console.error(`\n${tool}: stale baseline findings`);
-    for (const finding of staleFindings) console.error(`- ${finding}`);
-  }
-}
-
-if (failed) {
-  console.error(
-    "\nReview the changes, then regenerate with: node scripts/check-shell-quality.mjs --print-baseline",
-  );
-  process.exitCode = 1;
-}
+checkQualityBaseline({
+  baselinePath,
+  current,
+  label: "shell",
+  printBaseline,
+  regenerationCommand: "node scripts/check-shell-quality.mjs --print-baseline",
+  reviewNotes,
+});

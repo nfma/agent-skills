@@ -187,6 +187,7 @@ sync_codex_skill_links() {
           run rm "$link"
         fi
         ;;
+      *) ;;
     esac
   done
 

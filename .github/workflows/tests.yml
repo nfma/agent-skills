@@ -46,7 +46,7 @@ jobs:
       - name: Install test dependencies
         run: |
           npm ci --ignore-scripts
-          uv sync --frozen
+          uv sync --frozen --no-build
 
       - name: Run tests
         run: npm test

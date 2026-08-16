@@ -69,7 +69,7 @@ jobs:
           node-version: 24
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --no-build
 
       - name: Lint, format-check, type-check, and security-check Python
         run: npm run lint:python
@@ -134,7 +134,7 @@ jobs:
         run: |
           ./scripts/install-linux-ci-tools.sh "$RUNNER_TEMP/ci-tools"
           echo "$RUNNER_TEMP/ci-tools" >> "$GITHUB_PATH"
-          uv sync --frozen
+          uv sync --frozen --no-build
 
       - name: Validate workflow syntax
         run: actionlint
@@ -145,7 +145,7 @@ jobs:
         run: zizmor --persona auditor .github/workflows
 
       - name: Lint YAML
-        run: uv run --frozen yamllint .github
+        run: uv run --frozen --no-build yamllint .github
 
       - name: Validate tracked JSON
         shell: bash

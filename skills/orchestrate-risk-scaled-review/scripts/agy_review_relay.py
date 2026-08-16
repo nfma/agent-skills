@@ -19,6 +19,8 @@ MAX_PROMPT_FILE_BYTES = 16 * 1024
 PROMPT_SENTINEL_PREFIX = "TRAYCER_PROMPT_SENTINEL_"
 PROMPT_SENTINEL_PATTERN = re.compile(rf"{PROMPT_SENTINEL_PREFIX}[A-Za-z0-9_-]{{32}}")
 MAX_SENTINEL_LINE_BYTES = 128
+MALFORMED_SENTINEL_ERROR = "prompt artifact first line is not a well-formed sentinel"
+PRINT_TIMEOUT_ARGUMENTS = {"10m": "10m", "30m": "30m"}
 PromptIdentity = tuple[int, int, int, int, int]
 
 
@@ -34,7 +36,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Safely relay one prompt to Antigravity CLI")
     parser.add_argument("--conversation", help="Explicit conversation ID to resume")
     parser.add_argument("--prompt-file", required=True, type=Path, help="Absolute path to the durable review prompt")
-    parser.add_argument("--print-timeout", required=True, help="Explicit agy print timeout, such as 30m or 10m")
+    parser.add_argument(
+        "--print-timeout",
+        required=True,
+        choices=tuple(PRINT_TIMEOUT_ARGUMENTS),
+        help="Explicit agy print timeout: 30m for reviews or 10m for reconciliation",
+    )
     return parser.parse_args()
 
 
@@ -67,6 +74,12 @@ def prompt_handle_instruction(prompt_path: Path) -> str:
 
 
 def build_command(agy: Path, prompt_path: Path, print_timeout: str, conversation: str | None) -> list[str]:
+    if print_timeout == "10m":
+        timeout_argument = "10m"
+    elif print_timeout == "30m":
+        timeout_argument = "30m"
+    else:
+        raise RelayConfigurationError(f"unsupported print timeout: {print_timeout}")
     command = [
         str(agy),
         "--model",
@@ -77,7 +90,7 @@ def build_command(agy: Path, prompt_path: Path, print_timeout: str, conversation
         "--output-format",
         "stream-json",
         "--print-timeout",
-        print_timeout,
+        timeout_argument,
         "--add-dir",
         str(prompt_path.parent),
     ]
@@ -113,7 +126,7 @@ def require_prompt_identity(prompt_path: Path, expected: PromptIdentity, stage: 
         raise RelayConfigurationError(f"prompt file changed {stage}: {prompt_path}")
 
 
-def read_prompt_sentinel(prompt_path: Path) -> tuple[Path, str, PromptIdentity]:
+def dedicated_prompt_entry(prompt_path: Path) -> tuple[Path, Path]:
     if not prompt_path.is_absolute():
         raise RelayConfigurationError("prompt file path must be absolute")
 
@@ -148,7 +161,10 @@ def read_prompt_sentinel(prompt_path: Path) -> tuple[Path, str, PromptIdentity]:
         raise RelayConfigurationError(f"prompt file is unavailable: {sole_entry}: {exc}") from exc
     if not stat.S_ISREG(entry_stat.st_mode):
         raise RelayConfigurationError(f"dedicated prompt directory entry is not a regular file: {sole_entry.name}")
+    return dedicated_directory, sole_entry
 
+
+def resolve_prompt_entry(sole_entry: Path, dedicated_directory: Path) -> tuple[Path, os.stat_result]:
     try:
         resolved = sole_entry.resolve(strict=True)
         prompt_stat = resolved.stat()
@@ -163,7 +179,10 @@ def read_prompt_sentinel(prompt_path: Path) -> tuple[Path, str, PromptIdentity]:
             f"prompt file is {prompt_stat.st_size} bytes; maximum is {MAX_PROMPT_FILE_BYTES} bytes "
             "because prompt files must contain handles, not inlined review content"
         )
+    return resolved, prompt_stat
 
+
+def read_sentinel_line(resolved: Path) -> str:
     try:
         with resolved.open("rb") as handle:
             first_line = handle.readline(MAX_SENTINEL_LINE_BYTES + 1)
@@ -171,14 +190,73 @@ def read_prompt_sentinel(prompt_path: Path) -> tuple[Path, str, PromptIdentity]:
         raise RelayConfigurationError(f"prompt file is not readable: {resolved}: {exc}") from exc
 
     if len(first_line) > MAX_SENTINEL_LINE_BYTES or not first_line.endswith(b"\n"):
-        raise RelayConfigurationError("prompt artifact first line is not a well-formed sentinel")
+        raise RelayConfigurationError(MALFORMED_SENTINEL_ERROR)
     try:
         sentinel = first_line.removesuffix(b"\n").removesuffix(b"\r").decode("ascii")
     except UnicodeDecodeError as exc:
-        raise RelayConfigurationError("prompt artifact first line is not a well-formed sentinel") from exc
+        raise RelayConfigurationError(MALFORMED_SENTINEL_ERROR) from exc
     if PROMPT_SENTINEL_PATTERN.fullmatch(sentinel) is None:
-        raise RelayConfigurationError("prompt artifact first line is not a well-formed sentinel")
+        raise RelayConfigurationError(MALFORMED_SENTINEL_ERROR)
+    return sentinel
+
+
+def read_prompt_sentinel(prompt_path: Path) -> tuple[Path, str, PromptIdentity]:
+    dedicated_directory, sole_entry = dedicated_prompt_entry(prompt_path)
+    resolved, prompt_stat = resolve_prompt_entry(sole_entry, dedicated_directory)
+    sentinel = read_sentinel_line(resolved)
     return resolved, sentinel, prompt_identity(prompt_stat)
+
+
+def parse_stream_event(raw_line: bytes, line_number: int, protocol_errors: list[str]) -> dict[str, object] | None:
+    if not raw_line.strip():
+        return None
+    try:
+        event: object = json.loads(raw_line)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        protocol_errors.append(f"line {line_number} is not valid JSON")
+        return None
+    if not isinstance(event, dict):
+        protocol_errors.append(f"line {line_number} is not a JSON object")
+        return None
+    return event
+
+
+def record_conversation_id(
+    value: object,
+    source: str,
+    conversation_ids: set[str],
+    protocol_errors: list[str],
+) -> None:
+    if isinstance(value, str) and value.strip():
+        conversation_ids.add(value)
+    elif value is not None:
+        protocol_errors.append(f"{source} conversation_id is not a non-empty string")
+
+
+def parse_result_event(
+    event: dict[str, object],
+    conversation_ids: set[str],
+    protocol_errors: list[str],
+    sentinel: str,
+) -> tuple[object, object]:
+    result = event.get("result")
+    if not isinstance(result, dict):
+        protocol_errors.append("result event does not contain a JSON object")
+        return None, None
+
+    record_conversation_id(result.get("conversation_id"), "result", conversation_ids, protocol_errors)
+    result_status = result.get("status")
+    if result_status is not None and not isinstance(result_status, str):
+        protocol_errors.append("result status is not a string")
+    result_usage = result.get("usage")
+    if result_usage is not None and not isinstance(result_usage, dict):
+        protocol_errors.append("result usage is not a JSON object")
+    result_response = result.get("response")
+    if not isinstance(result_response, str):
+        protocol_errors.append("result response is not a string")
+    elif not result_response.splitlines() or result_response.splitlines()[0] != sentinel:
+        protocol_errors.append("result response does not begin with the prompt sentinel")
+    return result_status, result_usage
 
 
 def parse_stream_metadata(stdout: bytes, agy_exit_code: int, sentinel: str) -> tuple[dict[str, object], bool]:
@@ -189,47 +267,22 @@ def parse_stream_metadata(stdout: bytes, agy_exit_code: int, sentinel: str) -> t
     result_usage: object = None
 
     for line_number, raw_line in enumerate(stdout.splitlines(), start=1):
-        if not raw_line.strip():
+        event = parse_stream_event(raw_line, line_number, protocol_errors)
+        if event is None:
             continue
-        try:
-            event: object = json.loads(raw_line)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            protocol_errors.append(f"line {line_number} is not valid JSON")
-            continue
-        if not isinstance(event, dict):
-            protocol_errors.append(f"line {line_number} is not a JSON object")
-            continue
-
         event_name = event.get("event")
         if event_name == "init":
-            conversation_id = event.get("conversation_id")
-            if isinstance(conversation_id, str) and conversation_id.strip():
-                conversation_ids.add(conversation_id)
-            elif conversation_id is not None:
-                protocol_errors.append("init conversation_id is not a non-empty string")
-        elif event_name == "result":
-            result_seen = True
-            result = event.get("result")
-            if not isinstance(result, dict):
-                protocol_errors.append("result event does not contain a JSON object")
-                continue
-            conversation_id = result.get("conversation_id")
-            if isinstance(conversation_id, str) and conversation_id.strip():
-                conversation_ids.add(conversation_id)
-            elif conversation_id is not None:
-                protocol_errors.append("result conversation_id is not a non-empty string")
-
-            result_status = result.get("status")
-            if result_status is not None and not isinstance(result_status, str):
-                protocol_errors.append("result status is not a string")
-            result_usage = result.get("usage")
-            if result_usage is not None and not isinstance(result_usage, dict):
-                protocol_errors.append("result usage is not a JSON object")
-            result_response = result.get("response")
-            if not isinstance(result_response, str):
-                protocol_errors.append("result response is not a string")
-            elif not result_response.splitlines() or result_response.splitlines()[0] != sentinel:
-                protocol_errors.append("result response does not begin with the prompt sentinel")
+            record_conversation_id(event.get("conversation_id"), "init", conversation_ids, protocol_errors)
+            continue
+        if event_name != "result":
+            continue
+        result_seen = True
+        result_status, result_usage = parse_result_event(
+            event,
+            conversation_ids,
+            protocol_errors,
+            sentinel,
+        )
 
     if not result_seen:
         protocol_errors.append("stream contains no result event")

@@ -718,6 +718,18 @@ class AgyReviewRelayTests(unittest.TestCase):
                     self.assertEqual(result.returncode, CONFIGURATION_EXIT)
                     self.assertIn(b"conversation ID must not be blank", result.stderr)
 
+    def test_unrecognized_print_timeout_uses_argparse_exit_2(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            fake_agy = create_fake_agy(root / "bin")
+            workspace = root / "workspace"
+            workspace.mkdir()
+
+            result = run_relay(fake_agy, workspace, print_timeout="31m")
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(b"invalid choice: '31m'", result.stderr)
+
     def test_spawn_oserror_uses_exit_69(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

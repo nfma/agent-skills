@@ -4,16 +4,26 @@
 // huggingface.co rejects at the HTTP layer. Answer it locally and forward all
 // standard MCP traffic unchanged.
 const { spawn } = require("child_process");
+const path = require("node:path");
 const readline = require("readline");
 
-const command = process.argv[2];
-if (!command) {
-  throw new Error("Usage: hf-mcp-filter.js <command> [args...]");
+if (process.argv.length !== 2) {
+  throw new Error("hf-mcp-filter.js does not accept arguments");
 }
 
-const child = spawn(command, process.argv.slice(3), {
-  stdio: ["pipe", "inherit", "inherit"],
-});
+const child = spawn(
+  path.join(__dirname, "npx"),
+  [
+    "-y",
+    "mcp-remote@0.1.38",
+    "https://huggingface.co/mcp",
+    "--header",
+    "Authorization: Bearer ${HF_MCP_TOKEN}",
+  ],
+  {
+    stdio: ["pipe", "inherit", "inherit"],
+  },
+);
 child.on("exit", (code) => process.exit(code ?? 1));
 
 const input = readline.createInterface({

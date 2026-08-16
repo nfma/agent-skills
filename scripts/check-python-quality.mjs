@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+
+import { checkQualityBaseline, uniqueSorted } from "./quality-baseline.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const baselinePath = resolve(repositoryRoot, ".python-quality-baseline.json");
@@ -66,7 +67,9 @@ function collectRuff() {
   const output = parseJson(
     runUv(["ruff", "check", "skills", "tests/python", "--output-format=json"]),
   );
-  if (!Array.isArray(output)) throw new Error("Unexpected Ruff JSON output");
+  if (!Array.isArray(output)) {
+    throw new TypeError("Unexpected Ruff JSON output");
+  }
   return output.map((finding) => {
     const item = /** @type {Record<string, any>} */ (finding);
     return `${repositoryRelative(item.filename)}:${item.location.row}:${item.location.column}:${item.code}:${oneLine(item.message)}`;
@@ -85,7 +88,7 @@ function collectRuffFormat() {
     ]),
   );
   if (!Array.isArray(output)) {
-    throw new Error("Unexpected Ruff format JSON output");
+    throw new TypeError("Unexpected Ruff format JSON output");
   }
   return output.map((finding) => {
     const item = /** @type {Record<string, any>} */ (finding);
@@ -98,7 +101,7 @@ function collectPyright() {
     parseJson(runUv(["pyright", "--outputjson"]))
   );
   if (!Array.isArray(output.generalDiagnostics)) {
-    throw new Error("Unexpected Pyright JSON output");
+    throw new TypeError("Unexpected Pyright JSON output");
   }
   return output.generalDiagnostics.map((finding) => {
     const item = /** @type {Record<string, any>} */ (finding);
@@ -127,17 +130,12 @@ function collectBandit() {
     )
   );
   if (!Array.isArray(output.results)) {
-    throw new Error("Unexpected Bandit JSON output");
+    throw new TypeError("Unexpected Bandit JSON output");
   }
   return output.results.map((finding) => {
     const item = /** @type {Record<string, any>} */ (finding);
     return `${repositoryRelative(item.filename)}:${item.line_number}:${item.col_offset + 1}:${item.issue_severity}:${item.issue_confidence}:${item.test_id}:${oneLine(item.issue_text)}`;
   });
-}
-
-/** @param {string[]} values */
-function uniqueSorted(values) {
-  return [...new Set(values)].sort();
 }
 
 const current = {
@@ -157,52 +155,11 @@ const reviewNotes = {
     "Imported examples retain upstream formatting; exact diff locations gate all changes.",
 };
 
-if (printBaseline) {
-  console.log(
-    JSON.stringify(
-      { version: 1, reviewNotes, acceptedFindings: current },
-      null,
-      2,
-    ),
-  );
-  process.exit(0);
-}
-
-const baseline =
-  /** @type {{ version: number, reviewNotes?: Record<string, string>, acceptedFindings: Record<string, string[]> }} */ (
-    // The path is fixed to the repository root and never accepts user input.
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    JSON.parse(readFileSync(baselinePath, "utf8"))
-  );
-if (baseline.version !== 1) {
-  throw new Error(
-    `Unsupported Python quality baseline version: ${baseline.version}`,
-  );
-}
-
-let failed = false;
-for (const [tool, findings] of Object.entries(current)) {
-  const accepted = new Set(baseline.acceptedFindings[tool] ?? []);
-  const actual = new Set(findings);
-  const newFindings = findings.filter((finding) => !accepted.has(finding));
-  const staleFindings = [...accepted].filter((finding) => !actual.has(finding));
-
-  console.log(`${tool}: ${findings.length} accepted finding(s)`);
-  if (newFindings.length > 0) {
-    failed = true;
-    console.error(`\n${tool}: new findings`);
-    for (const finding of newFindings) console.error(`- ${finding}`);
-  }
-  if (staleFindings.length > 0) {
-    failed = true;
-    console.error(`\n${tool}: stale baseline findings`);
-    for (const finding of staleFindings) console.error(`- ${finding}`);
-  }
-}
-
-if (failed) {
-  console.error(
-    "\nReview the changes, then regenerate with: node scripts/check-python-quality.mjs --print-baseline",
-  );
-  process.exitCode = 1;
-}
+checkQualityBaseline({
+  baselinePath,
+  current,
+  label: "Python",
+  printBaseline,
+  regenerationCommand: "node scripts/check-python-quality.mjs --print-baseline",
+  reviewNotes,
+});

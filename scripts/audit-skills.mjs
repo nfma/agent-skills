@@ -185,7 +185,9 @@ for (const entry of baseline.selfAuditedSkills) {
   selfAuditedSkills.set(entry.skill, entry.reason);
 }
 const matchedAcceptedFindings = new Set();
-const discoveredSkillDirectories = discoverSkillDirectories(skillsRoot).sort();
+const discoveredSkillDirectories = discoverSkillDirectories(skillsRoot).sort(
+  (left, right) => left.localeCompare(right),
+);
 const discoveredSkillNames = new Set();
 for (const skillPath of discoveredSkillDirectories) {
   const skillName = basename(skillPath);

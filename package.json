@@ -12,7 +12,7 @@
     "test:installer": "bats tests/install-mcps.bats",
     "test:python": "PYTHONDONTWRITEBYTECODE=1 uv run --frozen python -m unittest discover -s tests/python -p 'test_*.py'",
     "test:sync-skills": "bats tests/sync-agent-skills.bats",
-    "test:workflow-security": "node --test tests/sonar-workflow.test.js",
+    "test:workflow-security": "node --test tests/sonar-workflow.test.js tests/auto-merge-workflow.test.js",
     "typecheck": "node ./node_modules/typescript-7/bin/tsc --project tsconfig.json"
   },
   "devDependencies": {

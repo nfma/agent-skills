@@ -1,6 +1,12 @@
 ---
 name: train-sentence-transformers
 description: Train or fine-tune sentence-transformers models across `SentenceTransformer` (bi-encoder; dense or static embedding model; for retrieval, similarity, clustering, classification, paraphrase mining, dedup, multimodal), `CrossEncoder` (reranker; pair scoring for two-stage retrieval / pair classification), and `SparseEncoder` (SPLADE, sparse embedding model; for learned-sparse retrieval). Covers loss selection, hard-negative mining, evaluators, distillation, LoRA, Matryoshka, and Hugging Face Hub publishing. Use for any sentence-transformers training task.
+metadata:
+  skill-audit-context-reads: training_goal, dataset, base_model, hardware_state, auth_status
+  skill-audit-context-requires: explicit_training_goal, target_model_or_dataset
+  skill-audit-context-writes: files_changed, training_runs, model_artifacts, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python with `sentence-transformers[train]>=5.0`; the bundled training templates additionally need `trackio`, the default tracker on non-smoke runs, and `peft` for the LoRA template — both resolved automatically under `uv run` from each script's PEP 723 header. Practical training usually requires a compatible GPU. Hub downloads/publishing require network access, and gated/private or push workflows require Hub authentication.
 ---
 
 # Train a sentence-transformers Model

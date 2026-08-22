@@ -1,6 +1,12 @@
 ---
 name: huggingface-zerogpu
 description: AI demos and GPU compute with Gradio Spaces and Hugging Face Spaces ZeroGPU. Use when writing or reviewing code that uses `@spaces.GPU`, configuring `python_version` or `requirements.txt` for a ZeroGPU Space, or handling ZeroGPU-specific code constraints — pickle-based process isolation, `gr.State` semantics across the worker boundary, no `torch.compile` (use AoTI instead), CUDA wheel-only builds (no `nvcc` at build or runtime), large vs xlarge sizing, and dynamic duration callables. Make sure to use this skill whenever the user mentions ZeroGPU, `@spaces.GPU`, or the `spaces` Python package, or hits ZeroGPU-specific code errors like `PicklingError` across the worker boundary, `illegal duration`, or `flash-attn` wheel-build failures — even when the user does not explicitly ask for ZeroGPU coding guidance. Trigger on `import spaces` or `@spaces.GPU` in code.
+metadata:
+  skill-audit-context-reads: space_code, dependency_files, gpu_workload, auth_status
+  skill-audit-context-requires: explicit_zerogpu_goal, target_space
+  skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python, Gradio, the `spaces` package, and a Gradio Space eligible for ZeroGPU; deployment requires Hub network access and authentication, and execution is subject to ZeroGPU quota.
 ---
 
 # Hugging Face ZeroGPU

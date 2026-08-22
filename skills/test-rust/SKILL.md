@@ -1,6 +1,7 @@
 ---
 name: test-rust
 description: Assess, design, implement, or audit a risk-adaptive Rust test portfolio using fast public-API tests, property-based testing, mutation testing, and risk-gated formal methods, with every edit made under this skill confined to concrete Cargo package `tests/` directories. Use for Rust integration, CLI, property, state-machine, mutation-audited, concurrency, Lean, TLA+, or Kani tests; testing strategy; example-test consolidation; or auditing human- or LLM-authored oracles already under `tests/`. In mixed requests, use this skill only for the `tests/` portion. Do not use for inline/source tests, doctests, manifests, lockfiles, CI, benches, fuzz harness authoring, or merely running an existing test command once.
+compatibility: Requires Git, Python 3.9+, Cargo, and a Rust repository. Proptest, cargo-mutants, Kani, Lean, and Java with TLC are required only when their corresponding techniques are selected.
 ---
 
 # Test Rust

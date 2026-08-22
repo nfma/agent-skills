@@ -65,7 +65,14 @@ function parseJson(value) {
 
 function collectRuff() {
   const output = parseJson(
-    runUv(["ruff", "check", "skills", "tests/python", "--output-format=json"]),
+    runUv([
+      "ruff",
+      "check",
+      "skills",
+      "tests/python",
+      "evals",
+      "--output-format=json",
+    ]),
   );
   if (!Array.isArray(output)) {
     throw new TypeError("Unexpected Ruff JSON output");
@@ -84,6 +91,7 @@ function collectRuffFormat() {
       "--check",
       "skills",
       "tests/python",
+      "evals",
       "--output-format=json",
     ]),
   );
@@ -98,7 +106,9 @@ function collectRuffFormat() {
 
 function collectPyright() {
   const output = /** @type {Record<string, any>} */ (
-    parseJson(runUv(["pyright", "--outputjson"]))
+    parseJson(
+      runUv(["pyright", "--outputjson", "skills", "tests/python", "evals"]),
+    )
   );
   if (!Array.isArray(output.generalDiagnostics)) {
     throw new TypeError("Unexpected Pyright JSON output");
@@ -114,6 +124,7 @@ function collectMypy() {
     "mypy",
     "skills",
     "tests/python",
+    "evals",
     "--output=json",
   ]).trim();
   if (!output) return [];
@@ -126,7 +137,16 @@ function collectMypy() {
 function collectBandit() {
   const output = /** @type {Record<string, any>} */ (
     parseJson(
-      runUv(["bandit", "-r", "skills", "tests/python", "-f", "json", "-q"]),
+      runUv([
+        "bandit",
+        "-r",
+        "skills",
+        "tests/python",
+        "evals",
+        "-f",
+        "json",
+        "-q",
+      ]),
     )
   );
   if (!Array.isArray(output.results)) {

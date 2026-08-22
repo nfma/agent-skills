@@ -1,6 +1,12 @@
 ---
 name: huggingface-papers
 description: Look up and read Hugging Face paper pages in markdown, and use the papers API for structured metadata such as authors, linked models/datasets/spaces, Github repo and project page. Use when the user shares a Hugging Face paper page URL, an arXiv URL or ID, or asks to summarize, explain, or analyze an AI research paper.
+metadata:
+  skill-audit-context-reads: paper_id_or_url, user_question
+  skill-audit-context-requires: explicit_paper_research_goal, target_paper
+  skill-audit-context-writes: paper_metadata, analysis, evidence_sources
+  skill-audit-confirmation: never
+compatibility: Requires network access to Hugging Face and arXiv plus `curl`; paper-claim or linked-resource mutations require Hub authentication.
 ---
 
 # Hugging Face Paper Pages

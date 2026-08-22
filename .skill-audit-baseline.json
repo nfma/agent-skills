@@ -3,7 +3,21 @@
   "selfAuditedSkills": [
     {
       "skill": "skill-audit",
-      "reason": "The runner spec-validates this skill, while CI validates its self-referential detection corpus with the complete test and dependency-audit suites."
+      "reason": "The immutable release digest pin is verified with `gh attestation verify` bound to `--signer-workflow`, `--source-digest`, `--source-ref`, and `--deny-self-hosted-runners`; the release-contract test then verifies the installed executable and fixed corpus."
+    }
+  ],
+  "compatibilityOmissions": [
+    {
+      "skill": "coding-preferences",
+      "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "sensitive-system-safety",
+      "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "skill-audit",
+      "reason": "The consumer documentation is a byte-exact Sigstore-attested upstream artifact; compatibility must be added in an upstream release rather than by changing the verified local copy."
     }
   ],
   "acceptedFindings": [
@@ -12,7 +26,7 @@
       "id": "PII-007",
       "severity": "high",
       "file": "SKILL.md",
-      "line": 287,
+      "line": 293,
       "evidence": "# {\"Result\": \"/tmp/gradio/.../image.webp\", \"Seed\": 1117868604}",
       "reason": "The ten-digit value is a generated image seed, not a Vietnamese social-insurance identifier."
     },
@@ -66,7 +80,7 @@
       "id": "PII-002",
       "severity": "high",
       "file": "SKILL.md",
-      "line": 53,
+      "line": 57,
       "evidence": "// Output: [{ label: 'POSITIVE', score: 0.999817686 }]",
       "reason": "The nine-digit value is an example model confidence score, not a Vietnamese identity number."
     }

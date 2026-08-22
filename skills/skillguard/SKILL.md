@@ -1,6 +1,12 @@
 ---
 name: skillguard
 description: Security audit agent skills for vulnerabilities and malicious patterns. Use when asked to "scan a skill", "check if a skill is safe", "audit a skill for security", "review skill security", "is this skill malicious", or when installing/reviewing any third-party agent skill. Accepts local SKILL.md files, skill directories, .skill packages, or GitHub URLs. Maps findings to OWASP Agentic Top 10 (2026) and MITRE ATLAS.
+metadata:
+  skill-audit-context-reads: target_skill, skill_files, audit_frameworks, external_references
+  skill-audit-context-requires: explicit_audit_goal, target_skill
+  skill-audit-context-writes: security_findings, verdict, evidence_sources
+  skill-audit-confirmation: never
+compatibility: GitHub URL targets require network access; local targets have no additional runtime requirement.
 ---
 
 # SkillGuard — Agent Skill Security Auditor

@@ -58,7 +58,10 @@ CFG_RULES = (
     Rule("test-cfg", re.compile(r"#\s*!?\[\s*cfg(?:_attr)?\s*\(", re.MULTILINE)),
     Rule("test-cfg-macro", re.compile(r"\bcfg!\s*\(", re.MULTILINE)),
 )
-CFG_TEST_ATOM = re.compile(r"(?<![A-Za-z0-9_])(?:test_case|doctest|proptest|rstest|test)(?![A-Za-z0-9_])")
+CFG_TEST_ATOM = re.compile(
+    r"(?<!\w)(?:test_case|doctest|proptest|rstest|test)(?!\w)",
+    re.ASCII,
+)
 TEST_PATH_COMPONENTS = frozenset({"test", "tests"})
 
 
@@ -222,6 +225,23 @@ def block_comment_end(source: str, start: int) -> int:
     return cursor
 
 
+def comment_end_at(source: str, cursor: int) -> int | None:
+    if source.startswith("//", cursor):
+        line_end = source.find("\n", cursor + 2)
+        return len(source) if line_end == -1 else line_end
+    if source.startswith("/*", cursor):
+        return block_comment_end(source, cursor)
+    return None
+
+
+def character_literal_end_at(source: str, cursor: int) -> int | None:
+    if token_prefix_at(source, cursor, "b'"):
+        return char_literal_end(source, cursor + 1)
+    if source[cursor] == "'":
+        return char_literal_end(source, cursor)
+    return None
+
+
 def lex_source(source: str) -> LexedSource:
     comments_masked = list(source)
     code_masked = list(source)
@@ -229,15 +249,8 @@ def lex_source(source: str) -> LexedSource:
     cursor = 0
 
     while cursor < len(source):
-        if source.startswith("//", cursor):
-            comment_end = source.find("\n", cursor + 2)
-            comment_end = len(source) if comment_end == -1 else comment_end
-            mask_range(comments_masked, source, cursor, comment_end)
-            mask_range(code_masked, source, cursor, comment_end)
-            cursor = comment_end
-            continue
-        if source.startswith("/*", cursor):
-            comment_end = block_comment_end(source, cursor)
+        comment_end = comment_end_at(source, cursor)
+        if comment_end is not None:
             mask_range(comments_masked, source, cursor, comment_end)
             mask_range(code_masked, source, cursor, comment_end)
             cursor = comment_end
@@ -248,18 +261,11 @@ def lex_source(source: str) -> LexedSource:
             mask_range(code_masked, source, cursor, literal_end)
             cursor = literal_end
             continue
-        if token_prefix_at(source, cursor, "b'"):
-            char_end = char_literal_end(source, cursor + 1)
-            if char_end is not None:
-                mask_range(code_masked, source, cursor, char_end)
-                cursor = char_end
-                continue
-        if source[cursor] == "'":
-            char_end = char_literal_end(source, cursor)
-            if char_end is not None:
-                mask_range(code_masked, source, cursor, char_end)
-                cursor = char_end
-                continue
+        char_end = character_literal_end_at(source, cursor)
+        if char_end is not None:
+            mask_range(code_masked, source, cursor, char_end)
+            cursor = char_end
+            continue
         cursor += 1
 
     return LexedSource("".join(comments_masked), "".join(code_masked), tuple(literals))

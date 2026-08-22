@@ -20,6 +20,7 @@ from typing import Any, cast
 
 SCHEMA_VERSION = 1
 SKILL_NAME = "write-production-rust"
+SKILL_DOCUMENT = "SKILL.md"
 SUITE_NAME = "write-production-rust-trigger-behavior"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -138,8 +139,8 @@ def validated_guidance_files(case_id: str, raw_files: Any) -> list[str]:
         if not path_is_within(candidate, SKILL_ROOT) or candidate.suffix not in {".md", ".txt"}:
             raise EvalError(f"invalid guidance path: {relative}")
         guidance_files.append(relative)
-    if "SKILL.md" not in guidance_files:
-        raise EvalError(f"{case_id} must inject SKILL.md")
+    if SKILL_DOCUMENT not in guidance_files:
+        raise EvalError(f"{case_id} must inject {SKILL_DOCUMENT}")
     return guidance_files
 
 
@@ -527,7 +528,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
             "behavior_tools": [],
         },
         "records": records,
-        "skill_sha256": sha256_file(SKILL_ROOT / "SKILL.md"),
+        "skill_sha256": sha256_file(SKILL_ROOT / SKILL_DOCUMENT),
     }
     manifest_path = run_root / "run-manifest.json"
     manifest_path.write_text(format_json(manifest), encoding="utf-8")
@@ -560,8 +561,8 @@ def validated_run_manifest_digests(run_manifest: Mapping[str, Any]) -> tuple[str
         raise EvalError("run manifest case pack digest does not match the committed case pack")
 
     skill_sha256 = require_string(run_manifest.get("skill_sha256"), "skill digest")
-    if skill_sha256 != sha256_file(SKILL_ROOT / "SKILL.md"):
-        raise EvalError("run manifest skill digest does not match the committed SKILL.md")
+    if skill_sha256 != sha256_file(SKILL_ROOT / SKILL_DOCUMENT):
+        raise EvalError(f"run manifest skill digest does not match the committed {SKILL_DOCUMENT}")
 
     return case_pack_sha256, skill_sha256
 

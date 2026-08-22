@@ -10,6 +10,8 @@ import {
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { evaluateCompatibilityPolicy } from "./skill-compatibility-policy.mjs";
+
 /**
  * @typedef {{
  *   id: string,
@@ -24,7 +26,7 @@ import { fileURLToPath } from "node:url";
  * }} Finding
  */
 /** @typedef {{ name: string, path: string, scope: "project", agents: string[] }} SkillInfo */
-/** @typedef {{ name: string, description: string, content: string, files: string[] }} SkillManifest */
+/** @typedef {{ name: string, description: string, compatibility?: string, content: string, files: string[] }} SkillManifest */
 /**
  * @typedef {{
  *   skill: SkillInfo,
@@ -41,7 +43,8 @@ import { fileURLToPath } from "node:url";
 /** @typedef {{ skill: string, id: string, severity: Finding["severity"], file: string, line: number | null, evidence: string | null }} NormalizedFinding */
 /** @typedef {NormalizedFinding & { reason: string }} AcceptedFinding */
 /** @typedef {{ skill: string, reason: string }} SelfAuditedSkill */
-/** @typedef {{ version: 1, acceptedFindings: AcceptedFinding[], selfAuditedSkills: SelfAuditedSkill[] }} AuditBaseline */
+/** @typedef {{ skill: string, reason: string }} CompatibilityOmission */
+/** @typedef {{ version: 1, acceptedFindings: AcceptedFinding[], selfAuditedSkills: SelfAuditedSkill[], compatibilityOmissions: CompatibilityOmission[] }} AuditBaseline */
 /** @typedef {{ scanDependencies(skillPath: string): Finding[] }} DependencyModule */
 /** @typedef {{ reportGroupedResults(results: GroupedAuditResult[], options: { json: boolean, verbose: boolean, threshold: number, mode: string, block: boolean }): boolean }} ReporterModule */
 /** @typedef {{ groupSecurityFindings(findings: Finding[]): { securityFindings: Finding[], piiFindings: Finding[], complianceFindings: Finding[] }, createGroupedAuditResult(skill: SkillInfo, manifest: SkillManifest | undefined, specFindings: Finding[], securityFindings: Finding[], piiFindings: Finding[], complianceFindings: Finding[], intelFindings: Finding[]): GroupedAuditResult }} ScoringModule */
@@ -65,7 +68,12 @@ const { validateSkillSpec } = /** @type {SpecModule} */ (skillAudit);
 /** @returns {AuditBaseline} */
 function loadBaseline() {
   if (!existsSync(baselinePath)) {
-    return { version: 1, acceptedFindings: [], selfAuditedSkills: [] };
+    return {
+      version: 1,
+      acceptedFindings: [],
+      selfAuditedSkills: [],
+      compatibilityOmissions: [],
+    };
   }
 
   const baseline = /** @type {AuditBaseline} */ (
@@ -197,11 +205,35 @@ if (skillDirectories.length === 0) {
   process.exit(1);
 }
 
+const skillSpecs = skillDirectories.map((skillPath) => {
+  /** @type {SkillInfo} */
+  const skill = {
+    name: basename(skillPath),
+    path: skillPath,
+    scope: "project",
+    agents: ["shared"],
+  };
+  return {
+    skill,
+    specResult: validateSkillSpec(skill.path, skill.name),
+  };
+});
+const compatibilityPolicy = evaluateCompatibilityPolicy(
+  skillSpecs.map(({ skill, specResult }) => ({
+    name: skill.name,
+    compatibility: specResult.manifest?.compatibility,
+  })),
+  baseline.compatibilityOmissions,
+);
+
 console.log(
   `Auditing ${skillDirectories.length} skills with the vendored skill-audit CLI`,
 );
 for (const [skillName, reason] of selfAuditedSkills) {
   console.log(`Self-audited separately: ${skillName} (${reason})`);
+}
+for (const { skill, reason } of compatibilityPolicy.approvedOmissions) {
+  console.log(`Compatibility deliberately omitted: ${skill} (${reason})`);
 }
 console.log();
 
@@ -223,15 +255,7 @@ function removeAcceptedFindings(skill, findings) {
   });
 }
 
-const results = skillDirectories.map((skillPath) => {
-  /** @type {SkillInfo} */
-  const skill = {
-    name: basename(skillPath),
-    path: skillPath,
-    scope: "project",
-    agents: ["shared"],
-  };
-  const specResult = validateSkillSpec(skill.path, skill.name);
+const results = skillSpecs.map(({ skill, specResult }) => {
   const selfAudited = selfAuditedSkills.has(skill.name);
   const securityResult = selfAudited
     ? { findings: [] }
@@ -274,6 +298,13 @@ if (staleAcceptedFindings.length > 0) {
   }
 }
 
+if (compatibilityPolicy.errors.length > 0) {
+  console.error("\nSkill compatibility policy errors:");
+  for (const error of compatibilityPolicy.errors) {
+    console.error(`- ${error}`);
+  }
+}
+
 const shouldBlock = reportGroupedResults(results, {
   json: false,
   verbose: true,
@@ -282,4 +313,10 @@ const shouldBlock = reportGroupedResults(results, {
   block: true,
 });
 
-if (shouldBlock || staleAcceptedFindings.length > 0) process.exitCode = 1;
+if (
+  shouldBlock ||
+  staleAcceptedFindings.length > 0 ||
+  compatibilityPolicy.errors.length > 0
+) {
+  process.exitCode = 1;
+}

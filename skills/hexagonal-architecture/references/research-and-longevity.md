@@ -13,19 +13,14 @@ reason: Nuno requires ports-and-adapters as the default design lens for maintain
 owner and canonical destination: Nuno; skills/hexagonal-architecture
 positive trigger: “Add a sync command to this maintained CLI that calls an external API and stores state.”
 near-miss: “Write a disposable script to rename these local files once.”
-success checks: Loads for durable software without a pattern keyword; holds requested scope; names only justified boundaries; preserves inward dependencies; isolates edge wiring; tests application behavior without production devices; distinguishes semantic review from static evidence.
+success checks: Loads for durable software without a pattern keyword; satisfies R1-R7 through SR1-SR6; abstains on the disposable near-miss.
 ```
 
 ## Local architecture decisions
 
-- Driving adapters invoke reusable application behavior directly. A separate
-  driving port is exceptional and needs a real substitutability test, such as
-  static A/B testing.
-- Driven adapters can use driven-port and domain-data contracts for translation
-  but cannot depend on application orchestration or use-case implementations.
-- Structural evidence is required through a validator suited to the repository
-  language. The Rust implementation is one optional backend, not the portable
-  contract.
+The canonical decisions are `R2`, `R4`, and `R7` in
+`architecture-criteria.md`. The Rust validator remains an optional backend for
+`SR5`, not the portable contract.
 
 ## Source record
 

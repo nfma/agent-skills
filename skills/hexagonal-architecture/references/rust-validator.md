@@ -2,16 +2,12 @@
 
 Status: verified release available.
 
-This is one language-specific implementation of the
-[static validation contract](static-validation.md). Use it only for Rust
-repositories. Never apply it to JavaScript, TypeScript, Java, or another
-language; use that ecosystem's validator instead. For example, TypeScript and
-JavaScript repositories can use dependency-cruiser.
+This is one Rust implementation of `SR5` and the
+[static validation contract](static-validation.md). Never apply it to another
+language.
 
-Use this profile only when the Rust repository declares its intended
-architectural roles and rules. The validator adds deterministic static
-dependency evidence; it does not decide whether the declared boundaries are
-semantically correct.
+Use it only when the repository declares its intended roles and rules. The
+result is `R7` evidence, not semantic proof.
 
 ## Pinned release
 
@@ -57,22 +53,15 @@ a global installation.
 
 ## Run
 
-Review `hav.toml` before execution. It must express intended module roles and
-forbidden dependencies; never infer a passing configuration from the current
-graph and present it as compliance.
+Review `hav.toml` before execution and require it to satisfy `R7`.
 
-The built-in hexagonal preset has one generic adapter role and forbids no
-adapter dependency on application modules, so a preset-only run does not check
-the driven-adapter invariant in `static-validation.md`. To check it, declare
-driving and driven adapter roles separately and add an explicit rule forbidding
-driven-adapter dependencies on application use-case and orchestration modules,
-while still allowing the driven-port and domain-data roles.
+The built-in preset has one generic adapter role and does not enforce the
+driven-adapter part of `R4`. Declare driving and driven adapter roles separately
+and forbid driven-adapter dependencies on application use cases while allowing
+driven-port and domain-data contracts.
 
-A preset-only result, or any configuration with a single generic adapter role
-and no such rule, is incomplete evidence for that invariant: report the gap even
-on exit `0`. Do the same when a blind spot below — macros, dynamic dispatch,
-external crates, or an unanalyzed block-local module — could hide a
-driven-to-application edge on the paths under review.
+A preset-only result, or a blind spot that could hide that edge, is an `R7`
+evidence gap even on exit `0`.
 
 The preset also requires roles named `core`, `application`, `port`, `adapter`,
 and `composition-root`, and every declared role must match at least one
@@ -89,9 +78,8 @@ Exit states are stable:
 - `1`: analysis completed and found violations; and
 - `2`: configuration, discovery, parsing, resolution, or reporting failed.
 
-Treat exit `2`, analysis diagnostics, unsupported source relationships, and
-missing role matches as unknown evidence, never as a pass. Reports are ordered
-deterministically and include stable module, dependency, finding, exemption,
+Treat exit `2` and every reported analysis unknown according to `R7`. Reports
+are deterministic and include stable module, dependency, finding, exemption,
 analysis-error, limitation, and summary data.
 
 ## Verified integration gate
@@ -113,7 +101,6 @@ violation reports were byte-identical.
 - External crates, build-script output, method calls, dynamic dispatch, and
   runtime service lookup do not create analyzed edges.
 
-Combine the result with the semantic and behavioral criteria in
-`architecture-criteria.md`. Recheck this profile when the release assets,
-checksums, schema versions, exit behavior, analysis scope, or repository owner
+Combine the result with the other `SR5` evidence. Recheck this profile when the
+release assets, checksums, schemas, exit behavior, analysis scope, or owner
 changes.

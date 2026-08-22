@@ -1,148 +1,124 @@
 # Architecture criteria
 
-Apply these criteria to one named application or component boundary. Terms such
-as “core”, “port”, and “adapter” describe responsibilities, not required folders.
+Apply this registry to one named application or component. The handles are the
+canonical rule definitions for the bundle.
 
-## Boundary map
+## Vocabulary
 
-Record a compact map before judging the implementation:
+| Term | Responsibility |
+| --- | --- |
+| Application | Behavior that remains useful without production devices |
+| Application entry | Reusable behavior invoked by an outside actor |
+| Driving adapter | Translates actor input and invokes the application |
+| Driven port | Application-owned need for an outside capability |
+| Driven adapter | Technology satisfying a driven port |
+| Edge assembly | Selects concrete adapters and starts or drives the application |
 
-| Element | Question | Evidence |
-| --- | --- | --- |
-| Application | Which behavior must remain useful without production devices? | Use cases, domain behavior, acceptance tests |
-| Application entry | Which reusable behavior does an outside actor invoke? | Use case, command handler, callable, or message handler |
-| Driving adapter | Which technology translates actor input and invokes the application? | HTTP, CLI, UI, scheduler, consumer, test driver |
-| Driven port | Which outside capability does the application require? | Application-owned need expressed in its vocabulary |
-| Driven adapter | Which technology satisfies that need? | Database, file, API, clock, queue, email, device |
-| Composition-root role | Where are concrete adapters selected and assembled? | Process entrypoints, deployment wiring, driving adapters, or test drivers that assemble the applications they drive |
+These are responsibilities, not required folders or types. One port may have
+several adapters; one coherent adapter may serve several conversations.
 
-One driven port may have several adapters. One adapter may participate in
-several conversations when its responsibility remains coherent. Split by
-purpose, not by a desire to maximize the number of ports. The application entry
-is the inbound boundary itself. Do not add a separate driving-port abstraction
-in front of it unless a real substitutability test, such as static A/B testing,
-requires parallel driving implementations.
+## Rule registry
 
-## Invariants and tests
+### R1 — Scope one justified boundary
 
-### The application owns its vocabulary
+Treat the requested change as hard scope. Choose the smallest application or
+component boundary that explains the touched behavior and devices. Add only the
+seams those devices justify; begin a wider migration only when authorized. A
+small cohesive program with no meaningful external device may need only
+functions and tests.
 
-- Application entry and driven-port inputs, outputs, errors, and operations use
-  application or domain terms.
-- Vendor request types, ORM entities, transport status codes, widgets, and
-  serialization objects do not become the core contract by convenience.
-- A driven port states what the application needs; the adapter translates that
-  need to the provider's API.
+Evidence: a compact inside/outside map tied to the requested behavior.
 
-Evidence: change or replace one adapter without changing the relevant business
-behavior or port contract.
+### R2 — Use the application entry as the inbound boundary
 
-### Dependencies respect adapter direction
+Let driving adapters invoke reusable application behavior directly. Add a
+separate driving-port abstraction only when a real substitutability test needs
+parallel driving implementations, such as static A/B testing.
 
-- Driving adapters may depend on application entry behavior and invoke it.
-- Driven adapters may depend on driven-port and domain-data contracts needed for
-  translation, but never on application orchestration or use-case
-  implementations.
-- The core does not import concrete adapter, UI, persistence, network, broker,
-  or framework implementation modules.
-- Shared code is not used as a back door that exposes technology types inward.
-- Composition-root roles are narrow, explicit edge assembly points that know
-  both ports and concrete adapters.
+Evidence: each driving adapter reaches the same reusable behavior without
+bypassing it or adding a ceremonial inbound interface.
 
-Evidence: source/build dependency graph plus review of public boundary types.
-Data or call flow can point outward while source dependencies still point
+### R3 — Let the application own driven vocabulary
+
+A driven port names a purposeful application need, not every nearby function or
+interface. Its operations, data, and errors use application or domain terms.
+Vendor DTOs, ORM entities, transport statuses, widgets, and serialization types
+remain in adapters. Express the port with the language's simplest suitable
+mechanism.
+
+Evidence: replace one driven adapter without changing the behavior or contract.
+
+### R4 — Keep dependencies asymmetric
+
+- Core behavior never imports concrete UI, persistence, network, broker,
+  framework, or adapter implementations.
+- Driving adapters may depend on application entry behavior.
+- Driven adapters may depend only on driven-port and domain-data contracts
+  needed for translation, never application orchestration or use cases.
+- Edge assembly may know both ports and concrete adapters only for selection,
+  startup, and test wiring; it contains no business decisions.
+- Shared modules never expose technology types inward.
+
+Data or call flow may point outward while source dependencies still point
 inward.
 
-### Adapters translate; the application decides
+Evidence: source/build graph plus review of public boundary types.
 
-- Driving adapters parse input, translate protocol errors, and invoke reusable
-  application behavior. They may verify transport-level credentials — TLS client
-  certificates, request signatures, token signatures — when the boundary
-  exposes untrusted callers, and need none when it does not. When identity or
-  credential policy is itself application behavior, it stays inside and the
-  adapter only carries the protocol.
-- Application policy, authorization decisions, state transitions, and business
-  validation stay inside.
-- Driven adapters translate domain or application data into provider DTOs, make
-  the external request, parse and validate the response, and translate it back
-  into domain results or unrecoverable errors. They may retry only failures the
-  provider itself defines as transient, within at most the attempt envelope the
-  port allows. When a retry could change a business outcome, a cost, an
-  ordering, or a non-idempotent effect, the decision belongs inside the
-  application.
+### R5 — Let adapters translate and the application decide
 
-Evidence: the same application behavior passes with deterministic driven
-substitutes, while adapter tests cover both input and output translation.
+Driving adapters parse input, translate protocol errors, and may verify
+transport credentials. Application behavior owns business validation,
+authorization, state transitions, and policy. Driven adapters translate
+application data to provider DTOs, perform the external interaction, validate
+the response, and return domain results or unrecoverable errors.
 
-### The boundary is executable without production devices
+A driven adapter may retry only provider-defined transient failures within the
+port's attempt envelope. Put the decision inside the application when retry can
+change a business outcome, cost, ordering, or non-idempotent effect.
 
-- Core behavior can run without UI, database, network, broker, clock, file
-  system, or vendor service when those are outside the chosen boundary.
-- Boundary tests invoke application behavior and substitute driven adapters.
-- Adapter integration tests verify translation and provider contracts separately.
+Evidence: application tests use deterministic driven substitutes; adapter tests
+cover both translation directions and provider contracts.
 
-Evidence: run the boundary suite with in-memory or deterministic adapters and no
-production services.
+### R6 — Keep the boundary executable without production devices
+
+Run application behavior without its UI, database, network, broker, clock,
+filesystem, or vendor service when those devices are outside the boundary.
+Test the application through its entry with deterministic driven substitutes;
+test adapters separately at the narrowest useful integration boundary.
+
+Evidence: the boundary suite runs without production services.
+
+### R7 — Fail closed on structural proof
+
+Derive role and dependency rules from intended design, not the current graph.
+Use a deterministic language-appropriate validator and retain concrete
+source/target evidence. Treat unresolved imports, unsupported relationships,
+unmatched roles, and analyzer blind spots as failures or explicit evidence gaps.
+
+When driven-port or domain-data contracts are not statically separable from
+use-case modules, do not claim proof of `R4` for driven adapters. A clean graph
+proves only the declared dependency model; it does not prove `R2`, `R3`, `R5`,
+or `R6`.
+
+Evidence: pinned tool identity, reviewed configuration, deterministic report,
+and relevant limitations.
 
 ## Multiple components and events
 
 Treat each independently deployable or replaceable component as a candidate
-hexagon, then justify the actual boundary. Communication between two hexagons
-crosses an adapter boundary and needs translation when their vocabularies
-differ. The producing side normally exposes a driven port, while the consuming
-side's driving adapter invokes its application behavior.
-
-For event-driven systems, a message consumer is usually a driving adapter and a
-publisher is usually a driven adapter. The event schema may be a port contract
-only when the application owns it; an external broker or partner schema normally
-belongs in the adapter and is translated.
+boundary, then justify the actual split with `R1`. Communication between two
+boundaries crosses adapters when vocabularies differ. A message consumer is
+usually a driving adapter and a publisher a driven adapter; an external schema
+stays in the adapter unless the application owns it.
 
 ## Common false assurances
 
-Flag these as missing evidence, not automatic failures:
-
-- folders named `ports` and `adapters` with business logic in controllers or
-  repositories;
-- an interface for every class, even when it expresses no boundary conversation;
-- a domain package that imports framework annotations, persistence models, or
-  transport errors;
-- a driving adapter that calls a persistence adapter directly and bypasses
-  application behavior;
-- concrete adapter selection scattered through business modules;
-- tests that require every production device, or tests that mock only internal
-  collaborators while never exercising the boundary;
-- a static rule set generated to accept every dependency already present; or
-  a clean graph whose port semantics and adapter responsibilities were never
-  reviewed.
-
-## Static dependency validation
-
-- Use the repository's language-appropriate deterministic validator.
-- Declare architectural roles and rules from intended design, not from the
-  current graph.
-- Distinguish driving adapters from driven adapters when enforcing that driven
-  adapters cannot depend on application use-case implementations.
-- Record an explicit evidence gap instead of a pass when driven-port or
-  domain-data contracts are not statically separable from use-case modules.
-- Treat unresolved analysis, unsupported relationships, and unmatched roles as
-  failures or explicit evidence gaps, never as passes.
-
-Evidence: pinned tool identity, reviewed configuration, deterministic report,
-and the limitations relevant to the analyzed source.
-
-## Proportionality and scope
-
-Load this architecture lens for every durable software change, then add only the
-structure the requested scope and actual external devices justify.
-
-- For new maintained software, establish the necessary seams before runtime
-  technologies spread into application behavior.
-- For a focused change in an existing system, preserve its architecture, avoid
-  new inward leaks, and improve only the boundary the request touches.
-- Start a wider ports-and-adapters migration only when the user authorizes that
-  scope.
-- For a small pure program or cohesive module with no meaningful external
-  devices, functions plus tests may provide sufficient separation.
-
-Do not add interfaces, layers, folders, or assembly types solely to match a
-diagram.
+- Named `ports` and `adapters` folders do not satisfy `R3`–`R5`.
+- An interface per class does not satisfy `R2` or `R3`.
+- Controllers or driving adapters that bypass application behavior violate
+  `R2` even when dependencies otherwise look clean.
+- Framework types in core contracts or concrete adapter imports violate `R3`
+  or `R4`.
+- Production-only or internal-mock-only tests do not satisfy `R6`.
+- Rules generated to accept the current graph, or graphs with unresolved edges,
+  do not satisfy `R7`.

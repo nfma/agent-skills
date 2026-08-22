@@ -1,6 +1,11 @@
 ---
 name: huggingface-community-evals
 description: Run evaluations for Hugging Face Hub models using inspect-ai and lighteval on local hardware. Use for backend selection, local GPU evals, and choosing between vLLM / Transformers / accelerate. Not for HF Jobs orchestration, model-card PRs, .eval_results publication, or community-evals automation.
+metadata:
+  skill-audit-context-reads: model_id, eval_task, hardware_state, auth_status
+  skill-audit-context-requires: explicit_evaluation_goal, target_model
+  skill-audit-context-writes: files_changed, commands_run, evaluation_results, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Overview

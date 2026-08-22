@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 from scripts.skill_evals.antigravity_runner import (
     MACOS_KEYCHAIN_BLOCK_PROFILE,
+    _stop_process_group,
     run_antigravity,
     run_structured_output_preflight,
 )
@@ -118,6 +119,8 @@ class AntigravityRunnerTests(unittest.TestCase):
         self.assertEqual(metadata["command"][-2:], ["--prompt", "<PROMPT>"])
         self.assertTrue(metadata["ambient_brain_unchanged"])
         self.assertTrue(metadata["ambient_conversation_state_absent"])
+        self.assertTrue(metadata["credential_file_disposed_after_run"])
+        self.assertTrue(metadata["credential_disposed_after_run"])
         self.assertIn("/dev/null", metadata["command"])
 
     @unittest.skipUnless(sys.platform == "darwin", "macOS Keychain regression")
@@ -222,6 +225,100 @@ class AntigravityRunnerTests(unittest.TestCase):
 
         staged_credential = paths["state_root"] / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
         self.assertFalse(staged_credential.exists())
+
+    def test_fallback_credential_is_removed_after_failed_run(self) -> None:
+        runner = self._runner(
+            r"""
+            import json
+            import os
+            import sys
+            import time
+            from pathlib import Path
+
+            arguments = sys.argv[1:]
+            model = arguments[arguments.index("--model") + 1]
+            credential = Path(os.environ["HOME"]) / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+            conversation = "12121212-1212-1212-1212-121212121212"
+            print(json.dumps({"event": "init", "conversation_id": conversation, "init": {"model": model}}), flush=True)
+            deadline = time.monotonic() + 2
+            while credential.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if credential.exists():
+                raise SystemExit(24)
+            credential.write_text('{"auth_method":"test","token":"fallback"}\n')
+            raise SystemExit(23)
+            """
+        )
+        paths = self._paths("failed-fallback")
+
+        with patch("scripts.skill_evals.antigravity_runner.sys.platform", "linux"):
+            result = run_antigravity(
+                project_root=self.project,
+                credential_file=self.credential,
+                repository_root=self.repository,
+                runner=str(runner),
+                prompt="fail after creating fallback credential",
+                state_root=paths["state_root"],
+                stdout_path=paths["stdout_path"],
+                stderr_path=paths["stderr_path"],
+                final_response_path=paths["final_response_path"],
+                metadata_path=paths["metadata_path"],
+            )
+
+        fallback = paths["state_root"] / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+        self.assertEqual(result.exit_code, 23)
+        self.assertFalse(result.valid)
+        self.assertFalse(fallback.exists())
+        metadata = json.loads(paths["metadata_path"].read_text())
+        self.assertTrue(metadata["credential_file_disposed_after_run"])
+        self.assertTrue(metadata["credential_disposed_after_run"])
+
+    def test_fallback_credential_is_removed_when_cleanup_is_interrupted(self) -> None:
+        paths = self._paths("interrupted-cleanup")
+        fallback = paths["state_root"] / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+        runner = self._runner(
+            r"""
+            import time
+
+            time.sleep(60)
+            """
+        )
+
+        def interrupt_run(_timeout: float) -> None:
+            fallback.write_text('{"auth_method":"test","token":"fallback"}\n', encoding="utf-8")
+            fallback.chmod(0o600)
+            raise KeyboardInterrupt
+
+        def interrupt_cleanup(process: subprocess.Popen[bytes]) -> None:
+            _stop_process_group(process)
+            raise KeyboardInterrupt
+
+        with (
+            patch("scripts.skill_evals.antigravity_runner.sys.platform", "linux"),
+            patch(
+                "scripts.skill_evals.antigravity_runner.selectors.DefaultSelector.select",
+                side_effect=interrupt_run,
+            ),
+            patch(
+                "scripts.skill_evals.antigravity_runner._stop_process_group",
+                side_effect=interrupt_cleanup,
+            ),
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            run_antigravity(
+                project_root=self.project,
+                credential_file=self.credential,
+                repository_root=self.repository,
+                runner=str(runner),
+                prompt="interrupt during cleanup",
+                state_root=paths["state_root"],
+                stdout_path=paths["stdout_path"],
+                stderr_path=paths["stderr_path"],
+                final_response_path=paths["final_response_path"],
+                metadata_path=paths["metadata_path"],
+            )
+
+        self.assertFalse(fallback.exists())
 
     def test_preflight_rejects_plain_text_and_refuses_overwrite(self) -> None:
         runner = self._runner("print('plain text')\n")

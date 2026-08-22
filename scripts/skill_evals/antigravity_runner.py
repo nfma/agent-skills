@@ -252,6 +252,12 @@ def _stop_process_group(process: subprocess.Popen[bytes]) -> tuple[int, str]:
         return process.wait(), "killed"
 
 
+def _delete_disposable_credential(credential_path: Path) -> bool:
+    with suppress(FileNotFoundError):
+        credential_path.unlink()
+    return not credential_path.exists() and not credential_path.is_symlink()
+
+
 def run_antigravity(
     *,
     project_root: Path,
@@ -333,8 +339,10 @@ def run_antigravity(
     parse_errors: list[str] = []
     credential_removed_after_init = False
     process: subprocess.Popen[bytes] | None = None
+    selector: selectors.BaseSelector | None = None
     process_cleanup = "clean-exit"
     terminated_after_terminal_result = False
+    credential_disposed_after_run = False
     exit_code = -1
     try:
         shutil.copyfile(credential_file, staged_credential)
@@ -435,8 +443,13 @@ def run_antigravity(
             if process is not None and process.poll() is None:
                 _stop_process_group(process)
         finally:
-            with suppress(OSError):
-                staged_credential.unlink()
+            try:
+                if selector is not None:
+                    selector.close()
+                if process is not None and process.stdout is not None:
+                    process.stdout.close()
+            finally:
+                credential_disposed_after_run = _delete_disposable_credential(staged_credential)
 
     trace_errors, conversation_id, response, structured_output, expanded_skill_names = _validate_trace(
         records,
@@ -447,6 +460,8 @@ def run_antigravity(
         expected_expanded_skill=expected_expanded_skill,
     )
     trace_errors = [*parse_errors, *trace_errors]
+    if not credential_disposed_after_run:
+        trace_errors.append("the disposable Antigravity credential file was not removed after the run")
     if response is not None:
         final_response_path.write_text(response, encoding="utf-8")
     else:
@@ -469,6 +484,8 @@ def run_antigravity(
         "staged_skill": staged_skill,
         "credential_staged_with_mode": "0600",
         "credential_removed_after_init": credential_removed_after_init,
+        "credential_file_disposed_after_run": credential_disposed_after_run,
+        "credential_disposed_after_run": credential_disposed_after_run,
         "ambient_brain_before_sha256": ambient_before,
         "ambient_brain_after_sha256": ambient_after,
         "ambient_brain_unchanged": ambient_brain_unchanged,

@@ -45,33 +45,40 @@ examples](references/examples.md) when deciding how much structure to add or
 how to keep a change scoped. Apply the criteria to the chosen boundary; do not
 impose an example layout or terminology on the repository.
 
-## 2. Model ports as application-owned conversations
+## 2. Model reusable behavior and driven ports
 
-Describe each port in application or domain language. A port is a purposeful
-conversation with the application, not every function, type, or language
-interface near a boundary.
+Let driving adapters translate external input and invoke reusable application
+behavior directly. Do not add a driving port by default. Introduce a distinct
+inbound abstraction only when a real substitutability test needs parallel
+driving implementations, such as static A/B testing.
 
-- Driving ports express what outside actors can ask the application to do.
-- Driven ports express what the application needs from outside capabilities.
-- Adapters translate between a port's vocabulary and a specific technology or
-  external component.
+Describe each driven port in application or domain language. A driven port is a
+purposeful need the application has from an outside capability, not every
+function, type, or language interface near a boundary. A driven adapter
+translates between that vocabulary and a specific technology or external
+component.
 
-Represent a port with the language's simplest suitable mechanism: a function,
-protocol, trait, module contract, message schema, command handler, or interface.
+Represent a driven port with the language's simplest suitable mechanism: a
+function, protocol, trait, module contract, message schema, command handler, or
+interface.
 Do not introduce an interface only to make the diagram look hexagonal. The
-application owns the boundary vocabulary even when the language has no explicit
-interface construct.
+application owns the driven boundary vocabulary even when the language has no
+explicit interface construct.
 
 ## 3. Set dependency direction and wiring
 
-Make technology-specific code depend toward the application boundary:
+Keep dependency permissions asymmetric:
 
 - keep business decisions and application orchestration independent of UI,
   transport, persistence, vendor SDK, and framework implementations;
 - place concrete translation, serialization, persistence, and protocol behavior
   in adapters;
+- let driving adapters depend on and invoke application entry behavior;
+- let driven adapters depend only on the driven-port and domain-data contracts
+  needed for translation, never on application orchestration or use-case
+  implementations;
 - make driven adapters satisfy application-owned needs rather than exposing
-  their vendor API to the core; and
+  vendor APIs to the core; and
 - assemble concrete adapters at explicit edge assembly points outside the core,
   such as process entrypoints, deployment wiring modules, driving adapters, or
   test drivers.
@@ -79,8 +86,8 @@ Make technology-specific code depend toward the application boundary:
 Treat each edge assembly point as a composition-root role. It may know concrete
 implementations only for assembly and startup; do not let it accumulate business
 decisions. Do not infer dependency direction from request or data flow: a
-database adapter can receive calls from the core while its source dependency
-still points inward.
+database adapter can receive calls originating in the application while its
+source dependencies remain limited to driven-port and domain-data contracts.
 
 Preserve existing conventions when they satisfy these invariants. Hexagonal
 architecture does not require `domain`, `application`, `ports`, and `adapters`
@@ -89,8 +96,8 @@ design, CQRS, or microservices.
 
 ## 4. Change the system through executable seams
 
-For new durable software, implement one behavior through a driving port, the
-core, and any needed driven port before attaching production adapters.
+For new durable software, implement one reusable application behavior and any
+needed driven ports before attaching driving and production driven adapters.
 
 For existing software, work in slices scaled to the authorized scope:
 
@@ -106,10 +113,11 @@ stop when the requested outcome is complete. An authorized architectural
 refactor runs the full sequence; a bug fix or small feature usually needs step 1
 and nothing beyond the seam it touches.
 
-Test business behavior through driving ports using deterministic substitutes for
-driven ports. Test each adapter against its port contract and real technology at
-the narrowest useful integration boundary. A mock-heavy internal object graph is
-not a substitute for tests around the application boundary.
+Test application behavior directly using deterministic substitutes for driven
+ports. Test each adapter against the relevant application or driven-port
+contract and real technology at the narrowest useful integration boundary. A
+mock-heavy internal object graph is not a substitute for tests around the
+application boundary.
 
 ## 5. Validate with independent evidence
 
@@ -117,21 +125,27 @@ Collect evidence proportional to the change. A focused change needs evidence
 only for the boundary it touched; new durable software or an authorized
 refactor needs all three kinds:
 
-1. **Semantic:** ports describe meaningful application conversations; adapters
-   translate rather than decide business policy.
+1. **Semantic:** application entry behavior and driven ports use meaningful
+   application vocabulary; adapters translate rather than decide business
+   policy.
 2. **Structural:** source and build dependencies do not point from the core to
    concrete adapters or runtime mechanisms; any exception is explicit and
    justified.
 3. **Behavioral:** the application runs relevant business tests without its UI,
    database, network, broker, or other production devices.
 
-For Rust repositories, read [the Rust validator
-profile](references/rust-validator.md) before acting on it. Do not download,
-install, invoke, or cite a validator binary until that profile records a
-verified release. Once it does, use that pinned binary only where the project
-declares its intended module roles and rules, and require approval and SHA-256
-verification before installing. Never generate a passing configuration from
-the current graph and present it as architectural proof.
+Read [the static validation contract](references/static-validation.md) and use a
+deterministic dependency validator appropriate to the repository's language and
+build graph. A structural compliance claim requires a reviewed rule
+configuration and a completed validator result. If no suitable validator exists
+and adding one is outside scope, report the missing evidence instead of claiming
+compliance.
+
+For Rust only, also read [the Rust validator
+profile](references/rust-validator.md). Never apply that binary to another
+language. Require approval, checksum verification, and provenance verification
+before downloading or installing any external validator. Never generate a
+passing configuration from the current graph and present it as proof.
 
 Do not claim compliance from folder names, interface counts, a diagram, or a
 clean dependency graph alone. Report analyzer blind spots and unresolved edges
@@ -144,8 +158,9 @@ touched boundary, the change, and its tests; omit the rest. For new durable
 software or an authorized refactor, cover:
 
 - the chosen boundary and its inside/outside map;
-- each port, its purpose, owner, and adapters;
+- application entry behavior, each driven port, and their adapters;
 - dependency rules and justified edge-assembly exceptions;
+- the static validator, reviewed configuration, result, and limitations;
 - changes made or findings, with concrete evidence;
 - tests and deterministic validation run; and
 - unresolved semantic questions, tool limitations, and justified deviations.

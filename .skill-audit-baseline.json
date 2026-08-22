@@ -12,6 +12,10 @@
       "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },
     {
+      "skill": "hexagonal-architecture",
+      "reason": "Portable frontmatter intentionally stays limited to name and description; validator requirements vary by target language and are routed conditionally through the static-validation and Rust implementation references."
+    },
+    {
       "skill": "sensitive-system-safety",
       "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },

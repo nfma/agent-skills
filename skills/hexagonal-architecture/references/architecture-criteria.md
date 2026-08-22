@@ -10,21 +10,24 @@ Record a compact map before judging the implementation:
 | Element | Question | Evidence |
 | --- | --- | --- |
 | Application | Which behavior must remain useful without production devices? | Use cases, domain behavior, acceptance tests |
-| Driving port | What can an outside actor ask the application to do? | Application-owned callable or message contract |
-| Driving adapter | Which technology translates an actor's input into that port? | HTTP, CLI, UI, scheduler, consumer, test driver |
+| Application entry | Which reusable behavior does an outside actor invoke? | Use case, command handler, callable, or message handler |
+| Driving adapter | Which technology translates actor input and invokes the application? | HTTP, CLI, UI, scheduler, consumer, test driver |
 | Driven port | Which outside capability does the application require? | Application-owned need expressed in its vocabulary |
 | Driven adapter | Which technology satisfies that need? | Database, file, API, clock, queue, email, device |
 | Composition-root role | Where are concrete adapters selected and assembled? | Process entrypoints, deployment wiring, driving adapters, or test drivers that assemble the applications they drive |
 
-One port may have several adapters. One adapter may participate in several
-conversations when its responsibility remains coherent. Split by purpose, not
-by a desire to maximize the number of ports.
+One driven port may have several adapters. One adapter may participate in
+several conversations when its responsibility remains coherent. Split by
+purpose, not by a desire to maximize the number of ports. Do not invent a
+driving port unless a real substitutability test, such as static A/B testing,
+requires parallel driving implementations.
 
 ## Invariants and tests
 
 ### The application owns its vocabulary
 
-- Port inputs, outputs, errors, and operations use application or domain terms.
+- Application entry and driven-port inputs, outputs, errors, and operations use
+  application or domain terms.
 - Vendor request types, ORM entities, transport status codes, widgets, and
   serialization objects do not become the core contract by convenience.
 - A driven port states what the application needs; the adapter translates that
@@ -33,9 +36,12 @@ by a desire to maximize the number of ports.
 Evidence: change or replace one adapter without changing the relevant business
 behavior or port contract.
 
-### Dependencies point toward the application
+### Dependencies respect adapter direction
 
-- Adapters may depend on application-owned ports and core types.
+- Driving adapters may depend on application entry behavior and invoke it.
+- Driven adapters may depend on driven-port and domain-data contracts needed for
+  translation, but never on application orchestration or use-case
+  implementations.
 - The core does not import concrete adapter, UI, persistence, network, broker,
   or framework implementation modules.
 - Shared code is not used as a back door that exposes technology types inward.
@@ -48,25 +54,27 @@ inward.
 
 ### Adapters translate; the application decides
 
-- Driving adapters parse input, translate protocol errors, and invoke a
-  driving port. They may verify transport-level credentials — TLS client
+- Driving adapters parse input, translate protocol errors, and invoke reusable
+  application behavior. They may verify transport-level credentials — TLS client
   certificates, request signatures, token signatures — when the boundary
   exposes untrusted callers, and need none when it does not. When identity or
   credential policy is itself application behavior, it stays inside and the
   adapter only carries the protocol.
 - Application policy, authorization decisions, state transitions, and business
   validation stay inside.
-- Driven adapters translate application requests and provider responses without
-  choosing business outcomes.
+- Driven adapters translate domain or application data into provider DTOs, make
+  the external request, parse and validate the response, translate it back into
+  domain results or unrecoverable errors, and apply technology-level recovery
+  or retry handling. Business retry policy and outcome decisions remain inside.
 
-Evidence: the same business tests pass through a non-production driving adapter
-and deterministic driven substitutes.
+Evidence: the same application behavior passes with deterministic driven
+substitutes, while adapter tests cover both input and output translation.
 
 ### The boundary is executable without production devices
 
 - Core behavior can run without UI, database, network, broker, clock, file
   system, or vendor service when those are outside the chosen boundary.
-- Boundary tests call a driving port and substitute driven adapters.
+- Boundary tests invoke application behavior and substitute driven adapters.
 - Adapter integration tests verify translation and provider contracts separately.
 
 Evidence: run the boundary suite with in-memory or deterministic adapters and no
@@ -76,8 +84,9 @@ production services.
 
 Treat each independently deployable or replaceable component as a candidate
 hexagon, then justify the actual boundary. Communication between two hexagons
-crosses a port on each relevant side and needs translation when their vocabularies
-differ.
+crosses an adapter boundary and needs translation when their vocabularies
+differ. The producing side normally exposes a driven port, while the consuming
+side's driving adapter invokes its application behavior.
 
 For event-driven systems, a message consumer is usually a driving adapter and a
 publisher is usually a driven adapter. The event schema may be a port contract
@@ -101,6 +110,19 @@ Flag these as missing evidence, not automatic failures:
 - a static rule set generated to accept every dependency already present; or
   a clean graph whose port semantics and adapter responsibilities were never
   reviewed.
+
+## Static dependency validation
+
+- Use the repository's language-appropriate deterministic validator.
+- Declare architectural roles and rules from intended design, not from the
+  current graph.
+- Distinguish driving adapters from driven adapters when enforcing that driven
+  adapters cannot depend on application use-case implementations.
+- Treat unresolved analysis, unsupported relationships, and unmatched roles as
+  failures or explicit evidence gaps, never as passes.
+
+Evidence: pinned tool identity, reviewed configuration, deterministic report,
+and the limitations relevant to the analyzed source.
 
 ## Proportionality and scope
 

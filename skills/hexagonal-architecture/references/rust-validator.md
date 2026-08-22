@@ -1,9 +1,15 @@
-# Rust validator profile
+# Rust static validator profile
 
 Status: verified release available.
 
-Use this optional profile only for Rust repositories that already declare their
-intended architectural roles and rules. The validator adds deterministic static
+This is one language-specific implementation of the
+[static validation contract](static-validation.md). Use it only for Rust
+repositories. Never apply it to JavaScript, TypeScript, Java, or another
+language; use that ecosystem's validator instead. For example, TypeScript and
+JavaScript repositories can use dependency-cruiser.
+
+Use this profile only when the Rust repository declares its intended
+architectural roles and rules. The validator adds deterministic static
 dependency evidence; it does not decide whether the declared boundaries are
 semantically correct.
 
@@ -54,6 +60,11 @@ a global installation.
 Review `hav.toml` before execution. It must express intended module roles and
 forbidden dependencies; never infer a passing configuration from the current
 graph and present it as compliance.
+
+When the source distinguishes driving and driven adapters, configure separate
+roles and a custom rule forbidding driven-adapter dependencies on application
+use-case modules. The built-in hexagonal preset has one generic adapter role and
+cannot prove that finer invariant by itself.
 
 ```console
 ./hav check --root . --config hav.toml --format json

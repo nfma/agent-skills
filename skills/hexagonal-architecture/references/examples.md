@@ -12,17 +12,17 @@ A proportional boundary might be:
 
 | Role | Purpose |
 | --- | --- |
-| Driving port | Start or resume synchronization |
-| Driving adapter | Parse CLI input and render progress or errors |
-| Core behavior | Decide what to fetch, persist, retry, and report |
+| Application entry | Start or resume synchronization |
+| Driving adapter | Parse CLI input, invoke synchronization, and render progress or errors |
+| Application behavior | Decide what to fetch, persist, retry, and report |
 | Driven ports | Load configuration, fetch catalog pages, store the cursor, obtain time |
-| Driven adapters | File/config reader, HTTP client, state store, system clock |
+| Driven adapters | Translate data and errors for the file, API, state store, and clock |
 | Edge assembly | Select concrete adapters and start the command |
 
-Test synchronization through the driving port with deterministic catalog,
-state, and clock adapters. Test the CLI parsing and HTTP translation separately.
-Do not require six interfaces or matching folders when functions or modules
-express the same seams clearly.
+Test synchronization behavior directly with deterministic catalog, state, and
+clock substitutes. Test CLI parsing and both directions of HTTP translation
+separately. Do not require six interfaces or matching folders when functions or
+modules express the same seams clearly.
 
 ## Focused change in an existing service
 
@@ -48,8 +48,9 @@ application language, make the SQL adapter satisfy it, and select that adapter
 at an edge assembly point. Verify the behavior with an in-memory rate adapter
 and the SQL translation with an integration test.
 
-A static clean result supports the dependency claim only. Review port meaning,
-adapter responsibility, and device-free behavior independently.
+A clean result from the repository's language-appropriate static validator
+supports the dependency claim only. Review driven-port meaning, adapter
+responsibility, and device-free behavior independently.
 
 ## Disposable script near miss
 

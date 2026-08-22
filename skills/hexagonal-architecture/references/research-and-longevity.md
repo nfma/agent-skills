@@ -5,16 +5,27 @@ Snapshot date: 2026-08-16. Owner: Nuno (`nfma`).
 ## Routing record
 
 ```text
-job: Apply hexagonal separation proportionally across all durable software coding, with optional deterministic Rust dependency evidence.
-candidate skills and physical paths: coding-preferences at /Users/nfma/Projects/agent-skills/skills/coding-preferences/SKILL.md overlaps the coding trigger but owns style and change discipline, not architecture; no semantic architecture owner was found under /Users/nfma/Projects/agent-skills/skills or /Users/nfma/.codex/skills.
+job: Apply hexagonal separation proportionally across all durable software coding, with required language-appropriate static dependency evidence.
+candidate skills: coding-preferences overlaps the coding trigger but owns style and change discipline, not architecture; no semantic architecture owner was found in the available skill inventory.
 overlap evidence: Inventory terms included “hexagonal architecture”, “ports and adapters”, “architecture validation”, and “dependency direction”. coding-preferences contains only repository-style and focused-change conventions, so the skills compose without duplicating architectural procedure.
 route: create
-reason: Nuno requires ports-and-adapters as the default design lens for maintained software. The job has stable domain criteria, a repeatable proportional design/review workflow, and an independently maintained Rust validator handoff.
-owner and canonical destination: Nuno; /Users/nfma/Projects/agent-skills/skills/hexagonal-architecture
+reason: Nuno requires ports-and-adapters as the default design lens for maintained software, backed by a deterministic validator suited to each repository. Rust has a maintained implementation because its ecosystem lacked one; other languages use their own tools.
+owner and canonical destination: Nuno; skills/hexagonal-architecture
 positive trigger: “Add a sync command to this maintained CLI that calls an external API and stores state.”
 near-miss: “Write a disposable script to rename these local files once.”
 success checks: Loads for durable software without a pattern keyword; holds requested scope; names only justified boundaries; preserves inward dependencies; isolates edge wiring; tests application behavior without production devices; distinguishes semantic review from static evidence.
 ```
+
+## Local architecture decisions
+
+- Driving adapters invoke reusable application behavior directly. A separate
+  driving port is exceptional and needs a real substitutability test, such as
+  static A/B testing.
+- Driven adapters can use driven-port and domain-data contracts for translation
+  but cannot depend on application orchestration or use-case implementations.
+- Structural evidence is required through a validator suited to the repository
+  language. The Rust implementation is one optional backend, not the portable
+  contract.
 
 ## Source record
 
@@ -47,19 +58,19 @@ the pattern and copies no third-party code or substantial prose.
   "rationale": [
     "The design and review job recurs across languages and the original pattern has remained stable for more than twenty years.",
     "Base models know the vocabulary, but default coding responses often couple behavior to runtime technologies, over-prescribe layers and interfaces, or broaden a focused fix into a migration; the workflow adds a proportional scope gate and discriminating evidence requirements.",
-    "The portable core has no runtime dependency. Volatile Rust release details are isolated in a replaceable reference."
+    "The portable core defines a language-neutral static validation contract. Volatile Rust release details are isolated in one optional implementation profile."
   ],
   "death_modes": [
     "Baseline agents consistently apply the semantic and evidence gates without the skill across three consecutive evaluation rounds.",
     "The team stops using hexagonal architecture or replaces it with a different authoritative architecture policy.",
     "Agent Skills discovery or resource-loading contracts change incompatibly.",
-    "The Rust validator becomes unmaintained or its analysis limitations make its evidence misleading.",
+    "Supported ecosystems lack a deterministic validator capable of enforcing the declared boundary rules.",
     "The broad default trigger causes repeated scope expansion or architecture ceremony despite the proportionality gates."
   ],
   "drift_signals": [
     "A new Agent Skills specification or repository validator release changes bundle requirements.",
     "Alistair Cockburn publishes a revised normative explanation that changes port or boundary criteria.",
-    "The Rust validator changes its configuration schema, output schema, release assets, or exit behavior.",
+    "A recommended validator changes its rule semantics, configuration schema, output, release assets, or exit behavior.",
     "Three consecutive no-skill baselines pass every discriminating case.",
     "Paired evaluations show repeated over-triggering on disposable scripts or scope expansion on focused durable-software changes."
   ],

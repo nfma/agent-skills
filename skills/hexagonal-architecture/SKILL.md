@@ -6,9 +6,10 @@ description: >-
   refactoring, debugging, testing, or reviewing any maintained CLI,
   application, service, library, daemon, worker, or component, even if the
   request does not name the pattern; also use for explicit hexagonal or
-  ports-and-adapters work. Scale guidance to the requested scope and do not turn
-  a focused change into an architecture migration. Do not use for disposable
-  one-off scripts, non-coding tasks, or geometric hexagons.
+  ports-and-adapters coding work. Scale guidance to the requested scope and do
+  not turn a focused change into an architecture migration. Do not use for
+  explanation-only questions, disposable one-off scripts, non-coding tasks, or
+  geometric hexagons.
 ---
 
 # Hexagonal Architecture
@@ -20,8 +21,9 @@ evidence of declared boundaries, not proof of semantic correctness.
 
 Read the `R1`–`R7` registry in [architecture
 criteria](references/architecture-criteria.md) before changing or assessing
-durable software. Those handles are normative: cite them instead of restating
-their rules.
+durable software. Those handles are normative inside this bundle: references
+cite them instead of restating their rules. In user-facing results, cite a
+handle only after explaining its concrete task-specific meaning.
 
 Load other references only when needed:
 
@@ -42,7 +44,7 @@ Apply `R1` before editing. Record only what the task needs:
 - relevant constraints, tests, and dependencies.
 
 Ask only when the boundary choice would materially change the result. Keep
-explanation and review tasks read-only unless changes are also requested.
+architecture reviews read-only unless changes are also requested.
 
 ## SR2 — Model the conversations
 

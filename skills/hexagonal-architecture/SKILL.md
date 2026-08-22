@@ -158,8 +158,9 @@ as limitations, not passes.
 ## 6. Return a reviewable result
 
 Summarize what the change actually involved. For a focused change, report the
-touched boundary, the change, and its tests; omit the rest. For new durable
-software or an authorized refactor, cover:
+touched boundary, the change, its tests, and any structural evidence marked out
+of scope; omit the rest. For new durable software or an authorized refactor,
+cover:
 
 - the chosen boundary and its inside/outside map;
 - application entry behavior, each driven port, and their adapters;

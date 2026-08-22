@@ -61,10 +61,23 @@ Review `hav.toml` before execution. It must express intended module roles and
 forbidden dependencies; never infer a passing configuration from the current
 graph and present it as compliance.
 
-When the source distinguishes driving and driven adapters, configure separate
-roles and a custom rule forbidding driven-adapter dependencies on application
-use-case modules. The built-in hexagonal preset has one generic adapter role and
-cannot prove that finer invariant by itself.
+The built-in hexagonal preset has one generic adapter role and forbids no
+adapter dependency on application modules, so a preset-only run does not check
+the driven-adapter invariant in `static-validation.md`. To check it, declare
+driving and driven adapter roles separately and add an explicit rule forbidding
+driven-adapter dependencies on application use-case and orchestration modules,
+while still allowing the driven-port and domain-data roles.
+
+A preset-only result, or any configuration with a single generic adapter role
+and no such rule, is incomplete evidence for that invariant: report the gap even
+on exit `0`. Do the same when a blind spot below — macros, dynamic dispatch,
+external crates, or an unanalyzed block-local module — could hide a
+driven-to-application edge on the paths under review.
+
+The preset also requires roles named `core`, `application`, `port`, `adapter`,
+and `composition-root`, and every declared role must match at least one
+discovered module. A repository without those distinctions should declare its
+own roles and rules without the preset rather than force the structure.
 
 ```console
 ./hav check --root . --config hav.toml --format json

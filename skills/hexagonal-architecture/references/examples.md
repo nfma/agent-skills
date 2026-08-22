@@ -14,7 +14,7 @@ A proportional boundary might be:
 | --- | --- |
 | Application entry | Start or resume synchronization |
 | Driving adapter | Parse CLI input, invoke synchronization, and render progress or errors |
-| Application behavior | Decide what to fetch, persist, retry, and report |
+| Application | Decide what to fetch, persist, and report, and which retries are business decisions |
 | Driven ports | Load configuration, fetch catalog pages, store the cursor, obtain time |
 | Driven adapters | Translate data and errors for the file, API, state store, and clock |
 | Edge assembly | Select concrete adapters and start the command |

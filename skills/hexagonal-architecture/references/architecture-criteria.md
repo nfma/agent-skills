@@ -18,8 +18,9 @@ Record a compact map before judging the implementation:
 
 One driven port may have several adapters. One adapter may participate in
 several conversations when its responsibility remains coherent. Split by
-purpose, not by a desire to maximize the number of ports. Do not invent a
-driving port unless a real substitutability test, such as static A/B testing,
+purpose, not by a desire to maximize the number of ports. The application entry
+is the inbound boundary itself. Do not add a separate driving-port abstraction
+in front of it unless a real substitutability test, such as static A/B testing,
 requires parallel driving implementations.
 
 ## Invariants and tests
@@ -63,9 +64,12 @@ inward.
 - Application policy, authorization decisions, state transitions, and business
   validation stay inside.
 - Driven adapters translate domain or application data into provider DTOs, make
-  the external request, parse and validate the response, translate it back into
-  domain results or unrecoverable errors, and apply technology-level recovery
-  or retry handling. Business retry policy and outcome decisions remain inside.
+  the external request, parse and validate the response, and translate it back
+  into domain results or unrecoverable errors. They may retry only failures the
+  provider itself defines as transient, within at most the attempt envelope the
+  port allows. When a retry could change a business outcome, a cost, an
+  ordering, or a non-idempotent effect, the decision belongs inside the
+  application.
 
 Evidence: the same application behavior passes with deterministic driven
 substitutes, while adapter tests cover both input and output translation.
@@ -118,6 +122,8 @@ Flag these as missing evidence, not automatic failures:
   current graph.
 - Distinguish driving adapters from driven adapters when enforcing that driven
   adapters cannot depend on application use-case implementations.
+- Record an explicit evidence gap instead of a pass when driven-port or
+  domain-data contracts are not statically separable from use-case modules.
 - Treat unresolved analysis, unsupported relationships, and unmatched roles as
   failures or explicit evidence gaps, never as passes.
 

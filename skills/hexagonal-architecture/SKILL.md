@@ -48,9 +48,10 @@ impose an example layout or terminology on the repository.
 ## 2. Model reusable behavior and driven ports
 
 Let driving adapters translate external input and invoke reusable application
-behavior directly. Do not add a driving port by default. Introduce a distinct
-inbound abstraction only when a real substitutability test needs parallel
-driving implementations, such as static A/B testing.
+behavior directly. The application's own entry API is its inbound boundary; do
+not put a separate driving-port abstraction in front of it by default.
+Introduce a distinct inbound abstraction only when a real substitutability test
+needs parallel driving implementations, such as static A/B testing.
 
 Describe each driven port in application or domain language. A driven port is a
 purposeful need the application has from an outside capability, not every
@@ -134,12 +135,15 @@ refactor needs all three kinds:
 3. **Behavioral:** the application runs relevant business tests without its UI,
    database, network, broker, or other production devices.
 
-Read [the static validation contract](references/static-validation.md) and use a
-deterministic dependency validator appropriate to the repository's language and
-build graph. A structural compliance claim requires a reviewed rule
-configuration and a completed validator result. If no suitable validator exists
-and adding one is outside scope, report the missing evidence instead of claiming
-compliance.
+Read [the static validation contract](references/static-validation.md). Run a
+deterministic dependency validator when the work is new durable software or an
+authorized refactor, when the change moves dependency direction, or when the
+result claims a structural boundary invariant. For a focused change that does
+neither, record structural evidence as out of scope rather than running a
+repository-wide validator. A structural compliance claim always requires a
+reviewed rule configuration and a completed validator result. If no suitable
+validator exists and adding one is outside scope, report the missing evidence
+instead of claiming compliance.
 
 For Rust only, also read [the Rust validator
 profile](references/rust-validator.md). Never apply that binary to another

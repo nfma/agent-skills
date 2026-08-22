@@ -1,6 +1,6 @@
 # Research, routing, and longevity
 
-Snapshot date: 2026-08-16. Owner: Nuno (`nfma`).
+Snapshot date: 2026-08-22 (sources retrieved 2026-08-16). Owner: Nuno (`nfma`).
 
 ## Routing record
 

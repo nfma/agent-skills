@@ -13,7 +13,7 @@
     },
     {
       "skill": "hexagonal-architecture",
-      "reason": "Portable frontmatter intentionally stays limited to name and description; validator requirements vary by target language and are routed conditionally through the static-validation and Rust implementation references."
+      "reason": "Temporary portability step until canonical extended metadata can be down-converted per harness: structural compliance claims require a language-appropriate deterministic validator, while the optional Rust profile additionally needs network access, checksum tooling, and gh attestation verification after approval. These conditional requirements remain in linked references because current portable bundle validators reject extended frontmatter."
     },
     {
       "skill": "sensitive-system-safety",

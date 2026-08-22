@@ -12,7 +12,8 @@ A valid structural check must:
 1. declare roles and dependency rules from the intended architecture rather
    than generate a configuration that accepts the current graph;
 2. distinguish application behavior, driving adapters, driven ports, driven
-   adapters, and edge assembly wherever those distinctions affect a rule;
+   adapters, domain data, and edge assembly wherever those distinctions affect
+   a rule;
 3. forbid core or application behavior from depending on runtime adapters;
 4. forbid driven adapters from depending on application orchestration or
    use-case implementations while allowing the driven-port and domain-data
@@ -20,6 +21,14 @@ A valid structural check must:
 5. report concrete source and target evidence in deterministic order; and
 6. fail or report an explicit evidence gap for unresolved imports, unsupported
    source relationships, unmatched roles, or incomplete analysis.
+
+If driven-port or domain-data contracts are not statically separable from
+use-case or orchestration modules — same file, same barrel export, or a
+role-matched parent module — do not claim structural proof of the
+driven-adapter rule. Record an explicit evidence gap for that invariant and
+rely on semantic review of the public imports until the contracts are separable
+in the module graph. Separating them is a static-evidence requirement, not a
+folder convention.
 
 Driving adapters may depend on application entry behavior. Driven adapters may
 depend only on application-owned driven-port and domain-data contracts. Edge

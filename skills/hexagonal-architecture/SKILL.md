@@ -29,7 +29,6 @@ Load other references only when needed:
 
 - [examples](references/examples.md) for proportional, language-neutral cases;
 - [static validation](references/static-validation.md) for a structural claim;
-- [the Rust profile](references/rust-validator.md) only for Rust; and
 - [research and longevity](references/research-and-longevity.md) for provenance
   or maintenance.
 
@@ -87,10 +86,9 @@ evidence out of scope. When no suitable validator exists and adding one is not
 authorized, report the evidence gap rather than a pass.
 
 Follow [static validation](references/static-validation.md) for every structural
-claim. For Rust, additionally follow [the Rust
-profile](references/rust-validator.md); never use that binary for another
-language. Require approval and verify checksums and provenance before obtaining
-an external validator.
+claim. Require approval and verify checksums and provenance before obtaining an
+external validator. Keep language- and tool-specific integration in a separate
+bridge skill rather than this portable architecture owner.
 
 ## SR6 — Report what was proved
 

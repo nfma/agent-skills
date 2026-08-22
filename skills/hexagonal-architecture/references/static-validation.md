@@ -19,13 +19,11 @@ imports do not replace this contract.
 
 ## Tool routing
 
-- JavaScript or TypeScript: prefer an existing dependency-cruiser configuration
-  or an equivalent fail-closed module-graph validator.
-- Rust: follow [the Rust profile](rust-validator.md) after approval and
-  integrity verification.
-- Other languages: use an existing architecture-test or dependency-graph tool
-  that satisfies this contract. If none exists, report missing structural
-  evidence; add a tool only when authorized.
+Use an existing architecture-test or dependency-graph tool that understands the
+repository and satisfies this contract. Route language- and tool-specific
+configuration through a separate bridge skill when one exists. If no suitable
+validator exists, report missing structural evidence; add a tool only when
+authorized.
 
 ## Evidence record
 

@@ -1,13 +1,11 @@
-# Rust static validator profile
+# Pinned hav validator profile
 
-Status: verified release available.
+Status: verified release available. This profile supplies Rust structural
+evidence for the language-neutral `hexagonal-architecture` skill. It never
+replaces that skill's semantic or behavioral checks and must not be used for
+another language.
 
-This is one Rust implementation of `SR5` and the
-[static validation contract](static-validation.md). Never apply it to another
-language.
-
-Use it only when the repository declares its intended roles and rules. The
-result is `R7` evidence, not semantic proof.
+Use it only when the Cargo workspace declares its intended roles and rules.
 
 ## Pinned release
 
@@ -19,10 +17,14 @@ result is `R7` evidence, not semantic proof.
 - JSON report schema: `1`
 - Verified: 2026-08-16 by Nuno (`nfma`) and the skill integration flow
 
-| Target | Archive | SHA-256 |
-| --- | --- | --- |
-| macOS Apple Silicon | `hexagonal-architecture-validator-v0.1.1-aarch64-apple-darwin.tar.gz` | `de1d0d3c879defa1c7aa5616c2999800461532d67f5eff50d5512d88f6b82731` |
-| Linux x86-64 | `hexagonal-architecture-validator-v0.1.1-x86_64-unknown-linux-gnu.tar.gz` | `4af9f7ad02d7ee521c4226b252acb178c3ac1f09a5c400f3f94d4b3ee64e2f4b` |
+- macOS Apple Silicon:
+  `hexagonal-architecture-validator-v0.1.1-aarch64-apple-darwin.tar.gz`
+  with SHA-256
+  `de1d0d3c879defa1c7aa5616c2999800461532d67f5eff50d5512d88f6b82731`.
+- Linux x86-64:
+  `hexagonal-architecture-validator-v0.1.1-x86_64-unknown-linux-gnu.tar.gz`
+  with SHA-256
+  `4af9f7ad02d7ee521c4226b252acb178c3ac1f09a5c400f3f94d4b3ee64e2f4b`.
 
 The release uses a signed annotated tag. GitHub artifact attestations bind both
 archives to the release workflow at the pinned commit and `refs/tags/v0.1.1`.
@@ -31,7 +33,7 @@ archives to the release workflow at the pinned commit and `refs/tags/v0.1.1`.
 
 Obtain approval before downloading or installing a binary. Select the archive
 for the current platform, download it and `SHA256SUMS` from the pinned release,
-then verify both the checksum and provenance before extraction:
+then verify both checksum and provenance before extraction:
 
 ```console
 version=v0.1.1
@@ -51,17 +53,18 @@ On Linux, select the `x86_64-unknown-linux-gnu` archive and replace `shasum -a
 256` with `sha256sum`. Prefer a temporary or project-owned tool directory over
 a global installation.
 
-## Run
+## Configure and run
 
-Review `hav.toml` before execution and require it to satisfy `R7`.
+Review `hav.toml` before execution. Its roles and rules must express the actual
+workspace rather than a desired folder template.
 
 The built-in preset has one generic adapter role and does not enforce the
-driven-adapter part of `R4`. Declare driving and driven adapter roles separately
-and forbid driven-adapter dependencies on application use cases while allowing
-driven-port and domain-data contracts.
+driven-adapter-to-application direction. Declare driving and driven adapter
+roles separately and forbid driven adapters from depending on application use
+cases while allowing driven-port and domain-data contracts.
 
-A preset-only result, or a blind spot that could hide that edge, is an `R7`
-evidence gap even on exit `0`.
+A preset-only result, or a blind spot that could hide that edge, is an evidence
+gap even on exit `0`.
 
 The preset also requires roles named `core`, `application`, `port`, `adapter`,
 and `composition-root`, and every declared role must match at least one
@@ -78,9 +81,9 @@ Exit states are stable:
 - `1`: analysis completed and found violations; and
 - `2`: configuration, discovery, parsing, resolution, or reporting failed.
 
-Treat exit `2` and every reported analysis unknown according to `R7`. Reports
-are deterministic and include stable module, dependency, finding, exemption,
-analysis-error, limitation, and summary data.
+Treat exit `2` and every reported analysis unknown as missing structural
+evidence. Reports are deterministic and include stable module, dependency,
+finding, exemption, analysis-error, limitation, and summary data.
 
 ## Verified integration gate
 
@@ -101,6 +104,6 @@ violation reports were byte-identical.
 - External crates, build-script output, method calls, dynamic dispatch, and
   runtime service lookup do not create analyzed edges.
 
-Combine the result with the other `SR5` evidence. Recheck this profile when the
-release assets, checksums, schemas, exit behavior, analysis scope, or owner
-changes.
+Combine the result with semantic and behavioral evidence. Recheck this profile
+when release assets, checksums, schemas, exit behavior, analysis scope, or
+ownership changes. Owner: Nuno (`nfma`). Recheck by 2026-11-22.

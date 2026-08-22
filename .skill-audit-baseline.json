@@ -13,7 +13,11 @@
     },
     {
       "skill": "hexagonal-architecture",
-      "reason": "Temporary portability step until canonical extended metadata can be down-converted per harness: structural compliance claims require a language-appropriate deterministic validator, while the optional Rust profile additionally needs network access, checksum tooling, and gh attestation verification after approval. Until harness-specific down-conversion exists, these conditional requirements remain in linked references."
+      "reason": "Temporary portability step until canonical extended metadata can be down-converted per harness: structural compliance claims conditionally require a repository-appropriate deterministic validator whose runtime requirements vary by chosen tool."
+    },
+    {
+      "skill": "hexagonal-architecture-rust",
+      "reason": "This bridge is instruction-only until structural proof is requested; obtaining the optional validator requires explicit approval, network access, checksum tooling, and GitHub attestation verification."
     },
     {
       "skill": "sensitive-system-safety",

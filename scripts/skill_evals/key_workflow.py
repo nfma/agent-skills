@@ -49,7 +49,9 @@ def _task_clauses(prompt: str) -> list[str]:
     sentence = prompt.strip().rstrip(".")
     clauses = [part.strip() for part in re.split(r";[ \t]*|,[ \t]+(?:and[ \t]+)?", sentence) if part.strip()]
     if len(clauses) == 1:
-        clauses = [part.strip() for part in re.split(r"\s+(?:and|while)\s+", sentence, maxsplit=2) if part.strip()]
+        clauses = [
+            part.strip() for part in re.split(r"[ \t]+(?:and|while)[ \t]+", sentence, maxsplit=2) if part.strip()
+        ]
     return clauses
 
 

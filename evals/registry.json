@@ -3,12 +3,7 @@
   "defaults": {
     "owner": "nfma",
     "canonical_harness": "claude-code",
-    "required_harnesses": [
-      "cursor",
-      "antigravity",
-      "codex",
-      "claude-code"
-    ],
+    "required_harnesses": ["cursor", "antigravity", "codex", "claude-code"],
     "minimum_tasks": 20,
     "trials_per_harness": 3,
     "human_calibration_required": true,
@@ -177,6 +172,20 @@
       "suite": "evals/skillguard/suite.json"
     },
     {
+      "name": "sync-traycer-notion",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/sync-traycer-notion/suite.json"
+    },
+    {
+      "name": "test-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/test-rust/suite.json"
+    },
+    {
       "name": "train-sentence-transformers",
       "source": "first-party",
       "risk": "high",
@@ -196,6 +205,13 @@
       "risk": "high",
       "status": "draft",
       "suite": "evals/trl-training/suite.json"
+    },
+    {
+      "name": "write-production-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/write-production-rust/suite.json"
     }
   ]
 }

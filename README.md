@@ -134,10 +134,17 @@ installs pinned Trivy, and audits every skill under `skills/`. Recursive
 discovery includes skills added later without changing the workflow. The audit
 blocks high or critical findings and risk scores of 3 or higher.
 
-Reviewed false positives are recorded as exact fingerprints in
-`.skill-audit-baseline.json`. A change to the finding's skill, identifier,
-severity, file, line, or evidence requires fresh review, and stale entries fail
-the workflow. `skill-audit` itself is spec-validated by the runner while the
+Reviewed false positives are recorded as content-addressed fingerprints in
+`.skill-audit-baseline.json`. Identity is scoped by skill, identifier, severity,
+file, and the SHA-256 digest of the reviewed evidence, so an unchanged finding
+can move without editing policy state. Changed or ambiguously repeated evidence
+requires fresh review, and stale entries fail the workflow. Migrate a legacy
+line-addressed baseline explicitly with
+`npm run migrate:skill-audit-baseline`. Every skill must also declare a non-empty top-level
+`compatibility` value or have a justified entry in the baseline's
+`compatibilityOmissions` policy; missing declarations, stale exceptions, and
+exceptions for undiscovered skills fail the same audit. `skill-audit` itself is
+spec-validated by the runner while the
 consumer verifies the released executable's provenance and contract. Its
 self-referential source tests and dependency audits run in the upstream release
 workflow bound by the descriptor.

@@ -36,6 +36,17 @@ id = "generic-api-key"
   ]
 
   [[rules.allowlists]]
+  description = "Ignore generated SHA-256 evidence fields in the Notion sync eval"
+  condition = "AND"
+  regexTarget = "line"
+  paths = [
+    '''^evals/sync-traycer-notion/(key-manifest|calibration-manifest)\.json$''',
+  ]
+  regexes = [
+    '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
+  ]
+
+  [[rules.allowlists]]
   description = "Ignore generated SHA-256 evidence fields in the production Rust eval"
   condition = "AND"
   regexTarget = "line"
@@ -53,4 +64,15 @@ id = "generic-api-key"
   paths = ['''^evals/test-rust-loaded-content/key-manifest\.json$''']
   regexes = [
     '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
+  ]
+
+  [[rules.allowlists]]
+  description = "Ignore generated SHA-256 evidence fields in create-agent-skill evals"
+  condition = "AND"
+  regexTarget = "line"
+  paths = [
+    '''^evals/create-agent-skill-(read-only|loaded-content|zero-tools)/key-manifest\.json$''',
+  ]
+  regexes = [
+    '''^\s*"key_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
   ]

@@ -1,0 +1,13 @@
+interface:
+  display_name: "Sync Traycer to Notion"
+  short_description: "Mirror Traycer hierarchy into Notion tasks"
+  default_prompt: "Use $sync-traycer-notion to synchronize this Traycer epic and its work items with Notion."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "notion"
+      description: "Notion MCP server"
+      transport: "streamable_http"
+      url: "https://mcp.notion.com/mcp"
+policy:
+  allow_implicit_invocation: true

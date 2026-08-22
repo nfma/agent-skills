@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "suite": "write-production-rust-trigger-behavior",
+  "skill_name": "write-production-rust",
+  "trigger_cases": [
+    {
+      "id": "async-src-refactor",
+      "positive_prompt": "Review the Tokio worker in crates/dispatch/src/worker.rs. It spawns one task per queued job, drops some join handles, and uses an unbounded channel. Return a production refactor plan only; do not edit files.",
+      "near_miss_prompt": "Improve the Tokio integration coverage in crates/dispatch/tests/worker.rs, including cancellation and queue saturation cases. Work only in that test file and return a plan; do not edit files."
+    },
+    {
+      "id": "functional-src-refactor",
+      "positive_prompt": "Refactor crates/orders/src/pricing.rs so invalid discount states are excluded by the type model and the transformation reads clearly without unnecessary allocation. Return the proposed production-code change only; do not edit files.",
+      "near_miss_prompt": "Rewrite examples/pricing.rs to demonstrate discount calculation with iterators. This is example code outside src/. Return the proposed example only; do not edit files."
+    },
+    {
+      "id": "mixed-source-boundary",
+      "positive_prompt": "Change crates/api/src/service.rs and crates/api/tests/service.rs for a new retry policy. The request also suggests adding a cfg(test) helper inside src/service.rs. Decide the allowed production change and explain the handoff; do not edit files.",
+      "near_miss_prompt": "Update Cargo.toml feature declarations and build.rs for a generated retry-policy table. No Rust file under a src/ directory is in scope. Return a plan only; do not edit files."
+    }
+  ],
+  "behavior_cases": [
+    {
+      "id": "bounded-async-pipeline",
+      "guidance_files": [
+        "SKILL.md",
+        "references/async-rust.md",
+        "references/functional-rust.md"
+      ],
+      "prompt": "You are reviewing crates/dispatch/src/worker.rs. The crate already depends on Tokio and futures 0.3. The public function must return results in input order and stop with the first fetch error. Traffic can contain 100,000 IDs, and at most 32 fetches may be in flight. Refactor this code and briefly state its cancellation and resource-ownership behavior:\n\n```rust\npub async fn fetch_all(ids: Vec<JobId>) -> Result<Vec<Output>, FetchError> {\n    let mut handles = Vec::new();\n    for id in ids {\n        handles.push(tokio::spawn(async move { fetch(id).await }));\n    }\n\n    let mut outputs = Vec::new();\n    for handle in handles {\n        outputs.push(handle.await.unwrap()?);\n    }\n    Ok(outputs)\n}\n```\n\nReturn the revised Rust plus a concise design explanation. Do not propose test, manifest, or CI changes."
+    },
+    {
+      "id": "typed-functional-core",
+      "guidance_files": [
+        "SKILL.md",
+        "references/functional-rust.md",
+        "references/idiomatic-rust.md"
+      ],
+      "prompt": "Refactor this production function in crates/orders/src/pricing.rs. Input is untrusted. A percentage must be 0..=100, stacking and exclusivity are mutually exclusive states, and callers need structured parse errors with the original source error. Avoid clever combinator chains and unnecessary cloning.\n\n```rust\npub fn parse_discounts(lines: &[String]) -> Result<Vec<(String, u8, bool, bool)>, String> {\n    let mut out = Vec::new();\n    for line in lines {\n        let fields: Vec<_> = line.split(',').collect();\n        let percent: u8 = fields[1].parse().map_err(|_| \"bad percent\".to_string())?;\n        let stackable = fields[2] == \"stack\";\n        let exclusive = fields[2] == \"exclusive\";\n        out.push((fields[0].to_string(), percent, stackable, exclusive));\n    }\n    Ok(out)\n}\n```\n\nReturn an idiomatic production design and representative Rust. Do not propose test, manifest, or CI changes."
+    },
+    {
+      "id": "strict-source-boundary",
+      "guidance_files": [
+        "SKILL.md",
+        "references/source-boundary.md",
+        "references/functional-rust.md"
+      ],
+      "prompt": "Implement a retry classification change spanning crates/api/src/retry.rs and crates/api/tests/retry.rs. The requested shortcut is to add `#[cfg(test)] pub fn force_retryable(...)` in src/retry.rs and import a fixture from `tests/common.rs` into production. The production behavior should classify only Timeout and TemporarilyUnavailable as retryable; all other errors are terminal. Return the exact scope you will handle, representative production Rust, and any handoff."
+    }
+  ]
+}

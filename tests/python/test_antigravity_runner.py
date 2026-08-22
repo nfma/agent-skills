@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404 - tests use fixed argv for local fake runners and containment probes.
 import sys
 import tempfile
 import textwrap

@@ -1,6 +1,12 @@
 ---
 name: huggingface-trackio
 description: Track and visualize ML training experiments with Trackio. Use when logging metrics during training (Python API), firing alerts for training diagnostics, or retrieving/analyzing logged metrics (CLI). Supports real-time dashboard visualization, alerts with webhooks, HF Space syncing, and JSON output for automation.
+metadata:
+  skill-audit-context-reads: training_run, metrics, alert_rules, auth_status
+  skill-audit-context-requires: explicit_tracking_goal, target_project_or_run
+  skill-audit-context-writes: files_changed, metrics_logged, alerts_configured, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python with Trackio; Space sync, remote dashboards, and webhooks require network access, with Hub authentication needed for private or mutating Space operations.
 ---
 
 # Trackio - Experiment Tracking for ML Training

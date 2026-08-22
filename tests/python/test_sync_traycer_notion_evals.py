@@ -159,6 +159,14 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertEqual(report["production_contract"]["suite_status"], "draft")
         self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
 
+    def test_skill_excludes_explicit_sync_deferral(self) -> None:
+        skill = SKILL.read_text(encoding="utf-8")
+        frontmatter = skill.split("---", maxsplit=2)[1]
+
+        self.assertIn("takes precedence over every automatic trigger", frontmatter)
+        self.assertIn("do not load, including for local-only artifact work", frontmatter)
+        self.assertIn("Do not synchronize local-only artifact", skill)
+
     def test_trace_proves_project_discovery_and_automatic_invocation(self) -> None:
         events = self.runner.parse_stream_json(valid_trace(discovered=True, invoke=True))
         summary = self.runner.trace_summary(events)

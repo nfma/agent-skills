@@ -26,7 +26,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -54,8 +53,10 @@ jobs:
           mkdir -p \
             "$probe_root/allowed" \
             "$probe_root/allowed/evals/sync-traycer-notion-trigger" \
+            "$probe_root/allowed/evals/test-rust-loaded-content" \
             "$probe_root/allowed/evals/write-production-rust" \
             "$probe_root/rejected" \
+            "$probe_root/rejected-loaded-content/evals/test-rust-loaded-content" \
             "$probe_root/wrong-path/sub" \
             "$probe_root/wrong-path/evals/other-suite"
           checksum="$(printf '%s' 'gitleaks-regression-probe' | sha256sum | cut -d ' ' -f 1)"
@@ -68,6 +69,7 @@ jobs:
           for repository in \
             "$probe_root/allowed" \
             "$probe_root/rejected" \
+            "$probe_root/rejected-loaded-content" \
             "$probe_root/wrong-path"; do
             git -C "$repository" init --quiet
             git -C "$repository" config user.name "Gitleaks regression probe"
@@ -84,21 +86,31 @@ jobs:
             "$probe_root/allowed/evals/sync-traycer-notion-trigger/proof-report.json"
           printf '  "key_sha256": "%s"\n' \
             "$checksum" > \
+            "$probe_root/allowed/evals/test-rust-loaded-content/key-manifest.json"
+          printf '  "key_sha256": "%s"\n' \
+            "$checksum" > \
             "$probe_root/allowed/evals/write-production-rust/semantic-key-manifest.json"
           printf '  "key_manifest_sha256": "%s",\n  "key_sha256": "%s"\n' \
             "$checksum" "$checksum" > \
             "$probe_root/allowed/evals/write-production-rust/proof-report.json"
           printf '  "api_key": "%s"\n' \
             "$checksum" > "$probe_root/rejected/.shell-quality-baseline.json"
+          printf '  "api_key": "%s"\n' \
+            "$checksum" > \
+            "$probe_root/rejected-loaded-content/evals/test-rust-loaded-content/key-manifest.json"
           printf '  "skills/huggingface-tool-builder/references/hf_model_papers_auth.sh:%s"\n' \
             "$checksum" > "$probe_root/wrong-path/sub/.shell-quality-baseline.json"
           printf '  "key_sha256": "%s"\n' \
             "$checksum" > "$probe_root/wrong-path/evals/other-suite/key-manifest.json"
+          printf '  "key_manifest_sha256": "%s"\n' \
+            "$checksum" > \
+            "$probe_root/wrong-path/evals/other-suite/semantic-key-manifest.json"
 
           git -C "$probe_root/allowed" add \
             .shell-quality-baseline.json \
             evals/sync-traycer-notion-trigger/key-manifest.json \
             evals/sync-traycer-notion-trigger/proof-report.json \
+            evals/test-rust-loaded-content/key-manifest.json \
             evals/write-production-rust/semantic-key-manifest.json \
             evals/write-production-rust/proof-report.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
@@ -106,9 +118,15 @@ jobs:
           git -C "$probe_root/rejected" add .shell-quality-baseline.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/rejected" commit --quiet --message "Add rejected secret"
+          git -C "$probe_root/rejected-loaded-content" add \
+            evals/test-rust-loaded-content/key-manifest.json
+          git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+            -C "$probe_root/rejected-loaded-content" commit --quiet \
+            --message "Add rejected loaded-content secret"
           git -C "$probe_root/wrong-path" add \
             sub/.shell-quality-baseline.json \
-            evals/other-suite/key-manifest.json
+            evals/other-suite/key-manifest.json \
+            evals/other-suite/semantic-key-manifest.json
           git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
             -C "$probe_root/wrong-path" commit --quiet --message "Add wrong-path checksum"
 
@@ -123,6 +141,9 @@ jobs:
           fi
           jq -e \
             'any(.[]; .RuleID == "generic-api-key" and .File == ".shell-quality-baseline.json")' \
+            "$probe_root/control-report.json" > /dev/null
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/test-rust-loaded-content/key-manifest.json")' \
             "$probe_root/control-report.json" > /dev/null
 
           gitleaks git --config "$GITHUB_WORKSPACE/.gitleaks.toml" --no-banner "$probe_root/allowed"
@@ -142,6 +163,18 @@ jobs:
             --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
             --no-banner \
             --report-format json \
+            --report-path "$probe_root/rejected-loaded-content-report.json" \
+            "$probe_root/rejected-loaded-content"; then
+            echo "Gitleaks accepted a non-digest secret-like value in the loaded-content manifest" >&2
+            exit 1
+          fi
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/test-rust-loaded-content/key-manifest.json")' \
+            "$probe_root/rejected-loaded-content-report.json" > /dev/null
+          if gitleaks git \
+            --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
+            --no-banner \
+            --report-format json \
             --report-path "$probe_root/wrong-path-report.json" \
             "$probe_root/wrong-path"; then
             echo "Gitleaks accepted a checksum outside the baseline path" >&2
@@ -153,6 +186,9 @@ jobs:
           jq -e \
             'any(.[]; .RuleID == "generic-api-key" and .File == "evals/other-suite/key-manifest.json")' \
             "$probe_root/wrong-path-report.json" > /dev/null
+          jq -e \
+            'any(.[]; .RuleID == "generic-api-key" and .File == "evals/other-suite/semantic-key-manifest.json")' \
+            "$probe_root/wrong-path-report.json" > /dev/null
 
       - name: Run Semgrep community security rules
         run: >-
@@ -163,8 +199,6 @@ jobs:
           --metrics=off
           --exclude node_modules
           --exclude .venv
-          --exclude vendor/skill-audit/skill-audit/node_modules
-          --exclude vendor/skill-audit/skill-audit/dist
           .
 
       - name: Scan Git history for secrets
@@ -183,7 +217,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          submodules: recursive
 
       - name: Set up Trivy
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
@@ -199,6 +232,4 @@ jobs:
           --exit-code 1
           --skip-dirs node_modules
           --skip-dirs .venv
-          --skip-dirs vendor/skill-audit/skill-audit/node_modules
-          --skip-dirs vendor/skill-audit/skill-audit/dist
           .

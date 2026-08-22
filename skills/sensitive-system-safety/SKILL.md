@@ -1,6 +1,11 @@
 ---
 name: sensitive-system-safety
 description: Handle sensitive or high-impact local system work safely. Use when a task may access or change dotfiles, credentials, tokens, SSH or GnuPG data, keychains, privileged or system-wide configuration, or when it may delete, overwrite, or irreversibly alter data.
+metadata:
+  skill-audit-context-reads: user_request, sensitive_targets, approval_state, risk_state
+  skill-audit-context-requires: explicit_sensitive_system_goal, exact_target_scope
+  skill-audit-context-writes: files_changed, system_state_changed, recovery_status, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Sensitive System Safety

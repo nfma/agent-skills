@@ -9,7 +9,6 @@ import { fileURLToPath } from "node:url";
 import { checkQualityBaseline, uniqueSorted } from "./quality-baseline.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
-const vendorRoot = resolve(repositoryRoot, "vendor/skill-audit/skill-audit");
 const baselinePath = resolve(repositoryRoot, ".shell-quality-baseline.json");
 const printBaseline = process.argv.includes("--print-baseline");
 
@@ -77,10 +76,9 @@ function trackedShellFiles(root, prefix = "") {
     .map((file) => checkedRepositoryPath(`${prefix}${file}`));
 }
 
-const shellFiles = [
-  ...trackedShellFiles(repositoryRoot),
-  ...trackedShellFiles(vendorRoot, "vendor/skill-audit/skill-audit/"),
-].sort((left, right) => left.localeCompare(right));
+const shellFiles = trackedShellFiles(repositoryRoot).sort((left, right) =>
+  left.localeCompare(right),
+);
 
 if (shellFiles.length === 0) throw new Error("No tracked shell files found");
 
@@ -132,9 +130,9 @@ const current = {
 };
 const reviewNotes = {
   shellcheck:
-    "Only imported Hugging Face examples and vendored skill-audit scripts are accepted; exact locations gate changes.",
+    "Only imported Hugging Face examples are accepted; exact locations gate changes.",
   shfmt:
-    "Imported and vendored formatting is preserved; SHA-256 diff fingerprints gate changes.",
+    "Imported formatting is preserved; SHA-256 diff fingerprints gate changes.",
 };
 
 checkQualityBaseline({

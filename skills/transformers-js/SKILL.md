@@ -7,6 +7,10 @@ metadata:
   version: "4.x"
   category: machine-learning
   repository: https://github.com/huggingface/transformers.js
+  skill-audit-context-reads: application_goal, runtime, model_id, hardware_state
+  skill-audit-context-requires: explicit_implementation_goal, target_runtime
+  skill-audit-context-writes: files_changed, downloaded_files, commands_run, verification_result
+  skill-audit-confirmation: on-risk
 compatibility: Requires Node.js 18+ (or compatible Bun/Deno runtime) or modern browser with ES modules support. WebGPU requires runtime and hardware support; WASM is the broad fallback. Internet access is needed for downloading models from Hugging Face Hub (optional if using local models).
 ---
 

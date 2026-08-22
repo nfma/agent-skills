@@ -49,6 +49,10 @@
       "type": "http",
       "url": "https://huggingface.co/mcp"
     },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
     "serena": {
       "type": "stdio",
       "localCommand": "serena-mcp",

@@ -1,6 +1,12 @@
 ---
 name: huggingface-gradio
 description: Build Gradio web UIs and demos in Python. Use when creating or editing Gradio apps, components, event listeners, layouts, or chatbots.
+metadata:
+  skill-audit-context-reads: app_goal, existing_code, runtime_constraints
+  skill-audit-context-requires: explicit_app_goal, target_app
+  skill-audit-context-writes: files_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python and the Gradio package; remote or private Space workflows additionally require network access and Hub authentication.
 ---
 
 # Gradio

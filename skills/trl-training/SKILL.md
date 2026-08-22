@@ -9,6 +9,11 @@ metadata:
   categories: machine-learning, llm-training, reinforcement-learning
   tags: rlhf, supervised-fine-tuning, dpo, grpo, huggingface, transformers
   documentation: https://huggingface.co/docs/trl/en/clis
+  skill-audit-context-reads: training_goal, dataset, base_model, algorithm, hardware_state, auth_status
+  skill-audit-context-requires: explicit_training_goal, target_model_or_dataset
+  skill-audit-context-writes: files_changed, training_runs, model_artifacts, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python with TRL, Transformers, and Accelerate; practical training usually requires a compatible GPU. Hub downloads/publishing require network access, and gated/private or push workflows require Hub authentication.
 ---
 
 # TRL Training Skill

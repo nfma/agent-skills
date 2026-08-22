@@ -1,9 +1,27 @@
 {
-  "version": 1,
+  "version": 2,
   "selfAuditedSkills": [
     {
       "skill": "skill-audit",
-      "reason": "The runner spec-validates this skill, while CI validates its self-referential detection corpus with the complete test and dependency-audit suites."
+      "reason": "The immutable release digest pin is verified with `gh attestation verify` bound to `--signer-workflow`, `--source-digest`, `--source-ref`, and `--deny-self-hosted-runners`; the release-contract test then verifies the installed executable and fixed corpus."
+    }
+  ],
+  "compatibilityOmissions": [
+    {
+      "skill": "coding-preferences",
+      "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "sensitive-system-safety",
+      "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "skill-audit",
+      "reason": "The consumer documentation is a byte-exact Sigstore-attested upstream artifact; compatibility must be added in an upstream release rather than by changing the verified local copy."
+    },
+    {
+      "skill": "write-production-rust",
+      "reason": "SKILL.md is sealed byte-for-byte as skill_sha256 in the committed execution proof at evals/write-production-rust/proof-report.json; declaring compatibility changes the frontmatter the host reads and therefore requires a fresh paid trigger and behavior run to requalify. Deferred to the next proof revision."
     }
   ],
   "acceptedFindings": [
@@ -12,8 +30,8 @@
       "id": "PII-007",
       "severity": "high",
       "file": "SKILL.md",
-      "line": 287,
       "evidence": "# {\"Result\": \"/tmp/gradio/.../image.webp\", \"Seed\": 1117868604}",
+      "evidenceSha256": "15b290b00032379c5a932bc926cb9f3cb981c1c319105a0680c8e86cc11987ec",
       "reason": "The ten-digit value is a generated image seed, not a Vietnamese social-insurance identifier."
     },
     {
@@ -21,8 +39,8 @@
       "id": "CE06",
       "severity": "high",
       "file": "references/3d-cuda-extensions.md (code block)",
-      "line": 1,
       "evidence": "os.system(\"cd /home/user/app/hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh\")",
+      "evidenceSha256": "f18df74dbbbb6e332a072f27b29a6edc212fe26fd56d53c32e9037fb64fbaf99",
       "reason": "This is a fixed local build command in documentation, with no caller-controlled interpolation."
     },
     {
@@ -30,8 +48,8 @@
       "id": "CE06",
       "severity": "high",
       "file": "references/3d-models.md (code block)",
-      "line": 1,
       "evidence": "os.system(",
+      "evidenceSha256": "5d8947ebf6201095ef120aaac26bad5301a6a8462bf64e4f77440633b191724d",
       "reason": "This documented invocation uses a fixed local command rather than caller-controlled input."
     },
     {
@@ -39,8 +57,8 @@
       "id": "CE06",
       "severity": "high",
       "file": "references/3d-models.md (code block)",
-      "line": 4,
       "evidence": "os.system(\"cd /home/user/app/hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh\")",
+      "evidenceSha256": "f18df74dbbbb6e332a072f27b29a6edc212fe26fd56d53c32e9037fb64fbaf99",
       "reason": "This is a fixed local build command in documentation, with no caller-controlled interpolation."
     },
     {
@@ -48,8 +66,8 @@
       "id": "CL01",
       "severity": "critical",
       "file": "references/debugging.md (code block)",
-      "line": 1,
       "evidence": "ssh -i ~/.ssh/hf_dev -o BatchMode=yes -o StrictHostKeyChecking=accept-new \\",
+      "evidenceSha256": "c67869a2b0448481702984ab9b50be30bd4af77622293320022fec39bd9e8b49",
       "reason": "The documentation references a local SSH key path but contains no credential material."
     },
     {
@@ -57,8 +75,8 @@
       "id": "CE-016",
       "severity": "critical",
       "file": "references/find_models_by_paper.sh",
-      "line": 203,
       "evidence": "            echo \"$model_data\" | base64 -d | jq -r '",
+      "evidenceSha256": "73d2d33de09210298ef947248ca3d7d63e531bb237080d974249e40a881f33a0",
       "reason": "Decoded JSON is piped to jq for field extraction, not to a shell or interpreter."
     },
     {
@@ -66,8 +84,8 @@
       "id": "PII-002",
       "severity": "high",
       "file": "SKILL.md",
-      "line": 53,
       "evidence": "// Output: [{ label: 'POSITIVE', score: 0.999817686 }]",
+      "evidenceSha256": "173dcb5b597e06c736e3f1767fe09c7226b2f0493f8473aea907b4e0c6de7230",
       "reason": "The nine-digit value is an example model confidence score, not a Vietnamese identity number."
     }
   ]

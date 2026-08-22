@@ -8,6 +8,7 @@ on:
     branches: [main]
 
 permissions:
+  attestations: read # Verify provenance for pinned release assets.
   contents: read
 
 concurrency:
@@ -23,14 +24,11 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          submodules: recursive
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: vendor/skill-audit/skill-audit/package-lock.json
 
       - name: Set up Trivy
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
@@ -38,13 +36,46 @@ jobs:
           version: v0.74.0
           cache: true
 
-      - name: Build vendored skill-audit
+      - name: Install and verify pinned skill-audit release
         run: ./scripts/prepare-vendored-skills.sh
 
-      - name: Test vendored skill-audit
+      - name: Verify release provenance and descriptor bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          npm test --prefix vendor/skill-audit/skill-audit
-          npm audit --prefix vendor/skill-audit/skill-audit --audit-level=high
+          pin_field() {
+            node -p \
+              'JSON.parse(require("node:fs").readFileSync(".skill-audit-release.json"))[process.argv[1]]' \
+              "$1"
+          }
+          release_tag=$(pin_field tag)
+          source_repository=$(pin_field sourceRepository)
+          source_commit=$(pin_field sourceCommit)
+          descriptor_name="skill-audit-${release_tag}-release.json"
+          descriptor_asset="$RUNNER_TEMP/$descriptor_name"
+
+          gh release download "$release_tag" \
+            --repo "$source_repository" \
+            --pattern "$descriptor_name" \
+            --dir "$RUNNER_TEMP"
+          node scripts/verify-skill-audit-release.mjs \
+            --release-descriptor "$descriptor_asset"
+          gh attestation verify .skill-audit-release.json \
+            --repo "$source_repository" \
+            --signer-workflow "$source_repository/.github/workflows/release.yml" \
+            --source-digest "$source_commit" \
+            --source-ref "refs/tags/$release_tag" \
+            --deny-self-hosted-runners
+          gh attestation verify vendor/skill-audit/dist/skill-audit.mjs \
+            --repo "$source_repository" \
+            --signer-workflow "$source_repository/.github/workflows/release.yml" \
+            --source-digest "$source_commit" \
+            --source-ref "refs/tags/$release_tag" \
+            --deny-self-hosted-runners
+
+      - name: Test the release contract
+        run: node --test tests/skill-audit-release.test.js
 
       - name: Audit every skill
         run: node scripts/audit-skills.mjs

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Rust"
+  short_description: "Design and implement risk-adaptive Rust tests"
+  default_prompt: "Use $test-rust to design and implement the smallest defensible Rust test portfolio under package tests/ directories."

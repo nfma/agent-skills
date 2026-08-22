@@ -76,7 +76,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: dependency-audit
+    environment: dependabot-alerts
     timeout-minutes: 10
     steps:
       - name: Require no open Dependabot alerts

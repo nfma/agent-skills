@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "test-rust-loaded-content-evals",
+  "execution_policy": {
+    "tier": "loaded-content-safe",
+    "mode": "loaded-content-safe",
+    "runner_instructions": "Evaluate the supplied scenario in the harness's strongest current non-effectful mode. Allow native discovery and loading of the installed skill plus reads of the immutable skill bundle and fixture root. Do not create, edit, delete, publish, call external services, access credentials, mutate version control, change permissions, spawn agents, or start background work. Treat every described real-world action as hypothetical and return one final text response only.",
+    "allowed_capabilities": [
+      "emit-final-text",
+      "fixture-list",
+      "fixture-read",
+      "fixture-search",
+      "fixture-stat",
+      "native-skill-discovery",
+      "native-skill-load",
+      "read-only-shell",
+      "reason-over-supplied-content",
+      "receive-supplied-context"
+    ],
+    "denied_capabilities": [
+      "background-task",
+      "browser-access",
+      "credential-access",
+      "external-service-call",
+      "filesystem-read-outside-approved-roots",
+      "filesystem-write",
+      "mcp-access",
+      "mutating-shell-execution",
+      "network-access",
+      "permission-escalation",
+      "subagent-delegation",
+      "system-state-change",
+      "version-control-write"
+    ],
+    "artifact_capture": "coordinator-captured-final-response",
+    "grading_scope": "response-content-only",
+    "tool_events_must_be_absent": false,
+    "network_must_be_disabled": false,
+    "writable_workspace_must_be_absent": false,
+    "fixture_root_required": true,
+    "symlink_free_fixtures": true,
+    "pre_post_hash_required": true,
+    "complete_tool_inventory_required": false
+  },
+  "cases": [
+    {
+      "id": "lds-01",
+      "purpose": "Test risk-adaptive planning for a bare Rust workspace while preserving concrete-package and public-reachability boundaries.",
+      "positive_prompt": "Design the smallest defensible test portfolio for this inert Rust workspace, without executing commands or editing files. The root Cargo.toml is virtual; crates/lib is a library and crates/tool is bin-only. Neither package has dev-dependencies, the workspace intentionally has no committed Cargo.lock, and private normalization branches collapse to the same public output. Confine every proposed repository write to each concrete package's tests/ directory, balance the test pyramid and gate costs, and report unreachable risks honestly.",
+      "near_miss_prompt": "Improve the Rust documentation examples and doctests in crates/lib/src/lib.rs for this same workspace. Do not design or change anything under tests/.",
+      "baseline": "no-skill",
+      "setup": [
+        "Treat the repository description as complete and inert.",
+        "No dependency, tool, manifest, source, lockfile, or CI change is available to the positive case."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No public seam, dependency, inline unit, doctest edit, or virtual-root integration target is invented."
+      ]
+    },
+    {
+      "id": "lds-02",
+      "purpose": "Test independent oracle grounding and mapped mutation triage for an LLM-authored Proptest under tests/.",
+      "positive_prompt": "Audit an inert LLM-authored Rust property test at crates/codec/tests/property.rs, without executing commands or editing files. The public parse(input) API returns Result<Record, Error>; the current property generates arbitrary strings and asserts only that the result is Ok or Err. Proptest is already a dev-dependency. The format specification supplies a checksum invariant and official valid/invalid vectors. cargo-mutants reports a viable survivor in public checksum validation, a timeout, an unviable compile, and a survivor in a private logging helper unreachable through the public API. Return a corrected tests-only oracle, deterministic and scheduled PBT modes, and mapped mutation triage.",
+      "near_miss_prompt": "Audit and rewrite the same weak LLM-authored property test when it exists only as an inline cfg(test) module in crates/codec/src/parser.rs. Do not create or edit anything under tests/.",
+      "baseline": "no-skill",
+      "setup": [
+        "The positive package has a current lockfile and runs integration targets from its package root.",
+        "The mutation results are supplied facts; no mutation tool invocation is needed."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No global mutation-score target is used and timeout, unviable, equivalent, or boundary-unreachable outcomes are not called killed."
+      ]
+    },
+    {
+      "id": "lds-03",
+      "purpose": "Test risk-gated TLA+ escalation and an explicit Rust/model conformance bridge for a severe async protocol.",
+      "positive_prompt": "Design evidence for an inert Rust payment-settlement protocol, without executing commands or editing files. Duplicate delivery, retry, crash/restart, and out-of-order acknowledgements can cause irreversible duplicate settlement. Tokio lacks test-util; Loom, Shuttle, and Turmoil are not wired; TLA+ is installed; public commands and an event log are available. The protocol and assumptions are stable, an owner is named, and formal sources may live only under crates/settlement/tests/formal/tla/. Define the smallest test/formal portfolio, at-most-once safety and eventual-resolution liveness obligations, a black-box Rust conformance bridge, cadence, and retirement criteria.",
+      "near_miss_prompt": "Author the same payment protocol's TLA+ model under the repository-root formal/ directory as production design documentation. Do not design or change Rust tests or anything under a package tests/ directory.",
+      "baseline": "no-skill",
+      "setup": [
+        "No production, manifest, feature, CI, or tool-install change is authorized.",
+        "The model must state its fairness and environment assumptions."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "A passing TLA+ model is not claimed to prove the Rust implementation."
+      ]
+    },
+    {
+      "id": "lds-04",
+      "purpose": "Test property-based consolidation of redundant external examples without losing canonical or regression value.",
+      "positive_prompt": "Plan a tests-only consolidation for an inert Rust parser, without executing commands or editing files. Twelve integration examples under crates/parser/tests/ repeat the same whitespace, delimiter, and round-trip partitions; three are named business rules, one is the minimal reproducer for a fixed defect, and the rest are redundant. Proptest is already a dev-dependency. Propose the smallest named-example plus semantic-generator portfolio, identify exactly which clean tracked tests could be deleted only after approval, and specify deterministic PR, scheduled exploration, and mapped mutation evidence.",
+      "near_miss_prompt": "Add Proptest as a dev-dependency in crates/parser/Cargo.toml and replace the examples with inline property tests in crates/parser/src/parser.rs. Do not create or edit anything under tests/.",
+      "baseline": "no-skill",
+      "setup": [
+        "The parser exposes its material behavior through a public API.",
+        "No deletion has been approved; the positive response may only propose an exact deletion set."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "Canonical business examples and the minimal named regression are not deleted, and no unapproved deletion is treated as complete."
+      ]
+    }
+  ]
+}

@@ -18,11 +18,13 @@ from pathlib import Path
 from typing import Any, cast
 
 SCHEMA_VERSION = 1
+EVIDENCE_SCHEMA_VERSION = 2
 SKILL_NAME = "sync-traycer-notion"
 SUITE_NAME = "sync-traycer-notion-trigger-behavior"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPOSITORY_ROOT / "skills" / SKILL_NAME
 DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/key-manifest.json"
+DEFAULT_PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
 DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
@@ -496,6 +498,82 @@ def count_manifest_checks(key: Mapping[str, Any]) -> dict[str, int]:
     return counts
 
 
+def validated_committed_key_manifest() -> dict[str, Any]:
+    manifest = read_json(DEFAULT_KEY_MANIFEST)
+    if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("suite") != SUITE_NAME:
+        raise EvalError("committed key manifest schema or suite mismatch")
+    if manifest.get("case_pack_sha256") != sha256_file(DEFAULT_CASE_PACK):
+        raise EvalError("committed key manifest does not bind the current case pack")
+
+    key_digest = manifest.get("key_sha256")
+    if not isinstance(key_digest, str) or re.fullmatch(r"[0-9a-f]{64}", key_digest) is None:
+        raise EvalError("committed key manifest key digest is invalid")
+    case_ids = manifest.get("case_ids")
+    check_counts = manifest.get("check_counts")
+    if (
+        not isinstance(case_ids, list)
+        or not all(isinstance(case_id, str) and case_id for case_id in case_ids)
+        or case_ids != sorted(set(case_ids))
+        or not isinstance(check_counts, dict)
+        or set(check_counts) != set(case_ids)
+        or not all(
+            isinstance(count, int) and not isinstance(count, bool) and count > 0 for count in check_counts.values()
+        )
+    ):
+        raise EvalError("committed key manifest cases are invalid")
+    return manifest
+
+
+def repository_evidence_report() -> dict[str, Any]:
+    key_manifest = validated_committed_key_manifest()
+    return {
+        "schema_version": EVIDENCE_SCHEMA_VERSION,
+        "suite": SUITE_NAME,
+        "status": "pending",
+        "passed": False,
+        "claim_scope": (
+            "Repository binding only; no target-skill evaluation, automatic-trigger proof, "
+            "or cross-harness portability claim"
+        ),
+        "generation": {
+            "kind": "deterministic-repository-snapshot",
+            "model_calls": 0,
+            "paid_canaries_run": False,
+        },
+        "sealed_inputs": {
+            "case_pack_sha256": sha256_file(DEFAULT_CASE_PACK),
+            "key_manifest_sha256": sha256_file(DEFAULT_KEY_MANIFEST),
+            "key_sha256": key_manifest["key_sha256"],
+            "skill_sha256": sha256_file(SKILL_ROOT / "SKILL.md"),
+        },
+        "production_contract": {
+            "human_calibration": "pending",
+            "harnesses": {
+                "antigravity": "pending",
+                "claude-code": "pending",
+                "codex": "pending",
+                "cursor": "pending",
+            },
+            "overall_status": "not-proven",
+            "suite_status": "draft",
+        },
+        "trigger_proof": {
+            "baseline_isolated": None,
+            "near_miss_non_trigger": None,
+            "positive_automatic_trigger": None,
+            "trace_contract_passed": None,
+        },
+    }
+
+
+def refresh_repository_evidence(arguments: argparse.Namespace) -> int:
+    output = arguments.output.expanduser().resolve()
+    write_json(output, repository_evidence_report())
+    print(f"wrote pending repository evidence to {output}")
+    print("model calls: 0")
+    return 0
+
+
 def validate_key_and_manifest(
     key_path: Path, key_manifest_path: Path, run_manifest: Mapping[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -796,6 +874,13 @@ def build_parser() -> argparse.ArgumentParser:
     grade_parser.add_argument("--key-manifest", type=Path, default=DEFAULT_KEY_MANIFEST)
     grade_parser.add_argument("--output", type=Path, required=True)
     grade_parser.set_defaults(handler=grade_suite)
+
+    refresh_parser = subparsers.add_parser(
+        "refresh-evidence",
+        help="write deterministic pending evidence for the current repository state",
+    )
+    refresh_parser.add_argument("--output", type=Path, default=DEFAULT_PROOF_REPORT)
+    refresh_parser.set_defaults(handler=refresh_repository_evidence)
     return parser
 
 

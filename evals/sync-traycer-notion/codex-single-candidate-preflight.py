@@ -174,8 +174,10 @@ def parse_diagnostic(raw: bytes) -> Diagnostic:
 
     entries: list[SkillEntry] = []
     for line in block_lines[available_index + 1 : -1]:
-        if not line.startswith("- "):
+        if not line.strip():
             continue
+        if not line.startswith("- "):
+            raise PreflightError(f"unrecognized skill inventory entry: {line}")
         match = ENTRY_PATTERN.match(line)
         if not match:
             raise PreflightError(f"unrecognized skill inventory entry: {line}")

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -29,6 +31,7 @@ def prompt_input(
     use_aliases: bool = True,
     user_prompt: str = "test prompt",
     before_available_skills: tuple[str, ...] = (),
+    available_skill_lines: tuple[str, ...] | None = None,
 ) -> bytes:
     roots: dict[str, str] = {}
     lines: list[str] = []
@@ -50,7 +53,7 @@ def prompt_input(
             *root_lines,
             *before_available_skills,
             "### Available skills",
-            *lines,
+            *(lines if available_skill_lines is None else available_skill_lines),
             "</skills_instructions>",
         ]
     )
@@ -160,6 +163,94 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
 
         self.assertEqual(diagnostic.entries[0].path, candidate.resolve())
         self.assertEqual(diagnostic.entries[0].name, "sync-traycer-notion")
+
+    def test_prompt_parser_accepts_only_the_supported_file_locator_kind(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        valid_line = f"- sync-traycer-notion: Project candidate (file: {candidate})"
+        self.assertEqual(
+            self.preflight.parse_diagnostic(prompt_input(available_skill_lines=(valid_line,))).entries[0].path,
+            candidate,
+        )
+        for locator_kind in (
+            "environment resource",
+            "orchestrator resource",
+            "custom resource",
+        ):
+            with self.subTest(locator_kind=locator_kind):
+                line = f"- sync-traycer-notion: Project candidate ({locator_kind}: {candidate})"
+                raw = prompt_input(available_skill_lines=(valid_line, line))
+                with self.assertRaisesRegex(
+                    self.preflight.PreflightError,
+                    "unrecognized skill inventory entry",
+                ):
+                    self.preflight.parse_diagnostic(raw)
+
+    def test_prompt_parser_rejects_every_nonempty_malformed_inventory_line(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        malformed_lines = (
+            f"  - sync-traycer-notion: Indented (file: {candidate})",
+            f"* sync-traycer-notion: Alternate bullet (file: {candidate})",
+            f"-\tsync-traycer-notion: Tab bullet (file: {candidate})",
+            "unexpected prose",
+            "- missing locator",
+            f"- missing-description-separator (file: {candidate})",
+            "- unresolved: Alias (file: missing/sync-traycer-notion/SKILL.md)",
+        )
+        valid_line = f"- sync-traycer-notion: Project candidate (file: {candidate})"
+        for line in malformed_lines:
+            with self.subTest(line=line):
+                raw = prompt_input(available_skill_lines=(valid_line, line))
+                with self.assertRaises(self.preflight.PreflightError):
+                    self.preflight.parse_diagnostic(raw)
+
+    def test_prompt_parser_allows_blank_lines_between_inventory_entries(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        line = f"- sync-traycer-notion: Project candidate (file: {candidate})"
+
+        diagnostic = self.preflight.parse_diagnostic(prompt_input(available_skill_lines=("", line, "")))
+
+        self.assertEqual(diagnostic.entries[0].path, candidate)
+
+    def test_prompt_parser_rejects_incomplete_duplicate_and_empty_sections(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        raw = prompt_input(("sync-traycer-notion", "Project candidate", str(candidate)))
+        payload = json.loads(raw)
+        text = payload[0]["content"][0]["text"]
+        malformed_blocks = {
+            "complete skills instruction block": text.replace("</skills_instructions>", ""),
+            "expected one Available skills section": text.replace(
+                "### Available skills",
+                "### Available skills\n### Available skills",
+            ),
+        }
+        for message, malformed in malformed_blocks.items():
+            with self.subTest(message=message):
+                payload[0]["content"][0]["text"] = malformed
+                with self.assertRaisesRegex(self.preflight.PreflightError, message):
+                    self.preflight.parse_diagnostic(json.dumps(payload).encode())
+
+        with self.assertRaisesRegex(self.preflight.PreflightError, "empty skill inventory"):
+            self.preflight.parse_diagnostic(prompt_input())
+
+    def test_skills_block_digest_covers_the_complete_rendered_block(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        raw = prompt_input(("sync-traycer-notion", "Project candidate", str(candidate)))
+        payload = json.loads(raw)
+        block = payload[0]["content"][0]["text"]
+
+        diagnostic = self.preflight.parse_diagnostic(raw)
+
+        self.assertEqual(diagnostic.skills_instructions_sha256, hashlib.sha256(block.encode()).hexdigest())
+
+    def test_inventory_digest_includes_the_rendered_description(self) -> None:
+        path = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        first = (self.preflight.SkillEntry("sync-traycer-notion", "First description", path),)
+        second = (self.preflight.SkillEntry("sync-traycer-notion", "Changed description", path),)
+
+        self.assertNotEqual(
+            self.preflight.inventory_record(first)["sha256"],
+            self.preflight.inventory_record(second)["sha256"],
+        )
 
     def test_prompt_parser_rejects_skill_entry_before_available_skills(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
@@ -319,6 +410,90 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
             self.assertTrue(verified["verification"]["verified"])
             self.assertEqual(verified["verification"]["mode"], "verify")
             self.assertEqual(verified["after"]["inventory"]["sha256"], capture["after"]["inventory"]["sha256"])
+
+    def test_reverification_checks_each_frozen_field_independently(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory).resolve()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            candidate = self.make_candidate(workspace).resolve()
+            state = self.diagnostic(
+                self.preflight.SkillEntry("sync-traycer-notion", "Project candidate", candidate),
+                label="stable",
+            )
+            with (
+                mock.patch.object(self.preflight.shutil, "which", return_value="/usr/bin/true"),
+                mock.patch.object(self.preflight, "run_codex", return_value=state),
+                mock.patch.object(self.preflight, "codex_version", return_value="codex-cli test"),
+            ):
+                capture = self.preflight.run_preflight(
+                    workspace,
+                    candidate,
+                    "sync-traycer-notion",
+                    self.preflight.DEFAULT_PROMPT,
+                )
+
+            mutations = (
+                ("Codex version", ("codex_version",)),
+                ("skill name", ("skill_name",)),
+                ("workspace", ("workspace",)),
+                ("candidate", ("candidate", "bundle_sha256")),
+                ("before inventory", ("before", "inventory", "sha256")),
+                ("before skills block", ("before", "skills_instructions_sha256")),
+                ("filter", ("filter", "config_override")),
+                ("after inventory", ("after", "inventory", "sha256")),
+                ("after skills block", ("after", "skills_instructions_sha256")),
+            )
+            expected_path = root / "expected.json"
+            for label, path in mutations:
+                with self.subTest(label=label):
+                    expected = json.loads(json.dumps(capture))
+                    target = expected
+                    for component in path[:-1]:
+                        target = target[component]
+                    target[path[-1]] = "changed-independently"
+                    expected_path.write_text(json.dumps(expected), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        self.preflight.PreflightError,
+                        f"frozen inventory mismatch: {re.escape(label)}",
+                    ):
+                        self.preflight.verify_expected_evidence(capture, expected_path, workspace)
+
+    def test_reverification_rejects_untrusted_evidence_location_and_status(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory).resolve()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            candidate = self.make_candidate(workspace).resolve()
+            state = self.diagnostic(
+                self.preflight.SkillEntry("sync-traycer-notion", "Project candidate", candidate),
+                label="stable",
+            )
+            with (
+                mock.patch.object(self.preflight.shutil, "which", return_value="/usr/bin/true"),
+                mock.patch.object(self.preflight, "run_codex", return_value=state),
+                mock.patch.object(self.preflight, "codex_version", return_value="codex-cli test"),
+            ):
+                capture = self.preflight.run_preflight(
+                    workspace,
+                    candidate,
+                    "sync-traycer-notion",
+                    self.preflight.DEFAULT_PROMPT,
+                )
+
+            in_workspace = workspace / "expected.json"
+            in_workspace.write_text(json.dumps(capture), encoding="utf-8")
+            with self.assertRaisesRegex(self.preflight.PreflightError, "outside the evaluated workspace"):
+                self.preflight.verify_expected_evidence(capture, in_workspace, workspace)
+
+            expected_path = root / "expected.json"
+            for field, value in (("schema_version", 1), ("passed", False)):
+                with self.subTest(field=field):
+                    expected = json.loads(json.dumps(capture))
+                    expected[field] = value
+                    expected_path.write_text(json.dumps(expected), encoding="utf-8")
+                    with self.assertRaisesRegex(self.preflight.PreflightError, "passed schema-version 2"):
+                        self.preflight.verify_expected_evidence(capture, expected_path, workspace)
 
     def test_reverification_fails_when_unrelated_inventory_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import unittest.mock as mock
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/run-trigger-evals.py"
@@ -145,19 +145,40 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertIn("| `Sub-task` | `Sub-task` | reciprocal relation |", adapter)
         self.assertIn("Temporary compatibility mirror", adapter)
 
-    def test_public_proof_records_improvement_without_production_promotion(self) -> None:
+    def test_committed_evidence_is_current_pending_and_reproducible(self) -> None:
         report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))
 
-        self.assertTrue(report["passed"])
-        self.assertEqual(report["record_count"], 90)
-        self.assertTrue(report["trigger_proof"]["positive_automatic_trigger"])
-        self.assertTrue(report["trigger_proof"]["near_miss_non_trigger"])
-        self.assertGreater(
-            report["behavior"]["with_skill"]["score_percent"],
-            report["behavior"]["baseline"]["score_percent"],
+        self.assertEqual(report, self.runner.repository_evidence_report())
+        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["status"], "pending")
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["generation"]["model_calls"], 0)
+        self.assertFalse(report["generation"]["paid_canaries_run"])
+        self.assertEqual(report["sealed_inputs"]["skill_sha256"], self.runner.sha256_file(SKILL))
+        self.assertEqual(report["sealed_inputs"]["case_pack_sha256"], self.runner.sha256_file(CASE_PACK))
+        self.assertEqual(
+            report["sealed_inputs"]["key_manifest_sha256"],
+            self.runner.sha256_file(self.runner.DEFAULT_KEY_MANIFEST),
         )
+        self.assertTrue(all(value is None for value in report["trigger_proof"].values()))
         self.assertEqual(report["production_contract"]["suite_status"], "draft")
         self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
+
+    def test_refreshing_repository_evidence_never_invokes_a_model(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "proof-report.json"
+            with (
+                mock.patch.object(
+                    self.runner.subprocess,
+                    "run",
+                    side_effect=AssertionError("refresh must not start a subprocess"),
+                ),
+                mock.patch("builtins.print"),
+            ):
+                exit_code = self.runner.refresh_repository_evidence(SimpleNamespace(output=output))
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), self.runner.repository_evidence_report())
 
     def test_skill_excludes_explicit_sync_deferral(self) -> None:
         skill = SKILL.read_text(encoding="utf-8")

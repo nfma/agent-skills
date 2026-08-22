@@ -13,10 +13,15 @@ uses the frozen qualified Claude profile: Claude Opus 5 `[1m]`, xhigh effort,
 plan permission mode, project settings only, and `Skill`, `Read`, `Glob`, and
 `Grep` tools.
 
-The answer-bearing deterministic grading key, its sealing manifest, all raw
-traces, and the generated report remain outside the repository. Supply the key
-manifest explicitly when grading. The generated report contains aggregate
-results, check identifiers, and hashes that bind the external evidence.
+The answer-bearing deterministic grading key, raw traces, run manifest, and
+graded report remain outside the repository. The committed `key-manifest.json`
+contains only the external key's digest and public suite metadata; the runner
+uses it by default and fails closed when the external key does not match.
+
+The committed `proof-report.json` is a deterministic, zero-model repository
+snapshot. It binds the current skill, case pack, and key manifest while marking
+every harness and trigger claim pending. It is not a successful evaluation
+report and cannot authorize a paid canary.
 
 Run from the repository root:
 
@@ -32,13 +37,28 @@ uv run --frozen --no-build python \
   evals/sync-traycer-notion-trigger/run-trigger-evals.py grade \
   --run-manifest /absolute/path/outside/the/repository/run-manifest.json \
   --key /absolute/path/outside/the/repository/key.json \
-  --key-manifest /absolute/path/outside/the/repository/key-manifest.json \
   --output /absolute/path/outside/the/repository/proof-report.json
 ```
 
 The evaluation does not establish a production or four-harness portability
 claim. The suite remains `draft`, human calibration is pending, and its overall
 production-evidence status is `not-proven`.
+
+## Committed evidence status
+
+Refresh the committed pending snapshot after changing the skill, suite, or key
+manifest:
+
+```sh
+uv run --frozen --no-build python \
+  evals/sync-traycer-notion-trigger/run-trigger-evals.py refresh-evidence
+```
+
+The command is deterministic and reports `model calls: 0`. Tests reproduce the
+complete snapshot from repository files, so stale or fabricated bindings fail
+CI. The hidden key digest remains an external commitment: it can be verified
+only by supplying the answer-bearing key to `grade`, which must remain outside
+the repository.
 
 ## Other harness preflights
 

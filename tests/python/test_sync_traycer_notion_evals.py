@@ -15,6 +15,7 @@ CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
 PRODUCTION_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/key-manifest.json"
 CALIBRATION_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/calibration-manifest.json"
 EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/evidence-manifest.json"
+PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 SKILL = REPOSITORY_ROOT / "skills/sync-traycer-notion/SKILL.md"
 ADAPTER = REPOSITORY_ROOT / "skills/sync-traycer-notion/references/notion-task-list.md"
 
@@ -143,6 +144,20 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertIn("| `Parent task` | `Parent task` | relation, limit 1 |", adapter)
         self.assertIn("| `Sub-task` | `Sub-task` | reciprocal relation |", adapter)
         self.assertIn("Temporary compatibility mirror", adapter)
+
+    def test_public_proof_records_improvement_without_production_promotion(self) -> None:
+        report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))
+
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["record_count"], 90)
+        self.assertTrue(report["trigger_proof"]["positive_automatic_trigger"])
+        self.assertTrue(report["trigger_proof"]["near_miss_non_trigger"])
+        self.assertGreater(
+            report["behavior"]["with_skill"]["score_percent"],
+            report["behavior"]["baseline"]["score_percent"],
+        )
+        self.assertEqual(report["production_contract"]["suite_status"], "draft")
+        self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
 
     def test_trace_proves_project_discovery_and_automatic_invocation(self) -> None:
         events = self.runner.parse_stream_json(valid_trace(discovered=True, invoke=True))

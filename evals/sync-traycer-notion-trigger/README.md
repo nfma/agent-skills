@@ -43,19 +43,37 @@ production-evidence status is `not-proven`.
 ## Other harness preflights
 
 Before a Codex model evaluation, copy the candidate bundle into an isolated
-workspace at `.agents/skills/sync-traycer-notion/` and run the no-model
-single-candidate preflight:
+workspace at `.agents/skills/sync-traycer-notion/`. Capture the target and full
+model-visible inventory with the no-model preflight, keeping the record outside
+the workspace and outside Git:
 
 ```sh
 uv run --frozen --no-build python \
   evals/sync-traycer-notion/codex-single-candidate-preflight.py \
   --workspace /absolute/path/to/isolated/workspace \
-  --candidate /absolute/path/to/isolated/workspace/.agents/skills/sync-traycer-notion/SKILL.md
+  --candidate /absolute/path/to/isolated/workspace/.agents/skills/sync-traycer-notion/SKILL.md \
+  > /absolute/external/evidence/codex-inventory-capture.json
 ```
 
-The emitted `skills.config` override is evidence-bound to the discovered
-competing paths and must be carried unchanged into the later Codex evaluation.
-The preflight calls only `codex debug prompt-input`; it never invokes a model.
+Immediately before model execution, rerun the diagnostic against that capture:
+
+```sh
+uv run --frozen --no-build python \
+  evals/sync-traycer-notion/codex-single-candidate-preflight.py \
+  --workspace /absolute/path/to/isolated/workspace \
+  --candidate /absolute/path/to/isolated/workspace/.agents/skills/sync-traycer-notion/SKILL.md \
+  --expected-evidence /absolute/external/evidence/codex-inventory-capture.json \
+  > /absolute/external/evidence/codex-inventory-verified.json
+```
+
+Only a schema-v2 record with `verification.verified: true` satisfies the full
+inventory gate. It binds the candidate bundle, Codex version, complete before
+and after skill inventories, skills-instruction blocks, and exact
+`skills.config` override. `prompt_input_sha256` is a per-invocation audit digest
+because it includes the user prompt; `inventory.sha256` and
+`skills_instructions_sha256` are the prompt-independent anchors. Carry the
+verified override unchanged into the later Codex evaluation. The preflight
+calls only `codex debug prompt-input`; it never invokes a model.
 Codex's discovery roots and same-name behavior are documented in the
 [OpenAI Skills documentation](https://learn.chatgpt.com/docs/build-skills).
 

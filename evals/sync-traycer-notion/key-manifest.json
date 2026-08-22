@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "skill_name": "sync-traycer-notion",
-  "suite_canonical_sha256": "25bf5abe997a92d8038a56b2441a0414405bf017ca4c24c056db3940dce70109",
+  "suite_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
   "key_sha256": "PENDING-COORDINATOR-SEAL",
   "cases": [
     {
@@ -42,6 +42,14 @@
     },
     {
       "task_id": "partial-write-retry",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "spec-artifact-exclusion",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "review-artifact-exclusion",
       "criterion_count": 3
     }
   ]

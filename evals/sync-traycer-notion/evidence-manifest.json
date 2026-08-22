@@ -2,7 +2,7 @@
   "schema_version": 1,
   "skill_name": "sync-traycer-notion",
   "status": "pending",
-  "suite_canonical_sha256": "25bf5abe997a92d8038a56b2441a0414405bf017ca4c24c056db3940dce70109",
+  "suite_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
   "harness_profile_canonical_sha256": "fbd2f7434a560213da902393c4f430a9164f714c085fa51e175af9b019a97509",
   "aggregate_report_sha256": "PENDING-COORDINATOR-SEAL",
   "evaluated_at": null,

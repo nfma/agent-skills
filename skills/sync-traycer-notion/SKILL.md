@@ -1,7 +1,12 @@
 ---
 name: sync-traycer-notion
-description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. An explicit request to defer, disable, or exclude Notion synchronization takes precedence over every automatic trigger: do not load, including for local-only artifact work. Never load for `kind: spec`, `kind: review`, ordinary Notion todo management, or non-Traycer work, even when a request mentions both Traycer and Notion. Otherwise, use on the first agent turn in a Traycer Task, when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion."
+description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. An explicit request to defer, disable, or exclude Notion synchronization takes precedence over every automatic trigger: do not load, including for local-only artifact work. Never load for ordinary Notion todo management or non-Traycer work. In a Traycer Task, load at the first safe opportunity even when only `kind: spec` or `kind: review` artifacts exist: reconcile the epic but never synchronize those artifacts. Otherwise, use when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion."
 compatibility: Requires a Traycer Task with artifact access plus a connected, authenticated Notion MCP integration that can read and update Nuno's Task List; network access is required.
+metadata:
+  skill-audit-context-reads: current_traycer_epic, story_and_ticket_artifacts, notion_task_list_schema, matching_notion_rows, connection_auth_state
+  skill-audit-context-requires: traycer_task_context, matching_sync_trigger, authenticated_notion_mcp, valid_task_list_schema
+  skill-audit-context-writes: notion_epic_story_ticket_rows, artifact_status_frontmatter, synchronization_summary, conflicts
+  skill-audit-confirmation: on-risk
 ---
 
 # Sync Traycer to Notion
@@ -19,8 +24,9 @@ Re-fetch the live schema each turn instead of trusting the reference blindly.
 - An explicit request to defer, disable, or exclude Notion synchronization wins
   over every automatic trigger below. Do not synchronize local-only artifact
   work; wait until a later request brings synchronization back into scope.
-- Synchronize the current Traycer Task and only artifacts with `kind: story` or
-  `kind: ticket`. Ignore `spec`, `review`, and unrelated Notion tasks.
+- Always reconcile the current Traycer Task epic. Synchronize only artifacts
+  with `kind: story` or `kind: ticket`; never synchronize `spec`, `review`, or
+  unrelated Notion tasks.
 - Perform the epic sync at the first safe opportunity in the first agent turn;
   Traycer does not expose a pre-agent task-created hook.
 - Treat Traycer artifact nesting as authoritative for hierarchy and Notion as

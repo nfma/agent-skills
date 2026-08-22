@@ -10,6 +10,11 @@ import {
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  acceptedFindingFingerprint,
+  evaluateAcceptedFindings,
+  validateAcceptedFindingBaseline,
+} from "./skill-audit-accepted-findings.mjs";
 import { evaluateCompatibilityPolicy } from "./skill-compatibility-policy.mjs";
 
 /**
@@ -41,10 +46,10 @@ import { evaluateCompatibilityPolicy } from "./skill-compatibility-policy.mjs";
  * }} GroupedAuditResult
  */
 /** @typedef {{ skill: string, id: string, severity: Finding["severity"], file: string, line: number | null, evidence: string | null }} NormalizedFinding */
-/** @typedef {NormalizedFinding & { reason: string }} AcceptedFinding */
+/** @typedef {{ skill: string, id: string, severity: Finding["severity"], file: string, evidence: string | null, evidenceSha256: string | null, reason: string }} AcceptedFinding */
 /** @typedef {{ skill: string, reason: string }} SelfAuditedSkill */
 /** @typedef {{ skill: string, reason: string }} CompatibilityOmission */
-/** @typedef {{ version: 1, acceptedFindings: AcceptedFinding[], selfAuditedSkills: SelfAuditedSkill[], compatibilityOmissions: CompatibilityOmission[] }} AuditBaseline */
+/** @typedef {{ version: 2, acceptedFindings: AcceptedFinding[], selfAuditedSkills: SelfAuditedSkill[], compatibilityOmissions: CompatibilityOmission[] }} AuditBaseline */
 /** @typedef {{ scanDependencies(skillPath: string): Finding[] }} DependencyModule */
 /** @typedef {{ reportGroupedResults(results: GroupedAuditResult[], options: { json: boolean, verbose: boolean, threshold: number, mode: string, block: boolean }): boolean }} ReporterModule */
 /** @typedef {{ groupSecurityFindings(findings: Finding[]): { securityFindings: Finding[], piiFindings: Finding[], complianceFindings: Finding[] }, createGroupedAuditResult(skill: SkillInfo, manifest: SkillManifest | undefined, specFindings: Finding[], securityFindings: Finding[], piiFindings: Finding[], complianceFindings: Finding[], intelFindings: Finding[]): GroupedAuditResult }} ScoringModule */
@@ -69,7 +74,7 @@ const { validateSkillSpec } = /** @type {SpecModule} */ (skillAudit);
 function loadBaseline() {
   if (!existsSync(baselinePath)) {
     return {
-      version: 1,
+      version: 2,
       acceptedFindings: [],
       selfAuditedSkills: [],
       compatibilityOmissions: [],
@@ -79,25 +84,9 @@ function loadBaseline() {
   const baseline = /** @type {AuditBaseline} */ (
     JSON.parse(readFileSync(baselinePath, "utf8"))
   );
-  if (baseline.version !== 1) {
-    throw new Error(
-      `Unsupported skill-audit baseline version: ${baseline.version}`,
-    );
-  }
+  baseline.acceptedFindings = validateAcceptedFindingBaseline(baseline);
 
   return baseline;
-}
-
-/** @param {NormalizedFinding | AcceptedFinding} finding */
-function findingFingerprint(finding) {
-  return JSON.stringify({
-    skill: finding.skill,
-    id: finding.id,
-    severity: finding.severity,
-    file: finding.file,
-    line: finding.line ?? null,
-    evidence: finding.evidence ?? null,
-  });
 }
 
 /** @param {string} root @param {string} candidate */
@@ -162,17 +151,6 @@ if (!existsSync(skillsRoot) || !statSync(skillsRoot).isDirectory()) {
 }
 
 const baseline = loadBaseline();
-const acceptedFindings = new Map();
-for (const finding of baseline.acceptedFindings) {
-  const fingerprint = findingFingerprint(finding);
-  if (acceptedFindings.has(fingerprint)) {
-    throw new Error(
-      `Duplicate accepted finding in ${baselinePath}: ${fingerprint}`,
-    );
-  }
-  acceptedFindings.set(fingerprint, finding);
-}
-
 const selfAuditedSkills = new Map();
 for (const entry of baseline.selfAuditedSkills) {
   if (selfAuditedSkills.has(entry.skill)) {
@@ -180,7 +158,6 @@ for (const entry of baseline.selfAuditedSkills) {
   }
   selfAuditedSkills.set(entry.skill, entry.reason);
 }
-const matchedAcceptedFindings = new Set();
 const discoveredSkillDirectories = discoverSkillDirectories(skillsRoot).sort(
   (left, right) => left.localeCompare(right),
 );
@@ -237,63 +214,96 @@ for (const { skill, reason } of compatibilityPolicy.approvedOmissions) {
 }
 console.log();
 
-/** @param {SkillInfo} skill @param {Finding[]} findings @returns {Finding[]} */
-function removeAcceptedFindings(skill, findings) {
-  return findings.filter((finding) => {
-    const normalized = normalizeFinding(skill, finding);
-    const fingerprint = findingFingerprint(normalized);
-    const acceptedFinding = acceptedFindings.get(fingerprint);
-    if (!acceptedFinding) return true;
-    if (matchedAcceptedFindings.has(fingerprint)) return true;
-
-    matchedAcceptedFindings.add(fingerprint);
-    console.log(
-      `Accepted finding: ${skill.name}/${finding.id} ${normalized.file}:${normalized.line}`,
-    );
-    console.log(`  Reason: ${acceptedFinding.reason}`);
-    return false;
-  });
-}
-
-const results = skillSpecs.map(({ skill, specResult }) => {
+const auditedSkills = skillSpecs.map(({ skill, specResult }) => {
   const selfAudited = selfAuditedSkills.has(skill.name);
   const securityResult = selfAudited
     ? { findings: [] }
     : auditSecurity(skill, specResult.manifest);
   const dependencyFindings = selfAudited ? [] : scanDependencies(skill.path);
-  const specFindings = removeAcceptedFindings(skill, specResult.findings);
-  const securityFindings = removeAcceptedFindings(
+  return {
     skill,
-    securityResult.findings,
-  );
-  const filteredDependencyFindings = removeAcceptedFindings(
-    skill,
+    specResult,
+    securityFindings: securityResult.findings,
     dependencyFindings,
-  );
-  const groupedFindings = groupSecurityFindings([
-    ...securityFindings,
-    ...filteredDependencyFindings,
-  ]);
-
-  return createGroupedAuditResult(
-    skill,
-    specResult.manifest,
-    specFindings,
-    groupedFindings.securityFindings,
-    groupedFindings.piiFindings,
-    groupedFindings.complianceFindings,
-    [],
-  );
+  };
 });
-
-const staleAcceptedFindings = [...acceptedFindings.entries()].filter(
-  ([fingerprint]) => !matchedAcceptedFindings.has(fingerprint),
+const currentFindings = auditedSkills.flatMap(
+  ({ skill, specResult, securityFindings, dependencyFindings }) =>
+    [...specResult.findings, ...securityFindings, ...dependencyFindings].map(
+      (finding) => normalizeFinding(skill, finding),
+    ),
 );
+const acceptedFindingEvaluation = evaluateAcceptedFindings(
+  baseline.acceptedFindings,
+  currentFindings,
+);
+const acceptedMatches = new Map(
+  acceptedFindingEvaluation.acceptedMatches.map((match) => [
+    match.fingerprint,
+    match,
+  ]),
+);
+
+/** @param {SkillInfo} skill @param {Finding[]} findings @returns {Finding[]} */
+function removeAcceptedFindings(skill, findings) {
+  return findings.filter((finding) => {
+    const normalized = normalizeFinding(skill, finding);
+    const fingerprint = acceptedFindingFingerprint(normalized);
+    const match = acceptedMatches.get(fingerprint);
+    if (!match) return true;
+
+    console.log(
+      `Accepted finding: ${skill.name}/${finding.id} ${normalized.file}:${normalized.line}`,
+    );
+    console.log(`  Reason: ${match.acceptedFinding.reason}`);
+    return false;
+  });
+}
+
+const results = auditedSkills.map(
+  ({ skill, specResult, securityFindings, dependencyFindings }) => {
+    const specFindings = removeAcceptedFindings(skill, specResult.findings);
+    const filteredSecurityFindings = removeAcceptedFindings(
+      skill,
+      securityFindings,
+    );
+    const filteredDependencyFindings = removeAcceptedFindings(
+      skill,
+      dependencyFindings,
+    );
+    const groupedFindings = groupSecurityFindings([
+      ...filteredSecurityFindings,
+      ...filteredDependencyFindings,
+    ]);
+
+    return createGroupedAuditResult(
+      skill,
+      specResult.manifest,
+      specFindings,
+      groupedFindings.securityFindings,
+      groupedFindings.piiFindings,
+      groupedFindings.complianceFindings,
+      [],
+    );
+  },
+);
+
+const staleAcceptedFindings = acceptedFindingEvaluation.staleFindings;
 if (staleAcceptedFindings.length > 0) {
   console.error("\nStale accepted findings must be reviewed or removed:");
-  for (const [, finding] of staleAcceptedFindings) {
+  for (const finding of staleAcceptedFindings) {
     console.error(
-      `- ${finding.skill}/${finding.id} ${finding.file}:${finding.line}`,
+      `- ${finding.skill}/${finding.id} ${finding.file} evidence SHA-256 ${String(finding.evidenceSha256)}`,
+    );
+  }
+}
+
+if (acceptedFindingEvaluation.ambiguousMatches.length > 0) {
+  console.error("\nAmbiguous accepted findings must be reviewed:");
+  for (const match of acceptedFindingEvaluation.ambiguousMatches) {
+    const lines = match.actualFindings.map(({ line }) => line).join(", ");
+    console.error(
+      `- ${match.acceptedFinding.skill}/${match.acceptedFinding.id} ${match.acceptedFinding.file} matched ${match.actualFindings.length} findings at lines ${lines}`,
     );
   }
 }
@@ -316,6 +326,7 @@ const shouldBlock = reportGroupedResults(results, {
 if (
   shouldBlock ||
   staleAcceptedFindings.length > 0 ||
+  acceptedFindingEvaluation.ambiguousMatches.length > 0 ||
   compatibilityPolicy.errors.length > 0
 ) {
   process.exitCode = 1;

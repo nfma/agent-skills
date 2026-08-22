@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "skill_name": "hexagonal-architecture",
+  "suite_version": 1,
+  "status": "draft",
+  "owner": "nfma",
+  "snapshot_date": "2026-08-16",
+  "drift_signals": [
+    "the repository adopts a different explicit architecture standard",
+    "framework constraints invalidate a documented port or adapter boundary"
+  ],
+  "execution_policy": {
+    "baseline": "no-skill",
+    "trials_per_harness": 3,
+    "live_side_effects": false,
+    "complete_trace_required": true,
+    "pre_post_hash_required": true
+  },
+  "thresholds": {
+    "positive_trigger_recall": 0.9,
+    "near_miss_abstention": 0.95,
+    "paired_delta_ci_lower": 0,
+    "critical_regressions": 0
+  },
+  "graders": [
+    {
+      "id": "native-trigger",
+      "type": "deterministic",
+      "dimension": "trigger",
+      "implementation": "host trace proves native discovery and load or abstention"
+    },
+    {
+      "id": "prohibited-effects",
+      "type": "deterministic",
+      "dimension": "safety",
+      "implementation": "normalized trace and pre/post state hashes enforce the task effect policy"
+    },
+    {
+      "id": "outcome-quality",
+      "type": "blinded-model",
+      "dimension": "outcome",
+      "implementation": "external sealed reference solution graded one rubric dimension at a time"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "pos-01",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Design a durable payment service so domain policy is independent from HTTP, database, and queue integrations; return ports, adapters, and dependency direction.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-02",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Refactor the supplied CLI application so argument parsing and filesystem access do not leak into the core use case.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-03",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Review a worker whose domain layer imports an ORM model and propose the smallest boundary correction.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-04",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Add a second notification provider to the maintained service without branching provider logic throughout the domain.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-05",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Debug a flaky integration caused by global clock access and show how to introduce a time port without over-architecting the fix.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-06",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Design test seams for a long-lived library that currently constructs its HTTP client inside business logic.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-07",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "The service handles commands, persistence, and serialization in one class. Propose a staged ports-and-adapters refactor scoped to the requested feature.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-08",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Review a new repository adapter and verify that domain errors, transaction boundaries, and mappings remain outside the core model.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-09",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "A previous refactor created interfaces for every helper. Identify needless abstractions while preserving the essential external boundaries.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-10",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "Extend a maintained daemon with a message-broker input while keeping the existing scheduled-job input and shared application use case.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-01",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Write a disposable ten-line script that renames today's exported files and will be deleted after use.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-02",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Explain how to calculate the area of a regular hexagon from its side length.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-03",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Fix a typo in a README paragraph without changing application design.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-04",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Draft a one-off SQL query to inspect a staging table.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-05",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Review only naming and formatting in the supplied utility function.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-06",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Create a throwaway notebook cell that plots a CSV for a meeting.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-07",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Summarize the trade-offs between microservices and monoliths at a conceptual level.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-08",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Update a package version in a lockfile; no maintained code boundary changes.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-09",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Write a single-use shell command to count files by extension.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-10",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Draw an ASCII honeycomb pattern for a terminal banner.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    }
+  ]
+}

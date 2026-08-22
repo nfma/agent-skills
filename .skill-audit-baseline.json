@@ -12,6 +12,14 @@
       "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },
     {
+      "skill": "hexagonal-architecture",
+      "reason": "Temporary portability step until canonical extended metadata can be down-converted per harness: structural compliance claims conditionally require a repository-appropriate deterministic validator whose runtime requirements vary by chosen tool."
+    },
+    {
+      "skill": "hexagonal-architecture-rust",
+      "reason": "This bridge is instruction-only until structural proof is requested; obtaining the optional validator requires explicit approval, network access, checksum tooling, and GitHub attestation verification."
+    },
+    {
       "skill": "sensitive-system-safety",
       "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },

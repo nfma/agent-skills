@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/aggregate-report.schema.json",
+  "title": "Aggregated Agent Skill evaluation report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill_name",
+    "suite_canonical_sha256",
+    "plan_sha256",
+    "run_manifest_sha256",
+    "grade_report_sha256",
+    "status",
+    "harnesses"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill_name": { "type": "string" },
+    "suite_canonical_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "plan_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "run_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "grade_report_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "status": { "enum": ["passed", "failed", "not-proven", "unavailable"] },
+    "harnesses": { "type": "array", "items": { "type": "object" } }
+  }
+}

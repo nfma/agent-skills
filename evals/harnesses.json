@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-08-16",
+  "recheck_date": "2026-11-16",
+  "lanes": [
+    {
+      "harness": "cursor",
+      "model": "cursor-grok-4.5-high",
+      "reasoning": "high",
+      "status": "unavailable",
+      "runner": "cursor-agent",
+      "arguments": [
+        "--mode",
+        "ask",
+        "--sandbox",
+        "enabled",
+        "--print",
+        "--output-format",
+        "stream-json",
+        "--model",
+        "cursor-grok-4.5-high"
+      ],
+      "native_skill_root": ".cursor/skills",
+      "allowed_tool_classes": ["native-skill-load", "fixture-read"],
+      "allow_live_side_effects": false,
+      "qualification_evidence_uri": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-trigger-revision-2/cursor/trigger-freeze.json",
+      "qualification_evidence_sha256": "83df9859fecd18c8cb854e22846f48e0ac6ba56d7f6b08b0c93f1039db240f00",
+      "reason": "Only one of four positive trigger cases loaded the exact revised project skill; two other positives performed out-of-scope project-root globs."
+    },
+    {
+      "harness": "antigravity",
+      "model": "gemini-4.7-flash-high",
+      "reasoning": "high",
+      "status": "unavailable",
+      "runner": null,
+      "arguments": [],
+      "native_skill_root": ".agents/skills",
+      "allowed_tool_classes": ["native-skill-load", "fixture-read"],
+      "allow_live_side_effects": false,
+      "qualification_evidence_uri": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-trigger-revision-2/antigravity/trigger-freeze.json",
+      "qualification_evidence_sha256": "4b68b41ddd367e20ded8d4fc0690ea7c0bf5783bef2329336eaa7999aaaca0ba",
+      "reason": "The installed runner exposed Gemini 3.7 rather than the required 4.7 lane, loaded a pre-existing global skill instead of the isolated copy, and read outside the trial root."
+    },
+    {
+      "harness": "codex",
+      "model": "gpt-5.6-sol",
+      "reasoning": "xhigh",
+      "status": "unavailable",
+      "runner": "codex",
+      "arguments": [
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--json",
+        "--model",
+        "gpt-5.6-sol"
+      ],
+      "native_skill_root": ".agents/skills",
+      "allowed_tool_classes": ["native-skill-load", "fixture-read"],
+      "allow_live_side_effects": false,
+      "qualification_evidence_uri": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-trigger-revision-2/codex/trigger-freeze.json",
+      "qualification_evidence_sha256": "52c6705ada7c38d3e4e292206d0b31c65f12ff31c8ed0a810de9d2909cdf04cd",
+      "reason": "All four positive cases discovered the exact isolated locator but none loaded the revised skill; near-miss abstention alone is insufficient."
+    },
+    {
+      "harness": "claude-code",
+      "model": "claude-opus-5[1m]",
+      "reasoning": "xhigh",
+      "status": "verified",
+      "runner": "claude",
+      "arguments": [
+        "--permission-mode",
+        "plan",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--setting-sources",
+        "project",
+        "--tools",
+        "Skill,Read,Glob,Grep",
+        "--print",
+        "--output-format",
+        "stream-json",
+        "--no-session-persistence",
+        "--effort",
+        "xhigh",
+        "--model",
+        "claude-opus-5[1m]"
+      ],
+      "native_skill_root": ".claude/skills",
+      "allowed_tool_classes": ["native-skill-load", "fixture-read"],
+      "allow_live_side_effects": false,
+      "qualification_evidence_uri": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-trigger-revision-2/claude/trigger-freeze.json",
+      "qualification_evidence_sha256": "cb3ea81ed57119af74539994d788cedb9f3e71d07e3516d426805dc7eb70e85d",
+      "reason": "Four of four positives invoked the exact revised project skill, four of four near-misses abstained, all streams completed, and no prohibited effect succeeded."
+    }
+  ]
+}

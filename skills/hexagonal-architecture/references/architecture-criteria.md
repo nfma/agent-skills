@@ -101,6 +101,8 @@ use-case modules — same file, same barrel export, or a role-matched parent
 module — do not claim proof of `R4` for driven adapters; rely on semantic review
 of the public imports until they are separable. A clean graph proves only the
 declared dependency model; it does not prove `R2`, `R3`, `R5`, or `R6`.
+Semantic, structural, and behavioral evidence may converge, but no class proves
+another.
 
 Evidence: pinned tool identity, reviewed configuration, deterministic report,
 and relevant limitations.

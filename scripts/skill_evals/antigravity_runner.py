@@ -500,8 +500,10 @@ def run_antigravity(
 
 def run_structured_output_preflight(**kwargs: Any) -> AntigravityResult:
     prompt = (
-        "Return only a JSON object with one field named preflight whose value is "
-        f'"{PREFLIGHT_RECEIPT}". Do not use tools.'
+        "Complete the request using Antigravity's mandatory finish operation. "
+        f'Set the finish argument named preflight directly to the string "{PREFLIGHT_RECEIPT}". '
+        "Do not wrap it in another object, do not emit a separate response before finishing, "
+        "and do not use any other tools."
     )
     result = run_antigravity(
         **kwargs,

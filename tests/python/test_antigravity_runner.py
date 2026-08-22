@@ -70,6 +70,13 @@ class AntigravityRunnerTests(unittest.TestCase):
             prompt_index = arguments.index("--prompt")
             if prompt_index != len(arguments) - 2 or "--output-format" not in arguments:
                 raise SystemExit(10)
+            prompt = arguments[prompt_index + 1]
+            if (
+                "mandatory finish operation" not in prompt
+                or 'argument named preflight directly to the string "AGY_STRUCTURED_PREFLIGHT_OK"' not in prompt
+                or "do not use any other tools" not in prompt
+            ):
+                raise SystemExit(13)
             model = arguments[arguments.index("--model") + 1]
             conversation = "11111111-1111-1111-1111-111111111111"
             print(json.dumps({"event": "init", "conversation_id": conversation, "init": {"model": model}}), flush=True)
@@ -79,6 +86,7 @@ class AntigravityRunnerTests(unittest.TestCase):
             brain.mkdir(parents=True)
             (brain / "output_format_plan.md").write_text("disposable plan")
             response = json.dumps({"preflight": "AGY_STRUCTURED_PREFLIGHT_OK"}, separators=(",", ":"))
+            print(json.dumps({"event": "step_update", "step_update": {"conversation_id": conversation, "step_index": 2, "state": "DONE", "step_type": "finish"}}))
             print(json.dumps({"event": "result", "result": {"conversation_id": conversation, "status": "SUCCESS", "response": response + "\n" + response, "structured_output": {"preflight": "AGY_STRUCTURED_PREFLIGHT_OK"}}}))
             """
         )
@@ -292,6 +300,40 @@ class AntigravityRunnerTests(unittest.TestCase):
             metadata["staged_skill"]["skill_md_sha256"],
             sha256((skill / "SKILL.md").read_bytes()).hexdigest(),
         )
+
+    def test_tool_free_policy_rejects_finish_tool_events(self) -> None:
+        runner = self._runner(
+            r"""
+            import json
+            import sys
+
+            arguments = sys.argv[1:]
+            model = arguments[arguments.index("--model") + 1]
+            conversation = "99999999-9999-9999-9999-999999999999"
+            print(json.dumps({"event": "init", "conversation_id": conversation, "init": {"model": model}}), flush=True)
+            tool_info = {"name": "finish", "parameters": {"preflight": "AGY_STRUCTURED_PREFLIGHT_OK"}}
+            print(json.dumps({"event": "step_update", "step_update": {"conversation_id": conversation, "step_index": 1, "state": "DONE", "step_type": "tool", "tool_name": "finish", "tool_info": tool_info}}))
+            print(json.dumps({"event": "result", "result": {"conversation_id": conversation, "status": "SUCCESS", "response": "ok"}}))
+            """
+        )
+        paths = self._paths("finish-tool-event")
+
+        result = run_antigravity(
+            project_root=self.project,
+            credential_file=self.credential,
+            repository_root=self.repository,
+            runner=str(runner),
+            prompt="test tool-free policy",
+            require_tool_free=True,
+            state_root=paths["state_root"],
+            stdout_path=paths["stdout_path"],
+            stderr_path=paths["stderr_path"],
+            final_response_path=paths["final_response_path"],
+            metadata_path=paths["metadata_path"],
+        )
+
+        self.assertFalse(result.valid)
+        self.assertIn("structured-output preflight must not contain tool events", result.trace_errors)
 
     def test_run_rejects_missing_required_skill_expansion(self) -> None:
         runner = self._runner(

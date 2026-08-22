@@ -11,9 +11,10 @@ description: >-
   or benchmarks.
 metadata:
   skill-audit-context-reads: task, hardware_constraints, licensing_constraints, deployment_constraints
-  skill-audit-context-requires: selection_goal
+  skill-audit-context-requires: explicit_model_selection_goal, target_task
   skill-audit-context-writes: candidate_models, evidence_sources, recommendation
   skill-audit-confirmation: never
+compatibility: Requires network access to Hugging Face APIs plus `curl` and `jq`; model enrichment may use the `hf` CLI, and gated metadata requires Hub authentication.
 ---
 
 # HuggingFace Best Model Finder

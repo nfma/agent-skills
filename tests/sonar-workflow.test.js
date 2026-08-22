@@ -131,14 +131,20 @@ test("auto-merges only patch and minor source-dependency updates", () => {
     metadata,
     /dependabot\/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3\.1\.0/,
   );
-  assert.match(merge, /package-ecosystem == 'npm'/);
+  assert.match(merge, /package-ecosystem == 'npm_and_yarn'/);
+  assert.doesNotMatch(merge, /package-ecosystem == 'npm'/);
   assert.match(merge, /package-ecosystem == 'uv'/);
-  assert.match(merge, /package-ecosystem == 'gitsubmodule'/);
-  assert.doesNotMatch(merge, /package-ecosystem == 'github-actions'/);
+  assert.doesNotMatch(merge, /package-ecosystem == 'gitsubmodule'/);
+  assert.doesNotMatch(merge, /package-ecosystem == 'submodules'/);
+  assert.doesNotMatch(merge, /package-ecosystem == 'github_actions'/);
   assert.match(merge, /update-type == 'version-update:semver-patch'/);
   assert.match(merge, /update-type == 'version-update:semver-minor'/);
   assert.doesNotMatch(merge, /version-update:semver-major/);
-  assert.match(manual, /package-ecosystem != 'npm'/);
+  assert.match(manual, /package-ecosystem != 'npm_and_yarn'/);
+  assert.doesNotMatch(manual, /package-ecosystem != 'npm'/);
+  assert.match(manual, /package-ecosystem != 'uv'/);
+  assert.doesNotMatch(manual, /package-ecosystem != 'gitsubmodule'/);
+  assert.doesNotMatch(manual, /package-ecosystem != 'submodules'/);
   assert.match(manual, /update-type != 'version-update:semver-patch'/);
   assert.match(manual, /update-type != 'version-update:semver-minor'/);
   assert.doesNotMatch(manual, /gh pr merge/);

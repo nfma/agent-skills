@@ -1,6 +1,7 @@
 ---
 name: orchestrate-risk-scaled-review
 description: Lead a risk-scaled, multi-agent review of code changes or implementation artifacts. Use when Claude is the review lead and must choose an economical adversarial reviewer panel, arbitrate evidence with the artifact author, run iterative review-and-fix rounds, and prepare the result for human review.
+compatibility: Requires Traycer artifact and child-agent access, Python 3, and the Antigravity `agy` CLI for that review arm; Cursor reviews require an available configured Cursor harness. Paid or authenticated reviewer calls require network access and valid provider credentials.
 context:
   reads:
     - review_scope

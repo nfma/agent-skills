@@ -18,6 +18,10 @@
     {
       "skill": "skill-audit",
       "reason": "The consumer documentation is a byte-exact Sigstore-attested upstream artifact; compatibility must be added in an upstream release rather than by changing the verified local copy."
+    },
+    {
+      "skill": "write-production-rust",
+      "reason": "SKILL.md is sealed byte-for-byte as skill_sha256 in the committed execution proof at evals/write-production-rust/proof-report.json; declaring compatibility changes the frontmatter the host reads and therefore requires a fresh paid trigger and behavior run to requalify. Deferred to the next proof revision."
     }
   ],
   "acceptedFindings": [

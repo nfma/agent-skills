@@ -1,6 +1,6 @@
 ---
 name: sync-traycer-notion
-description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. Never load for `kind: spec`, `kind: review`, ordinary Notion todo management, or non-Traycer work, even when a request mentions both Traycer and Notion. Use on the first agent turn in a Traycer Task, when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion."
+description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. Use on the first agent turn in a Traycer Task, when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion. Never synchronize `kind: spec` or `kind: review` artifacts, and never load for ordinary Notion todo management or non-Traycer work, even when a request mentions both Traycer and Notion."
 ---
 
 # Sync Traycer to Notion
@@ -43,6 +43,8 @@ native relation.
 The artifact-relative directory is stable across title edits, but not moves.
 Before moving or reparenting an artifact, resolve its existing Notion row by the
 old key. After the filesystem move, update that same row's key and parent. If an
+entire story directory moves or is renamed, update the `Traycer key` of every
+descendant ticket row to its new artifact-relative directory. If an
 out-of-band move has already lost the old identity and no single candidate can
 be proven, stop instead of creating a replacement.
 
@@ -57,9 +59,11 @@ be proven, stop instead of creating a replacement.
    or its plan allowance is exhausted.
 3. Query by `Traycer key` before creating anything. In SQL mode, use the
    parameterized identity query from the adapter; never interpolate a key.
-4. If no key matches, look for exactly one unkeyed row with the same title and
-   expected parent. Adopt it by setting `Traycer key`; never take over a row
-   owned by another key. If multiple candidates exist, stop and report the
+4. If no key matches, search the epic for a row with the same title under a
+   different nonempty `Traycer key`. If any such row exists, stop and report it
+   instead of creating or adopting a replacement. Otherwise, look for exactly
+   one unkeyed row with the same title and expected parent. Adopt it by setting
+   `Traycer key`. If multiple unkeyed candidates exist, stop and report the
    conflicting task references.
 5. Ensure the parent chain before creating a child. Create pages under the Task
    List data source with `Task`, `Status`, `Traycer key`, and, for children,
@@ -100,7 +104,10 @@ Apply status changes in this order:
 1. An explicit status instruction in the current user request wins; update the
    artifact when applicable and push the mapped status to Notion.
 2. Otherwise, at the start of work on an existing story or ticket, pull a
-   differing Notion status into artifact frontmatter.
+   differing Notion status into artifact frontmatter only when that artifact
+   has no pending unsynchronized local change. When a local change is pending,
+   preserve it and push its mapped status to Notion instead of pulling the
+   stale board value.
 3. After a later Traycer status change in the same turn, push the mapped value
    back to Notion.
 

@@ -282,6 +282,8 @@ def validate_trace_state(summary: Mapping[str, Any], arm: str, variant: str) -> 
     advertised = summary.get("tools_advertised")
     if not isinstance(advertised, list) or set(advertised) != ALLOWED_TOOL_NAMES:
         errors.append("advertised tools did not match the qualified Claude profile")
+    if summary.get("unexpected_tools") != []:
+        errors.append(f"unexpected tools were used: {summary.get('unexpected_tools')}")
     if summary.get("success") is not True:
         errors.append("Claude result was not successful")
     return errors
@@ -581,7 +583,7 @@ def grade_arm(
                 if not isinstance(raw_check, dict):
                     raise EvalError(f"invalid check in {case_id}")
                 check_id = require_string(raw_check.get("id"), f"key.{case_id}.check.id")
-                check_passed = evaluate_check(response, raw_check)
+                check_passed = not record.get("errors") and evaluate_check(response, raw_check)
                 case_checks.append({"id": check_id, "passed": check_passed})
                 passed += int(check_passed)
                 total += 1

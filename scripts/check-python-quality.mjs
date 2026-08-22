@@ -106,7 +106,9 @@ function collectRuffFormat() {
 
 function collectPyright() {
   const output = /** @type {Record<string, any>} */ (
-    parseJson(runUv(["pyright", "--outputjson", "skills", "evals"]))
+    parseJson(
+      runUv(["pyright", "--outputjson", "skills", "tests/python", "evals"]),
+    )
   );
   if (!Array.isArray(output.generalDiagnostics)) {
     throw new TypeError("Unexpected Pyright JSON output");

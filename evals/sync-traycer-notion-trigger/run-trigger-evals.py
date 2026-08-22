@@ -22,10 +22,16 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 SCHEMA_VERSION = 1
+EVIDENCE_SCHEMA_VERSION = 2
 SKILL_NAME = "sync-traycer-notion"
 SUITE_NAME = "sync-traycer-notion-trigger-behavior"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPOSITORY_ROOT / "skills" / SKILL_NAME
+DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/key-manifest.json"
+DEFAULT_PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
+DEFAULT_CUSTODY_RUNBOOK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/CUSTODY.md"
+DEFAULT_EVIDENCE_CONTRACT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/evidence_contract.py"
+DEFAULT_PRIVATE_VERIFIER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/verify_private_evidence.py"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
 DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
@@ -967,6 +973,80 @@ def count_manifest_checks(key: Mapping[str, Any]) -> dict[str, int]:
     return counts
 
 
+def repository_evidence_report() -> dict[str, Any]:
+    pack, cases = validated_case_pack(DEFAULT_CASE_PACK)
+    sealed_inputs = {
+        "case_pack_canonical_sha256": canonical_json_sha256(pack),
+        "case_pack_sha256": sha256_file(DEFAULT_CASE_PACK),
+        "custody_runbook_sha256": sha256_file(DEFAULT_CUSTODY_RUNBOOK),
+        "evidence_contract_sha256": sha256_file(DEFAULT_EVIDENCE_CONTRACT),
+        "private_verifier_sha256": sha256_file(DEFAULT_PRIVATE_VERIFIER),
+        "runner_sha256": sha256_file(Path(__file__)),
+        "skill_sha256": sha256_file(SKILL_ROOT / "SKILL.md"),
+        "skill_tree_sha256": skill_tree_sha256(SKILL_ROOT),
+    }
+    private_evidence = {
+        "encrypted_key": "pending",
+        "key_manifest": "pending",
+        "raw_archive": "pending",
+    }
+    if DEFAULT_KEY_MANIFEST.exists():
+        key_manifest = read_json(DEFAULT_KEY_MANIFEST)
+        validate_public_key_manifest(
+            key_manifest,
+            pack=pack,
+            cases=cases,
+            case_pack_path=DEFAULT_CASE_PACK,
+            skill_root=SKILL_ROOT,
+        )
+        sealed_inputs["key_manifest_sha256"] = canonical_json_sha256(key_manifest)
+        private_evidence["encrypted_key"] = "sealed"
+        private_evidence["key_manifest"] = "sealed"
+
+    return {
+        "schema_version": EVIDENCE_SCHEMA_VERSION,
+        "suite": SUITE_NAME,
+        "status": "pending",
+        "passed": False,
+        "claim_scope": (
+            "Repository binding only; no target-skill evaluation, automatic-trigger proof, "
+            "or cross-harness portability claim"
+        ),
+        "generation": {
+            "kind": "deterministic-repository-snapshot",
+            "model_calls": 0,
+            "paid_canaries_run": False,
+        },
+        "private_evidence": private_evidence,
+        "sealed_inputs": sealed_inputs,
+        "production_contract": {
+            "human_calibration": "pending",
+            "harnesses": {
+                "antigravity": "pending",
+                "claude-code": "pending",
+                "codex": "pending",
+                "cursor": "pending",
+            },
+            "overall_status": "not-proven",
+            "suite_status": "draft",
+        },
+        "trigger_proof": {
+            "baseline_isolated": None,
+            "near_miss_non_trigger": None,
+            "positive_automatic_trigger": None,
+            "trace_contract_passed": None,
+        },
+    }
+
+
+def refresh_repository_evidence(arguments: argparse.Namespace) -> int:
+    output = arguments.output.expanduser().resolve()
+    write_json(output, repository_evidence_report())
+    print(f"wrote pending repository evidence to {output}")
+    print("model calls: 0")
+    return 0
+
+
 def validate_check_definition(check: Mapping[str, Any], label: str) -> None:
     kind = require_string(check.get("kind"), f"{label}.kind")
     if kind == "contains":
@@ -1515,6 +1595,13 @@ def build_parser() -> argparse.ArgumentParser:
     grade_parser.add_argument("--private-release-tag", required=True)
     grade_parser.add_argument("--private-asset-name", required=True)
     grade_parser.set_defaults(handler=grade_suite)
+
+    refresh_parser = subparsers.add_parser(
+        "refresh-evidence",
+        help="write deterministic pending evidence for the current repository state",
+    )
+    refresh_parser.add_argument("--output", type=Path, default=DEFAULT_PROOF_REPORT)
+    refresh_parser.set_defaults(handler=refresh_repository_evidence)
     return parser
 
 

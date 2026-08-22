@@ -6,6 +6,11 @@
     "paid_canaries_run": false
   },
   "passed": false,
+  "private_evidence": {
+    "encrypted_key": "pending",
+    "key_manifest": "pending",
+    "raw_archive": "pending"
+  },
   "production_contract": {
     "harnesses": {
       "antigravity": "pending",
@@ -19,10 +24,14 @@
   },
   "schema_version": 2,
   "sealed_inputs": {
-    "case_pack_sha256": "c7b72eb0a865275631a10dda89c3c69ab7019f43e32db4363ea52d2105396254",
-    "key_manifest_sha256": "e5c7823aaf0adb74fa983e606f5d07e00c4ff4381bc868eb2e333358a857b39d",
-    "key_sha256": "b3d481c6daba44048e64058d779de2818f9bc67a767da0772c02616a963be385",
-    "skill_sha256": "2831a2c03fc3172d1e6b39793c1957ca8ca213df4f370398ac61dd213e0199ef"
+    "case_pack_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
+    "case_pack_sha256": "9b71d9fa1852241c6aa496253e868c9562afec4ca07883279ce4f98739e85955",
+    "custody_runbook_sha256": "d783df8c0af403df522524daf54461f8b96a1b316feb6bcb7455e98b7fede727",
+    "evidence_contract_sha256": "aca7ab061115816bcfe51c4420932db60c49d92f8b49d1c1a8981c24d13693bf",
+    "private_verifier_sha256": "bdd7bad97abb5618d6c353a8a833698e270dc2c0756cb08e773033913aba4508",
+    "runner_sha256": "e46b07e32402cd6ff00dddb633542541a72a93a733e9b9987570bc48a10387c0",
+    "skill_sha256": "3e8e5f26fa12d68332d39547247d4f48c5d5f895c6d83468e70ab681a4ad7721",
+    "skill_tree_sha256": "be0a32738b8ab941bb484270f39640f2d8193372a1d82714d7cb0f36620bf53c"
   },
   "status": "pending",
   "suite": "sync-traycer-notion-trigger-behavior",

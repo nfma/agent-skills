@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "test-rust-loaded-content-evals",
+  "profile_type": "independent-zero-tools-graders",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "graders": [
+    {
+      "grader_id": "claude-opus-5-zero-tools",
+      "host": "Claude Code",
+      "model": "claude-opus-5",
+      "api_surface": "Claude Code print mode with stream-json output, safe mode, strict empty MCP configuration, dontAsk permissions, an explicit empty built-in tool set, and explicit denials for filesystem, shell, web, skill, and agent tools in a read-only coordinator workspace.",
+      "trace_method": "Capture the complete stream-json trace from system init through the terminal result; require init tools and MCP servers to be empty and no tool_use content blocks.",
+      "availability": "verified",
+      "execution_tier": "zero-tools",
+      "exposed_tools": [],
+      "explicit_empty_tool_set": true,
+      "model_network_disabled": true,
+      "writable_workspace_absent": true,
+      "complete_trace": true,
+      "verified_at": "2026-08-16T14:37:35Z",
+      "evidence_path": "coordinator-evidence://rust-testing-skill/loaded-content/grader-qualification-dontask/opus-trace-exact.jsonl",
+      "evidence_sha256": "4aeed7cb5606cbb552437895e67b962cdb0efc3438544e2bd3de30e95050d57d",
+      "recheck_date": "2026-11-16",
+      "notes": [
+        "The init record exposed no tools or MCP servers, no tool-use block occurred, the sole response was ZERO_TOOLS_QUALIFIED, and the terminal result was complete and successful.",
+        "Safe mode may list built-in slash-command metadata, but the explicit empty tool set leaves no model-callable Skill or filesystem capability."
+      ]
+    }
+  ]
+}

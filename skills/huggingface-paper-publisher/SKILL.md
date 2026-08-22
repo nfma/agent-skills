@@ -1,6 +1,11 @@
 ---
 name: huggingface-paper-publisher
 description: Publish and manage research papers on Hugging Face Hub. Supports creating paper pages, linking papers to models/datasets, claiming authorship, and generating professional markdown-based research articles.
+metadata:
+  skill-audit-context-reads: paper_source, author_identity, linked_resources, auth_status
+  skill-audit-context-requires: explicit_publication_goal, target_paper
+  skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Overview

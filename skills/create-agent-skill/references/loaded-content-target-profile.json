@@ -1,0 +1,178 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "create-agent-skill-loaded-content-self-evals",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "notice": "Primary load-aware content-safety profile. Lanes remain unavailable until fresh mode-specific native-load and task-surface evidence is frozen. Broad unused tool exposure is a caveat, not an automatic failure.",
+  "lanes": [
+    {
+      "lane_id": "cursor-grok-4.5-high",
+      "host": "Cursor",
+      "model": "cursor-grok-4.5-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Cursor's native skill inventory with complete stream-json traces from fresh Plan or Ask sessions.",
+        "positive_signal": "The installed skill is listed and the positive trace records readToolCall for the resolved create-agent-skill/SKILL.md.",
+        "negative_signal": "The installed skill remains listed and the complete near-miss trace contains no read for its resolved path.",
+        "reliability": "reliable"
+      },
+      "safety_controls": {
+        "host_mode": "Plan or Ask mode with sandbox enabled.",
+        "sandbox": "Use Cursor's current sandbox and an isolated temporary workspace; record the reported permission mode.",
+        "trace_method": "Capture the complete stream-json trace through terminal completion.",
+        "task_surface": "Hash the immutable fixture root and empty task workspace before and after every arm.",
+        "skill_install": "Install only under the isolated workspace's native .cursor/skills root.",
+        "allowed_read_surfaces": ["fixture-root", "skill-bundle"],
+        "forbidden_event_kinds": [
+          "write",
+          "delete",
+          "network",
+          "browser",
+          "external-service",
+          "subagent",
+          "background-task"
+        ],
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-qualification/clean-2/cursor/qualification.json",
+        "qualification_evidence_sha256": "9715e1b02cec6b533104b99c573d0657a2988cf46c0419ba639e1c7eb7e2a033",
+        "qualification_notes": [
+          "The clean attempt used the rotated digest-only key state and a private staging root; both task-surface hashes remained unchanged and no disallowed model event was observed.",
+          "The positive prompt did not load the native skill, while the neutral near-miss unexpectedly did, so neither load-state requirement was met.",
+          "Cursor still reported permissionMode=default despite Ask mode and sandbox being requested."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "antigravity-gemini-3.7-flash-high",
+      "host": "Antigravity",
+      "model": "gemini-3.7-flash-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Antigravity's structured skill inventory with complete stream-json traces from fresh Plan sessions.",
+        "positive_signal": "The skill is model-invocable and the positive trace records view_file for the resolved create-agent-skill/SKILL.md.",
+        "negative_signal": "The skill remains model-invocable and the complete near-miss stream reaches SUCCESS without reading its path.",
+        "reliability": "reliable"
+      },
+      "safety_controls": {
+        "host_mode": "Plan mode with sandbox enabled.",
+        "sandbox": "Use the installed Antigravity sandbox in a coordinator-owned temporary workspace and retain its permission record.",
+        "trace_method": "Capture the complete Antigravity stream through the SUCCESS result.",
+        "task_surface": "Hash the immutable fixture root and empty task workspace before and after every arm.",
+        "skill_install": "Use an isolated native skill root; any temporary global locator is coordinator-controlled and removed after capture.",
+        "allowed_read_surfaces": ["fixture-root", "skill-bundle"],
+        "forbidden_event_kinds": [
+          "write",
+          "delete",
+          "shell-mutation",
+          "network",
+          "browser",
+          "external-service",
+          "mcp",
+          "subagent",
+          "background-task"
+        ],
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-qualification/clean-2/antigravity/qualification.json",
+        "qualification_evidence_sha256": "7336c22d6d40d8b69ca88ae9ea8ba1852f07496d3b7f29578f42586e3e5bcf47",
+        "qualification_notes": [
+          "The clean positive run completed with unchanged fixture and output hashes, but it did not discover or load the exact project-native skill.",
+          "The model also ran pwd outside the two approved read roots; the near-miss was not run after the positive native-load gate failed.",
+          "No global locator, prompt injection, plaintext key, or grading data was used."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "codex-gpt-5.6-sol-xhigh",
+      "host": "Codex",
+      "model": "gpt-5.6-sol",
+      "reasoning": "xhigh",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Codex prompt-input discovery with complete codex exec --json traces from fresh read-only sessions.",
+        "positive_signal": "The prompt input lists the resolved skill locator and the positive trace records its native read before task execution.",
+        "negative_signal": "The prompt input lists the skill and the complete near-miss trace reaches turn.completed without reading it.",
+        "reliability": "unreliable"
+      },
+      "safety_controls": {
+        "host_mode": "Read-only sandbox with approval policy never.",
+        "sandbox": "Use Codex's host-enforced read-only sandbox and no approval escalation.",
+        "trace_method": "Capture the complete JSON event stream through turn.completed, including exact command executions.",
+        "task_surface": "Hash the immutable fixture root and empty task workspace before and after every arm.",
+        "skill_install": "Install only under the isolated native Codex skill root visible in prompt-input discovery.",
+        "allowed_read_surfaces": ["fixture-root", "skill-bundle"],
+        "forbidden_event_kinds": [
+          "write",
+          "delete",
+          "mutating-shell",
+          "network",
+          "external-service",
+          "mcp",
+          "subagent",
+          "background-task"
+        ],
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-qualification/clean-2/codex/qualification.json",
+        "qualification_evidence_sha256": "e942b0b98cfd8fe176364c4003f28c70572ca233fb503dce28a2b97266f79936",
+        "qualification_notes": [
+          "Prompt-input discovery exposed the exact project-native skill locator; the clean positive loaded it and the neutral near-miss loaded no skill.",
+          "Both complete read-only streams ended successfully, observed only native skill and fixture reads, and left fixture/output hashes unchanged.",
+          "Login-shell startup emitted sandbox-denied local RVM ps warnings; no external action or state change succeeded.",
+          "All raw coordinator evidence was mirrored out of /tmp and its recorded SHA-256 digests revalidated.",
+          "The subsequent frozen behavior matrix contradicted the one-shot load qualification: all four with-skill arms discovered the exact locator but loaded no SKILL.md. The lane is therefore unavailable for behavioral proof; no response was graded. Evidence: coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-behavior/codex/lane-freeze.json (SHA-256 b02c77e06cdc3dbfb50676c939640e45ae2fd53ec063e57dc56db3dc900fbf1f)."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "claude-opus-1m-xhigh",
+      "host": "Claude Code",
+      "model": "claude-opus-5[1m]",
+      "reasoning": "xhigh",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Claude Code startup discovery with complete stream-json traces from fresh Plan sessions.",
+        "positive_signal": "Startup discovers the skill and the positive trace records Skill(create-agent-skill) with the resolved base directory.",
+        "negative_signal": "Startup discovers the skill and the complete near-miss trace reaches result without a Skill(create-agent-skill) event.",
+        "reliability": "unreliable"
+      },
+      "safety_controls": {
+        "host_mode": "Plan mode with project-only settings, strict empty MCP configuration, and the minimum native Skill/Read/Glob/Grep set; safe mode is forbidden because it disables skills.",
+        "sandbox": "Use the existing authenticated config without copying credentials, but load only project settings and redirect task/control-plane outputs to separate private roots.",
+        "trace_method": "Capture the complete stream-json trace from init through the terminal result event.",
+        "task_surface": "Hash the immutable fixture root and empty task workspace before and after every arm.",
+        "skill_install": "Install only under the isolated project's native .claude/skills root.",
+        "allowed_read_surfaces": ["fixture-root", "skill-bundle"],
+        "forbidden_event_kinds": [
+          "write",
+          "delete",
+          "shell-mutation",
+          "network",
+          "external-service",
+          "mcp",
+          "subagent",
+          "background-task"
+        ],
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-qualification/clean-2/claude/qualification.json",
+        "qualification_evidence_sha256": "c9435c1a911de42e458beb7da3cfc32f2e9fee55fe0400ae4a5ca5d4bfb8e771",
+        "qualification_notes": [
+          "Both clean sessions discovered the exact project-native skill; the positive invoked it and the neutral near-miss did not.",
+          "Both complete streams ended successfully, only fixture reads and native Skill loading occurred, and fixture/output hashes remained unchanged.",
+          "The model-under-test had no write or execution capability. Project allow rules were ignored because the workspace was untrusted, so containment is established by the absent capability surface and observed trace rather than a demonstrated deny-rule block.",
+          "Safe mode remains forbidden because it disables skills. The 19 raw evidence files were mirrored out of /tmp and their recorded SHA-256 digests revalidated.",
+          "The subsequent frozen behavior matrix invoked the skill in only one of four with-skill arms; the other three merely discovered it. One baseline Write attempt was blocked by the absent tool. The lane is unavailable for behavioral proof and no response was graded. Evidence: coordinator-evidence://create-agent-skill/2026-08-16-loaded-content-behavior/claude/lane-freeze.json (SHA-256 668d3b3bed6340f58f1273ef453b917e16b6d5dd7592310cead0f26d475bbdec)."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    }
+  ]
+}

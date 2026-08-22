@@ -3,7 +3,12 @@
   "defaults": {
     "owner": "nfma",
     "canonical_harness": "claude-code",
-    "required_harnesses": ["cursor", "antigravity", "codex", "claude-code"],
+    "required_harnesses": [
+      "cursor",
+      "antigravity",
+      "codex",
+      "claude-code"
+    ],
     "minimum_tasks": 20,
     "trials_per_harness": 3,
     "human_calibration_required": true,
@@ -16,6 +21,13 @@
       "risk": "low",
       "status": "draft",
       "suite": "evals/coding-preferences/suite.json"
+    },
+    {
+      "name": "create-agent-skill",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/create-agent-skill/suite.json"
     },
     {
       "name": "git-workflow",

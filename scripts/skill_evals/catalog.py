@@ -40,6 +40,36 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Explain the geometric difference between regular and irregular hexagons with a small ASCII illustration.",
         ],
     },
+    "create-agent-skill": {
+        "drift_signals": [
+            "a supported harness changes native skill discovery or loading behavior",
+            "the Agent Skills specification or repository layout changes materially",
+        ],
+        "positive": [
+            "We repeat the same incident-triage workflow every week. Decide whether it deserves a reusable agent capability, check for overlap, and outline how to prove it works.",
+            "Before adding a new reusable workflow for database migration reviews, inventory existing capabilities and recommend use, extension, composition, or a new bundle.",
+            "Create a durable agent workflow for reviewing Terraform plans, including trigger wording, safe boundaries, references, and an evaluation strategy.",
+            "A current reusable workflow almost handles pull-request threat modeling but misses cloud IAM analysis. Decide whether to extend or compose it and propose the change.",
+            "Assess whether a four-week private-preview API workflow should become a maintained reusable capability or remain an ad hoc runbook.",
+            "Revise the supplied reusable agent instructions so they load on realistic requests, abstain on near misses, and stay portable across hosts.",
+            "Design a proof pack comparing an agent workflow against a no-workflow baseline across four host applications without side effects.",
+            "Research whether a reusable workflow for model-card compliance already exists in the repository and produce an evidence-backed routing decision.",
+            "A contributed agent bundle hardcodes one host's tool names and exposes its answer key. Return a portable, leakage-resistant remediation plan.",
+            "The current skill-construction process has become stale after six months. Reassess longevity, ownership, drift signals, and whether it should be sunset.",
+        ],
+        "near_miss": [
+            "Write a one-time prompt that asks an assistant to summarize today's meeting transcript; it will not be reused.",
+            "Build an MCP server that wraps a weather API and exposes two tools to clients.",
+            "Create a Codex plugin manifest for an existing local command-line integration.",
+            "Review this Python function for an off-by-one error and return the corrected code.",
+            "Explain the Agent Skills specification at a high level without creating or revising any bundle.",
+            "Install the named existing capability from a GitHub repository into the local agent configuration.",
+            "Audit a third-party agent bundle for malicious instructions and secret-handling problems.",
+            "Draft a disposable checklist for tomorrow's release; the user explicitly says it will be deleted afterward.",
+            "Compare two model providers for a chat application; no reusable agent workflow is being requested.",
+            "Rename three files in the current repository and update their imports; do not change any agent instructions.",
+        ],
+    },
     "git-workflow": {
         "drift_signals": [
             "repository branch, commit, or pull-request policy changes",

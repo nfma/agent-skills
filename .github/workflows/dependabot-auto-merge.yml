@@ -32,8 +32,7 @@ jobs:
       - name: Enable squash auto-merge
         if: >-
           (steps.metadata.outputs.package-ecosystem == 'npm_and_yarn' ||
-          steps.metadata.outputs.package-ecosystem == 'uv' ||
-          steps.metadata.outputs.package-ecosystem == 'gitsubmodule') &&
+          steps.metadata.outputs.package-ecosystem == 'uv') &&
           (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
           steps.metadata.outputs.update-type == 'version-update:semver-minor')
         env:
@@ -44,8 +43,7 @@ jobs:
       - name: Explain manual review requirement
         if: >-
           (steps.metadata.outputs.package-ecosystem != 'npm_and_yarn' &&
-          steps.metadata.outputs.package-ecosystem != 'uv' &&
-          steps.metadata.outputs.package-ecosystem != 'gitsubmodule') ||
+          steps.metadata.outputs.package-ecosystem != 'uv') ||
           (steps.metadata.outputs.update-type != 'version-update:semver-patch' &&
           steps.metadata.outputs.update-type != 'version-update:semver-minor')
         env:

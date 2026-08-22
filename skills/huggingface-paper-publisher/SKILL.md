@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_publication_goal, target_paper
   skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires `uv`, network access to Hugging Face Hub and arXiv, and a write-scoped Hub token for mutations; bundled Python dependencies resolve from PEP 723 headers.
 ---
 
 # Overview

@@ -3,9 +3,10 @@ name: huggingface-local-models
 description: "Use to select models to run locally with llama.cpp and GGUF on CPU, Mac Metal, CUDA, or ROCm. Covers finding GGUFs, quant selection, running servers, exact GGUF file lookup, conversion, and OpenAI-compatible local serving."
 metadata:
   skill-audit-context-reads: task, hardware_state, memory_budget, model_constraints, auth_status
-  skill-audit-context-requires: local_inference_goal
+  skill-audit-context-requires: explicit_local_inference_goal, target_model_or_task
   skill-audit-context-writes: model_selection, downloaded_files, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires llama.cpp (`llama-cli` or `llama-server`) and hardware sufficient for the selected GGUF. Hub downloads require network access, gated repositories require authentication, and conversion additionally requires Python.
 ---
 
 # Hugging Face Local Models

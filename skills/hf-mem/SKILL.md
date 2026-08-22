@@ -3,9 +3,10 @@ name: hf-mem
 description: Hugging Face CLI to estimate the required memory to load Safetensors or GGUF model weights for inference from the Hugging Face Hub
 metadata:
   skill-audit-context-reads: model_id, revision, weight_format, auth_status
-  skill-audit-context-requires: target_model
+  skill-audit-context-requires: explicit_memory_estimation_goal, target_model
   skill-audit-context-writes: memory_estimate, commands_run
   skill-audit-confirmation: on-risk
+compatibility: Requires `uv`/`uvx` and network access to the Hugging Face Hub; gated or private models additionally require a Hub token.
 ---
 
 `hf_mem` estimates the required memory for inference, including model weights and an optional KV cache, for Safetensors and GGUF for models on the Hugging Face Hub using HTTP Range requests i.e., without downloading or loading any weights locally.

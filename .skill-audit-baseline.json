@@ -12,7 +12,7 @@
       "id": "PII-007",
       "severity": "high",
       "file": "SKILL.md",
-      "line": 292,
+      "line": 293,
       "evidence": "# {\"Result\": \"/tmp/gradio/.../image.webp\", \"Seed\": 1117868604}",
       "reason": "The ten-digit value is a generated image seed, not a Vietnamese social-insurance identifier."
     },

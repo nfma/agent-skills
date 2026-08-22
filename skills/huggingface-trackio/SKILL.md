@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_tracking_goal, target_project_or_run
   skill-audit-context-writes: files_changed, metrics_logged, alerts_configured, remote_resources_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires Python with Trackio; Space sync, remote dashboards, and webhooks require network access, with Hub authentication needed for private or mutating Space operations.
 ---
 
 # Trackio - Experiment Tracking for ML Training

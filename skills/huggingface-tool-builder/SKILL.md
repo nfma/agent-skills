@@ -3,9 +3,10 @@ name: huggingface-tool-builder
 description: Use this skill when the user wants to build tool/scripts or achieve a task where using data from the Hugging Face API would help. This is especially useful when chaining or combining API calls or the task will be repeated/automated. This Skill creates a reusable script to fetch, enrich or process data.
 metadata:
   skill-audit-context-reads: automation_goal, api_resources, input_schema, auth_status
-  skill-audit-context-requires: explicit_tool_goal
+  skill-audit-context-requires: explicit_tool_goal, target_api_or_workflow
   skill-audit-context-writes: files_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires network access to Hugging Face APIs and a shell (with `curl` and `jq`), Python, or TSX runtime appropriate to the generated tool; private or gated access requires a Hub token, and some workflows use the `hf` CLI.
 ---
 
 # Hugging Face API Tool Builder

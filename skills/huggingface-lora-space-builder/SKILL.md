@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_publish_or_build_goal, target_lora
   skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires Python with `huggingface_hub`, network access, and Hub write authentication; the generated Space also requires Gradio, Diffusers, model-specific dependencies, and eligible Spaces hardware or quota.
 ---
 
 # Gradio LoRA Space Builder

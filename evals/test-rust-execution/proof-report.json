@@ -2,16 +2,16 @@
   "schema_version": 1,
   "suite": "test-rust-production-execution",
   "status": "pass",
-  "snapshot_date": "2026-08-16",
-  "claim": "one-lane-execution-proof",
-  "skill_sha256": "74e82a25518be308a1de274b3f53b8e144a0324fb6c297c3e96076e5adecd59f",
-  "suite_sha256": "dea8d264117b08ee775b48a9887ccd71ceaff4557137770a2b801cda19101fa6",
+  "snapshot_date": "2026-08-22",
+  "claim": "single-sample-execution-record",
+  "skill_sha256": "542ae281e262e0ea3756204fdafb19c3049d94c82c7205593f495f64019074dc",
+  "suite_sha256": "55af100b6843fe5ca7cc1f643189239c040d5444fecd6f0017ec5456a2a56349",
   "evidence": {
-    "uri": "coordinator-evidence://rust-testing-skill/execution/final-run-5/execution-report.json",
-    "sha256": "5839fff3a937ed743ff90d741b43cfddb18733f7f0940488b5c22441e95672dd"
+    "uri": "coordinator-evidence://rust-testing-skill/execution/final-run-11/execution-report.json",
+    "sha256": "046057ae90f8766133bdd0f00cc76affe8594b443120217e0a177d45dfcfb4e7"
   },
   "lane": {
-    "host": "Claude Code 2.1.233",
+    "host": "Claude Code 2.1.239",
     "model": "claude-sonnet-5",
     "reasoning": "xhigh",
     "trials_per_arm": 1,
@@ -42,11 +42,13 @@
     }
   },
   "summary": {
-    "baseline_passed": 2,
+    "baseline_passed": 3,
     "baseline_total": 3,
     "treatment_passed": 3,
     "treatment_total": 3,
-    "treatment_wins": 1,
+    "baseline_skill_loads": 0,
+    "treatment_skill_loads": 3,
+    "treatment_wins": 0,
     "treatment_regressions": 0,
     "seeded_defect_classes_detected": 6
   },
@@ -54,10 +56,23 @@
     {
       "id": "pbt-mutation",
       "baseline": {
-        "status": "fail",
+        "status": "pass",
+        "skill_loaded": false,
         "correct_source_test_exit": 0,
-        "seeded_checksum_defect_exits": [0, 0],
-        "failure": "The authored property omitted a fixed runner seed and missed the seeded checksum defect on both deterministic replays."
+        "seeded_checksum_defect_exits": [101, 101],
+        "minimal_failure_signatures": [
+          "minimal failing input: payload = \"A\", corruption = 1",
+          "minimal failing input: payload = \"A\", corruption = 1"
+        ],
+        "persisted_regression_sha256": "7b399ee10d2b804509749410134488ac533b14c1e4c7cd73d8a2b24f03a3bbac",
+        "mutation": {
+          "caught": 5,
+          "equivalent": 1,
+          "unviable": 1,
+          "boundary_unreachable": 5,
+          "timeout": 0,
+          "unexplained_survivors": 0
+        }
       },
       "with_skill": {
         "status": "pass",
@@ -65,8 +80,8 @@
         "correct_source_test_exit": 0,
         "seeded_checksum_defect_exits": [101, 101],
         "minimal_failure_signatures": [
-          "minimal failing input: payload = \"A\", delta = 1",
-          "minimal failing input: payload = \"A\", delta = 1"
+          "minimal failing input: payload = \"\\0\", corruption = 1",
+          "minimal failing input: payload = \"\\0\", corruption = 1"
         ],
         "persisted_regression_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "mutation": {
@@ -77,12 +92,14 @@
           "timeout": 0,
           "unexplained_survivors": 0
         }
-      }
+      },
+      "comparison": "parity"
     },
     {
       "id": "tla-protocol",
       "baseline": {
         "status": "pass",
+        "skill_loaded": false,
         "correct_rust_exit": 0,
         "seeded_rust_defect_exit": 101,
         "correct_model_distinct_states": 7,
@@ -95,7 +112,7 @@
         "skill_loaded": true,
         "correct_rust_exit": 0,
         "seeded_rust_defect_exit": 101,
-        "correct_model_distinct_states": 7,
+        "correct_model_distinct_states": 9,
         "correct_tlc_exit": 0,
         "safety_bug_tlc_exit": 12,
         "liveness_bug_tlc_exit": 13
@@ -106,6 +123,7 @@
       "id": "lean-business-logic",
       "baseline": {
         "status": "pass",
+        "skill_loaded": false,
         "correct_rust_exit": 0,
         "seeded_rust_defect_exit": 101,
         "correct_lean_exit": 0,
@@ -124,17 +142,19 @@
     }
   ],
   "efficiency": {
-    "baseline_agent_cost_usd": 1.838098,
-    "treatment_agent_cost_usd": 2.1049298,
-    "baseline_agent_duration_ms": 665414,
-    "treatment_agent_duration_ms": 680551
+    "baseline_agent_cost_usd": 1.5345914,
+    "treatment_agent_cost_usd": 1.81595,
+    "baseline_agent_duration_ms": 763674,
+    "treatment_agent_duration_ms": 837357
   },
   "limitations": [
-    "One fresh trial per arm does not estimate stochastic pass-rate variance.",
+    "Each arm is one stochastic sample; this record does not estimate pass rates.",
+    "Baseline and treatment both passed all three cases in this run, so it measures parity rather than skill lift.",
+    "The Lean baseline passed in all three completed runs; that case is retained for formal-methods path coverage, not as evidence of skill benefit.",
     "Only Claude Code with claude-sonnet-5 was evaluated.",
     "The fixtures exercise one checksum codec, one finite settlement protocol, and one credit-allocation rule, not arbitrary production repositories.",
     "TLC validates the authored specification and seeded model defects; it does not prove the Rust implementation beyond the separately executed black-box conformance scenarios.",
     "Lean validates the authored Nat model and seeded model defect; it does not prove the compiled Rust implementation beyond the separately executed black-box property.",
-    "The run proves execution behavior for the recorded bundle digest, not generic cross-host portability."
+    "The run records execution behavior for the sealed bundle digest, not generic cross-host portability."
   ]
 }

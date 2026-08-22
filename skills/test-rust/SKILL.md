@@ -150,6 +150,9 @@ LLM-authored tests.
   exhaustive domains, and metamorphic/differential loops.
 - Use Proptest only when it is already a dependency. Derive generators from
   semantic partitions and properties from an independent specification.
+- Include at least one positive property that establishes valid input is
+  accepted through a round trip, metamorphic relationship, or equivalent
+  independent oracle. Pair rejection properties with acceptance-path evidence.
 - For parsers and checksummed formats, cover applicable valid structure,
   invariant-preserving transformations, targeted corruption, and boundary
   partitions; arbitrary bytes or strings alone are not a semantic generator.

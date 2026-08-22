@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 
 # The runner invokes fixed local tools without a shell.
@@ -65,10 +66,44 @@ def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
 
 
+TREE_METADATA_DIRECTORIES = frozenset({".git", "__pycache__"})
+TREE_GENERATED_FILENAMES = frozenset({".DS_Store"})
+TREE_GENERATED_SUFFIXES = frozenset({".pyc"})
+
+
+def git_ignored_tree_paths(root: Path, relative_paths: Sequence[str]) -> frozenset[str]:
+    if not relative_paths:
+        return frozenset()
+    completed = subprocess.run(  # nosec B603
+        ("git", "-C", str(root), "check-ignore", "--stdin", "-z"),
+        input=("\0".join(relative_paths) + "\0").encode("utf-8"),
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode in {0, 1}:
+        return frozenset(path for path in completed.stdout.decode("utf-8").split("\0") if path)
+    if completed.returncode == 128 and b"not a git repository" in completed.stderr:
+        return frozenset()
+    detail = completed.stderr.decode(errors="replace").strip()
+    raise EvalError(f"cannot classify ignored files below {root}: {detail}")
+
+
 def sha256_tree(root: Path) -> str:
+    candidates: List[Tuple[str, Path]] = []
+    for path in root.rglob("*"):
+        relative_path = path.relative_to(root)
+        if any(part in TREE_METADATA_DIRECTORIES for part in relative_path.parts):
+            continue
+        if not path.is_file():
+            continue
+        if path.name in TREE_GENERATED_FILENAMES or path.suffix in TREE_GENERATED_SUFFIXES:
+            continue
+        candidates.append((relative_path.as_posix(), path))
+    ignored_paths = git_ignored_tree_paths(root, [relative for relative, _ in candidates])
     digest = hashlib.sha256()
-    for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
-        relative = path.relative_to(root).as_posix()
+    for relative, path in sorted(candidates):
+        if relative in ignored_paths:
+            continue
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -851,6 +886,57 @@ def _lean_code_without_comments_or_strings(source: str) -> str:
     return "".join(masked)
 
 
+def _lean_flexible_fragment_pattern(fragment: str) -> re.Pattern[str]:
+    tokens = re.findall(r"\w+|[^\w\s]", fragment)
+    if not tokens:
+        raise ValueError("Lean fragment must contain at least one token")
+    pattern = r"[ \t\r\n]*".join(re.escape(token) for token in tokens)
+    return re.compile(rf"(?<!\w){pattern}(?!\w)")
+
+
+def _lean_definition_block(code: str, declaration: str, path: Path) -> Tuple[int, int]:
+    declaration_pattern = _lean_flexible_fragment_pattern(declaration)
+    header_pattern = re.compile(
+        rf"^[ \t]*{declaration_pattern.pattern}[ \t]*(?:\r?\n|$)",
+        re.MULTILINE,
+    )
+    headers = list(header_pattern.finditer(code))
+    if len(headers) != 1:
+        raise EvalError(f"Lean definition {declaration} must occur exactly once in {path}")
+    header = headers[0]
+    block_end = len(code)
+    offset = header.end()
+    previous_line_blank = False
+    for line in code[header.end() :].splitlines(keepends=True):
+        stripped = line.lstrip(" \t")
+        is_declaration = re.match(r"(?:def|theorem|end)\b", stripped) is not None
+        is_top_level = len(stripped) == len(line)
+        if is_declaration and (is_top_level or previous_line_blank):
+            block_end = offset
+            break
+        previous_line_blank = not line.strip()
+        offset += len(line)
+    return header.start(), block_end
+
+
+def apply_unique_lean_definition_replacement(path: Path, before: str, after: str) -> None:
+    source = path.read_text(encoding="utf-8")
+    code = _lean_code_without_comments_or_strings(source)
+    if len(code) != len(source):
+        raise EvalError(f"Lean source mask must preserve offsets in {path}")
+    block_start, block_end = _lean_definition_block(
+        code,
+        "def applyCredits : Nat → List Nat → Nat",
+        path,
+    )
+    matches = list(_lean_flexible_fragment_pattern(before).finditer(code, block_start, block_end))
+    if len(matches) != 1:
+        raise EvalError(f"Lean definition seed replacement must occur exactly once in {path}")
+    match = matches[0]
+    updated = source[: match.start()] + after + source[match.end() :]
+    path.write_text(updated, encoding="utf-8")
+
+
 def _lean_declaration_errors(source: str) -> List[str]:
     code = _lean_code_without_comments_or_strings(source)
     normalized = "".join(character if character.isalnum() or character == "_" else " " for character in code)
@@ -900,12 +986,13 @@ def _lean_artifact_errors(workspace: Path) -> List[str]:
         errors.append(f"{LEAN_SOURCE_PATH.as_posix()} was not authored")
         return errors
     source = lean_source.read_text(encoding="utf-8")
+    code = _lean_code_without_comments_or_strings(source)
     for required in (
         "def applyCredits : Nat → List Nat → Nat",
         "applyCredits (subtotal - credit) rest",
         "theorem applyCredits_le_subtotal",
     ):
-        if required not in source:
+        if required not in code:
             errors.append(f"{LEAN_SOURCE_PATH.as_posix()} is missing {required}")
     if LEAN_MODEL_SCOPE_MARKER not in {line.strip() for line in source.splitlines()}:
         errors.append(f"{LEAN_SOURCE_PATH.as_posix()} omits the model-to-Rust proof limitation")
@@ -960,7 +1047,7 @@ def evaluate_lean_business_logic(
 
     lean_defect = evidence / "defects/lean-model-credit-increase"
     copy_workspace(workspace, lean_defect)
-    apply_unique_replacement(
+    apply_unique_lean_definition_replacement(
         lean_defect / LEAN_SOURCE_PATH,
         "applyCredits (subtotal - credit) rest",
         "applyCredits (subtotal + credit) rest",

@@ -15,9 +15,17 @@
     "generated_output_external": true
   },
   "thresholds": {
-    "with_skill_pass_rate": 1.0,
+    "with_skill_cases_expected_to_pass_in_single_run": [
+      "pbt-mutation",
+      "tla-protocol",
+      "lean-business-logic"
+    ],
     "critical_boundary_violations": 0,
-    "positive_skill_load_rate": 1.0,
+    "with_skill_cases_expected_to_load_skill_in_single_run": [
+      "pbt-mutation",
+      "tla-protocol",
+      "lean-business-logic"
+    ],
     "seeded_defects_detected": 6
   },
   "pinned_tools": {

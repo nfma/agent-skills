@@ -105,6 +105,27 @@ class TestRustExecutionEvalsTests(unittest.TestCase):
             (root / "one").rename(root / "two")
             self.assertNotEqual(run_execution_evals.sha256_tree(root), initial)
 
+    def test_tree_hash_excludes_generated_noise_but_includes_untracked_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            fixture = root / "fixture"
+            fixture.mkdir()
+            (fixture / ".gitignore").write_text("build/\n", encoding="utf-8")
+            (fixture / "tracked.md").write_text("guidance\n", encoding="utf-8")
+            workspace = root / "workspace"
+            run_execution_evals.initialize_workspace(fixture, workspace, with_skill=False)
+            initial = run_execution_evals.sha256_tree(workspace)
+
+            (workspace / "build").mkdir()
+            (workspace / "build/generated.cache").write_text("noise\n", encoding="utf-8")
+            (workspace / "__pycache__").mkdir()
+            (workspace / "__pycache__/module.cpython-314.pyc").write_bytes(b"bytecode")
+            (workspace / ".DS_Store").write_bytes(b"metadata")
+            self.assertEqual(run_execution_evals.sha256_tree(workspace), initial)
+
+            (workspace / "new-reference.md").write_text("real guidance\n", encoding="utf-8")
+            self.assertNotEqual(run_execution_evals.sha256_tree(workspace), initial)
+
     def test_unique_seed_replacement_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "lib.rs"
@@ -186,6 +207,131 @@ class TestRustExecutionEvalsTests(unittest.TestCase):
             errors = run_execution_evals._lean_artifact_errors(workspace)
 
             self.assertEqual(errors, [])
+
+    def test_lean_seed_replacement_is_scoped_to_definition_block(self) -> None:
+        seed = "applyCredits (subtotal - credit) rest"
+        replacement = "applyCredits (subtotal + credit) rest"
+        source = (
+            f'/-! The model equation /- nested -/ computes `{seed}`. -/\ndef explanation := "{seed}"\n'
+            + _valid_lean_source()
+            + "\n"
+            + "theorem repeated_in_proof (subtotal credit : Nat) (rest : List Nat) :\n"
+            + f"    {seed} ≤ subtotal := by\n"
+            + f"  have h : {seed} ≤ subtotal := applyCredits_le_subtotal _ _\n"
+            + "  calc\n"
+            + f"    {seed} ≤ subtotal := h\n"
+            + "    _ ≤ subtotal := Nat.le_refl subtotal\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            lean_source = Path(temporary_directory) / "CreditAllocation.lean"
+            lean_source.write_text(source, encoding="utf-8")
+
+            run_execution_evals.apply_unique_lean_definition_replacement(
+                lean_source,
+                seed,
+                replacement,
+            )
+
+            updated = lean_source.read_text(encoding="utf-8")
+            self.assertIn(f"/-! The model equation /- nested -/ computes `{seed}`. -/", updated)
+            self.assertIn(f'def explanation := "{seed}"', updated)
+            self.assertIn(f"credit :: rest => {replacement}", updated)
+            self.assertEqual(updated.count(seed), source.count(seed) - 1)
+
+    def test_lean_seed_replacement_normalizes_definition_whitespace(self) -> None:
+        seed = "applyCredits (subtotal - credit) rest"
+        source = _valid_lean_source().replace(
+            "  | subtotal, credit :: rest => applyCredits (subtotal - credit) rest",
+            "  |subtotal,credit::rest=>applyCredits (subtotal-credit) rest",
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            lean_source = Path(temporary_directory) / "CreditAllocation.lean"
+            lean_source.write_text(source, encoding="utf-8")
+
+            run_execution_evals.apply_unique_lean_definition_replacement(
+                lean_source,
+                seed,
+                "applyCredits (subtotal + credit) rest",
+            )
+
+            self.assertIn(
+                "|subtotal,credit::rest=>applyCredits (subtotal + credit) rest",
+                lean_source.read_text(encoding="utf-8"),
+            )
+
+    def test_lean_seed_replacement_rejects_missing_or_duplicate_definition(self) -> None:
+        seed = "applyCredits (subtotal - credit) rest"
+        cases = {
+            "missing": "theorem applyCredits_le_subtotal : True := by trivial\n",
+            "duplicate": _valid_lean_source() + "\n" + _valid_lean_source(),
+        }
+        for name, source in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary_directory:
+                lean_source = Path(temporary_directory) / "CreditAllocation.lean"
+                lean_source.write_text(source, encoding="utf-8")
+
+                with self.assertRaisesRegex(
+                    run_execution_evals.EvalError,
+                    "Lean definition def applyCredits",
+                ):
+                    run_execution_evals.apply_unique_lean_definition_replacement(
+                        lean_source,
+                        seed,
+                        "applyCredits (subtotal + credit) rest",
+                    )
+
+    def test_lean_seed_replacement_rejects_zero_or_multiple_definition_seeds(self) -> None:
+        seed = "applyCredits (subtotal - credit) rest"
+        recursive_equation = f"  | subtotal, credit :: rest => {seed}"
+        cases = {
+            "zero": _valid_lean_source().replace(seed, "applyCredits subtotal rest"),
+            "multiple": _valid_lean_source().replace(
+                recursive_equation,
+                recursive_equation + "\n" + recursive_equation,
+            ),
+        }
+        for name, source in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary_directory:
+                lean_source = Path(temporary_directory) / "CreditAllocation.lean"
+                lean_source.write_text(source, encoding="utf-8")
+
+                with self.assertRaisesRegex(
+                    run_execution_evals.EvalError,
+                    "Lean definition seed replacement must occur exactly once",
+                ):
+                    run_execution_evals.apply_unique_lean_definition_replacement(
+                        lean_source,
+                        seed,
+                        "applyCredits (subtotal + credit) rest",
+                    )
+
+    def test_lean_artifact_required_fragments_must_be_executable(self) -> None:
+        source = (
+            "/-!\n"
+            "def applyCredits : Nat → List Nat → Nat\n"
+            "applyCredits (subtotal - credit) rest\n"
+            "theorem applyCredits_le_subtotal\n"
+            "-/\n"
+            f"{run_execution_evals.LEAN_MODEL_SCOPE_MARKER}\n"
+            "def unrelated : Nat := 0\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workspace = _write_lean_workspace(Path(temporary_directory), source)
+
+            errors = run_execution_evals._lean_artifact_errors(workspace)
+
+            self.assertIn(
+                "tests/formal/lean/CreditAllocation.lean is missing def applyCredits : Nat → List Nat → Nat",
+                errors,
+            )
+            self.assertIn(
+                "tests/formal/lean/CreditAllocation.lean is missing applyCredits (subtotal - credit) rest",
+                errors,
+            )
+            self.assertIn(
+                "tests/formal/lean/CreditAllocation.lean is missing theorem applyCredits_le_subtotal",
+                errors,
+            )
 
     def test_lean_artifact_validation_rejects_axiom_declaration_evasions(self) -> None:
         evasions = (

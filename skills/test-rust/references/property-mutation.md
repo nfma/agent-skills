@@ -19,6 +19,23 @@ Keep examples for named business rules, meaningful boundary semantics, smallest
 regressions, and authoritative vectors. Remove examples that add neither
 specification nor diagnostic value beyond a reviewed property.
 
+## Cover acceptance and rejection paths
+
+Require every property portfolio to include at least one positive oracle that
+establishes valid input is accepted. Use a round trip such as
+`parse(encode(value)) == value`, a metamorphic relationship, or an equivalent
+independent acceptance property. Pair it with rejection properties when both
+paths are material.
+
+A rejection-only suite can prove that bad input fails while leaving the normal
+accept path untested. Mutation testing exposes that gap through viable mutants
+in normalization, comparison, and identity helpers. For example, if a checksum
+normalizer is reached only while parsing otherwise valid frames, mutations that
+return zero or replace identity addition with multiplication can survive every
+corruption-rejection property while causing all valid frames to be rejected.
+Strengthen the portfolio with a positive acceptance oracle instead of adding an
+implementation-coupled example for each survivor.
+
 ## Proptest configuration under `tests/`
 
 Use Proptest only when the package already declares it. Configure a

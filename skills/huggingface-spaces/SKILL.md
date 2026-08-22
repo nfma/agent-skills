@@ -1,6 +1,11 @@
 ---
 name: huggingface-spaces
 description: Build, deploy, and maintain applications on Hugging Face Spaces — Gradio / Docker / Static SDKs, ZeroGPU and dedicated hardware, model loading, debugging, buckets, inference providers, community grants. Use whenever the user asks to create or host an app on Hugging Face, port code onto ZeroGPU, fix a Space that won't build or run, or otherwise work with `hf spaces …`, `@spaces.GPU`, Space README frontmatter, or the `spaces` Python package.
+metadata:
+  skill-audit-context-reads: space_id, local_paths, sdk, hardware_state, auth_status
+  skill-audit-context-requires: explicit_space_goal, target_scope
+  skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Hugging Face Spaces

@@ -1,6 +1,11 @@
 ---
 name: train-sentence-transformers
 description: Train or fine-tune sentence-transformers models across `SentenceTransformer` (bi-encoder; dense or static embedding model; for retrieval, similarity, clustering, classification, paraphrase mining, dedup, multimodal), `CrossEncoder` (reranker; pair scoring for two-stage retrieval / pair classification), and `SparseEncoder` (SPLADE, sparse embedding model; for learned-sparse retrieval). Covers loss selection, hard-negative mining, evaluators, distillation, LoRA, Matryoshka, and Hugging Face Hub publishing. Use for any sentence-transformers training task.
+metadata:
+  skill-audit-context-reads: training_goal, dataset, base_model, hardware_state, auth_status
+  skill-audit-context-requires: explicit_training_goal, target_model_or_dataset
+  skill-audit-context-writes: files_changed, training_runs, model_artifacts, remote_resources_changed, commands_run, verification_result
+  skill-audit-confirmation: on-risk
 ---
 
 # Train a sentence-transformers Model

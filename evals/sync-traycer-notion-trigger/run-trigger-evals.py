@@ -22,7 +22,6 @@ SKILL_NAME = "sync-traycer-notion"
 SUITE_NAME = "sync-traycer-notion-trigger-behavior"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPOSITORY_ROOT / "skills" / SKILL_NAME
-DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/key-manifest.json"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
 DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
@@ -793,7 +792,7 @@ def build_parser() -> argparse.ArgumentParser:
     grade_parser = subparsers.add_parser("grade", help="grade frozen responses with an external key")
     grade_parser.add_argument("--run-manifest", type=Path, required=True)
     grade_parser.add_argument("--key", type=Path, required=True)
-    grade_parser.add_argument("--key-manifest", type=Path, default=DEFAULT_KEY_MANIFEST)
+    grade_parser.add_argument("--key-manifest", type=Path, required=True)
     grade_parser.add_argument("--output", type=Path, required=True)
     grade_parser.set_defaults(handler=grade_suite)
     return parser

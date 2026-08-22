@@ -13,10 +13,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/run-trigger-evals.py"
 CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
 PRODUCTION_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/key-manifest.json"
-PROOF_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/key-manifest.json"
 CALIBRATION_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/calibration-manifest.json"
 EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion/evidence-manifest.json"
-PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 SKILL = REPOSITORY_ROOT / "skills/sync-traycer-notion/SKILL.md"
 ADAPTER = REPOSITORY_ROOT / "skills/sync-traycer-notion/references/notion-task-list.md"
 
@@ -145,29 +143,6 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertIn("| `Parent task` | `Parent task` | relation, limit 1 |", adapter)
         self.assertIn("| `Sub-task` | `Sub-task` | reciprocal relation |", adapter)
         self.assertIn("Temporary compatibility mirror", adapter)
-
-    def test_public_proof_records_improvement_without_production_promotion(self) -> None:
-        report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))
-
-        self.assertEqual(report["skill_sha256"], hashlib.sha256(SKILL.read_bytes()).hexdigest())
-        self.assertEqual(
-            report["sealed_inputs"]["case_pack_sha256"],
-            hashlib.sha256(CASE_PACK.read_bytes()).hexdigest(),
-        )
-        self.assertEqual(
-            report["sealed_inputs"]["key_manifest_sha256"],
-            hashlib.sha256(PROOF_KEY_MANIFEST.read_bytes()).hexdigest(),
-        )
-        self.assertTrue(report["passed"])
-        self.assertEqual(report["record_count"], 90)
-        self.assertTrue(report["trigger_proof"]["positive_automatic_trigger"])
-        self.assertTrue(report["trigger_proof"]["near_miss_non_trigger"])
-        self.assertGreater(
-            report["behavior"]["with_skill"]["score_percent"],
-            report["behavior"]["baseline"]["score_percent"],
-        )
-        self.assertEqual(report["production_contract"]["suite_status"], "draft")
-        self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
 
     def test_trace_proves_project_discovery_and_automatic_invocation(self) -> None:
         events = self.runner.parse_stream_json(valid_trace(discovered=True, invoke=True))

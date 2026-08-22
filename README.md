@@ -137,7 +137,11 @@ blocks high or critical findings and risk scores of 3 or higher.
 Reviewed false positives are recorded as exact fingerprints in
 `.skill-audit-baseline.json`. A change to the finding's skill, identifier,
 severity, file, line, or evidence requires fresh review, and stale entries fail
-the workflow. `skill-audit` itself is spec-validated by the runner while the
+the workflow. Every skill must also declare a non-empty top-level
+`compatibility` value or have a justified entry in the baseline's
+`compatibilityOmissions` policy; missing declarations, stale exceptions, and
+exceptions for undiscovered skills fail the same audit. `skill-audit` itself is
+spec-validated by the runner while the
 consumer verifies the released executable's provenance and contract. Its
 self-referential source tests and dependency audits run in the upstream release
 workflow bound by the descriptor.

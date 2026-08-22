@@ -1,6 +1,7 @@
 ---
 name: sync-traycer-notion
 description: "Synchronize Traycer Tasks and only `kind: story` or `kind: ticket` artifacts with Nuno's Notion Task List. An explicit request to defer, disable, or exclude Notion synchronization takes precedence over every automatic trigger: do not load, including for local-only artifact work. Never load for `kind: spec`, `kind: review`, ordinary Notion todo management, or non-Traycer work, even when a request mentions both Traycer and Notion. Otherwise, use on the first agent turn in a Traycer Task, when a story or ticket is created, renamed, moved, reparented, or changes status, when their work is managed from the Notion board, or when the user asks to reconcile in-scope Traycer work with Notion."
+compatibility: Requires a Traycer Task with artifact access plus a connected, authenticated Notion MCP integration that can read and update Nuno's Task List; network access is required.
 ---
 
 # Sync Traycer to Notion

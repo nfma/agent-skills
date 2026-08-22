@@ -6,6 +6,20 @@
       "reason": "The immutable release digest pin is verified with `gh attestation verify` bound to `--signer-workflow`, `--source-digest`, `--source-ref`, and `--deny-self-hosted-runners`; the release-contract test then verifies the installed executable and fixed corpus."
     }
   ],
+  "compatibilityOmissions": [
+    {
+      "skill": "coding-preferences",
+      "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "sensitive-system-safety",
+      "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
+    },
+    {
+      "skill": "skill-audit",
+      "reason": "The consumer documentation is a byte-exact Sigstore-attested upstream artifact; compatibility must be added in an upstream release rather than by changing the verified local copy."
+    }
+  ],
   "acceptedFindings": [
     {
       "skill": "huggingface-gradio",

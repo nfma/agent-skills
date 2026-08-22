@@ -8,6 +8,7 @@ canonical rule definitions for the bundle.
 | Term | Responsibility |
 | --- | --- |
 | Application | Behavior that remains useful without production devices |
+| Domain data | Application-owned data contracts that cross driven ports |
 | Application entry | Reusable behavior invoked by an outside actor |
 | Driving adapter | Translates actor input and invokes the application |
 | Driven port | Application-owned need for an outside capability |
@@ -96,9 +97,10 @@ source/target evidence. Treat unresolved imports, unsupported relationships,
 unmatched roles, and analyzer blind spots as failures or explicit evidence gaps.
 
 When driven-port or domain-data contracts are not statically separable from
-use-case modules, do not claim proof of `R4` for driven adapters. A clean graph
-proves only the declared dependency model; it does not prove `R2`, `R3`, `R5`,
-or `R6`.
+use-case modules — same file, same barrel export, or a role-matched parent
+module — do not claim proof of `R4` for driven adapters; rely on semantic review
+of the public imports until they are separable. A clean graph proves only the
+declared dependency model; it does not prove `R2`, `R3`, `R5`, or `R6`.
 
 Evidence: pinned tool identity, reviewed configuration, deterministic report,
 and relevant limitations.

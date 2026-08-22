@@ -163,14 +163,24 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
 
     def test_prompt_parser_rejects_skill_entry_before_available_skills(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
-        misplaced = f"- hidden-skill: Hidden entry (file: {candidate})"
-        raw = prompt_input(
-            ("sync-traycer-notion", "Project candidate", str(candidate)),
-            before_available_skills=(misplaced,),
-        )
+        for locator_kind in (
+            "file",
+            "environment resource",
+            "orchestrator resource",
+            "custom resource",
+        ):
+            with self.subTest(locator_kind=locator_kind):
+                misplaced = f"- hidden-skill: Hidden entry ({locator_kind}: {candidate})"
+                raw = prompt_input(
+                    ("sync-traycer-notion", "Project candidate", str(candidate)),
+                    before_available_skills=(misplaced,),
+                )
 
-        with self.assertRaisesRegex(self.preflight.PreflightError, "before the Available skills section"):
-            self.preflight.parse_diagnostic(raw)
+                with self.assertRaisesRegex(
+                    self.preflight.PreflightError,
+                    "non-root bullet appeared before the Available skills section",
+                ):
+                    self.preflight.parse_diagnostic(raw)
 
     def test_inventory_digest_is_independent_of_user_prompt(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")

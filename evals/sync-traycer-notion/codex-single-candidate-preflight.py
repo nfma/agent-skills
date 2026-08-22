@@ -162,8 +162,8 @@ def parse_diagnostic(raw: bytes) -> Diagnostic:
     if len(available_headers) != 1:
         raise PreflightError(f"expected one Available skills section, found {len(available_headers)}")
     available_index = available_headers[0]
-    if any(line.startswith("- ") and "(file:" in line for line in block_lines[:available_index]):
-        raise PreflightError("skill inventory entry appeared before the Available skills section")
+    if any(line.startswith("- ") and not ROOT_PATTERN.match(line) for line in block_lines[:available_index]):
+        raise PreflightError("unexpected non-root bullet appeared before the Available skills section")
 
     block = "\n".join(block_lines)
     roots: dict[str, Path] = {}

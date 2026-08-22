@@ -28,6 +28,7 @@ def prompt_input(
     *entries: tuple[str, str, str],
     use_aliases: bool = True,
     user_prompt: str = "test prompt",
+    before_available_skills: tuple[str, ...] = (),
 ) -> bytes:
     roots: dict[str, str] = {}
     lines: list[str] = []
@@ -47,6 +48,7 @@ def prompt_input(
             "## Skills",
             "### Skill roots",
             *root_lines,
+            *before_available_skills,
             "### Available skills",
             *lines,
             "</skills_instructions>",
@@ -159,6 +161,17 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
         self.assertEqual(diagnostic.entries[0].path, candidate.resolve())
         self.assertEqual(diagnostic.entries[0].name, "sync-traycer-notion")
 
+    def test_prompt_parser_rejects_skill_entry_before_available_skills(self) -> None:
+        candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
+        misplaced = f"- hidden-skill: Hidden entry (file: {candidate})"
+        raw = prompt_input(
+            ("sync-traycer-notion", "Project candidate", str(candidate)),
+            before_available_skills=(misplaced,),
+        )
+
+        with self.assertRaisesRegex(self.preflight.PreflightError, "before the Available skills section"):
+            self.preflight.parse_diagnostic(raw)
+
     def test_inventory_digest_is_independent_of_user_prompt(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
         first = self.preflight.parse_diagnostic(
@@ -246,6 +259,15 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertEqual(command[:3], ["/usr/bin/codex", "debug", "prompt-input"])
         self.assertNotIn("exec", command)
+
+    def test_codex_version_timeout_is_a_preflight_error(self) -> None:
+        timeout = self.preflight.subprocess.TimeoutExpired(["codex", "--version"], 10)
+
+        with (
+            mock.patch.object(self.preflight.subprocess, "run", side_effect=timeout),
+            self.assertRaisesRegex(self.preflight.PreflightError, "version check timed out"),
+        ):
+            self.preflight.codex_version(Path("/usr/bin/codex"))
 
     def test_capture_can_be_reverified_against_unchanged_full_inventory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -337,6 +359,40 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
                     self.preflight.DEFAULT_PROMPT,
                     expected_evidence=expected,
                 )
+
+    def test_reverification_rejects_non_object_inventory_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory).resolve()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            candidate = self.make_candidate(workspace).resolve()
+            state = self.diagnostic(self.preflight.SkillEntry("sync-traycer-notion", "Project candidate", candidate))
+
+            with (
+                mock.patch.object(self.preflight.shutil, "which", return_value="/usr/bin/true"),
+                mock.patch.object(self.preflight, "run_codex", return_value=state),
+                mock.patch.object(self.preflight, "codex_version", return_value="codex-cli test"),
+            ):
+                capture = self.preflight.run_preflight(
+                    workspace,
+                    candidate,
+                    "sync-traycer-notion",
+                    self.preflight.DEFAULT_PROMPT,
+                )
+
+            expected = root / "expected.json"
+            malformed_values: tuple[object, ...] = (None, "not an object", [])
+            for section in ("before", "after"):
+                for malformed in malformed_values:
+                    with self.subTest(section=section, malformed=malformed):
+                        record = json.loads(json.dumps(capture))
+                        record[section] = malformed
+                        expected.write_text(json.dumps(record), encoding="utf-8")
+                        with self.assertRaisesRegex(
+                            self.preflight.PreflightError,
+                            "before and after sections must be JSON objects",
+                        ):
+                            self.preflight.verify_expected_evidence(capture, expected, workspace)
 
     def test_rejects_candidate_outside_project_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

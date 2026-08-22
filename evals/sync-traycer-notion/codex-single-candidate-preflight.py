@@ -149,22 +149,32 @@ def parse_diagnostic(raw: bytes) -> Diagnostic:
     skill_blocks = [text for text in developer_texts(payload) if "<skills_instructions>" in text]
     if len(skill_blocks) != 1:
         raise PreflightError(f"expected one skills instruction block, found {len(skill_blocks)}")
-    block = skill_blocks[0]
+    text = skill_blocks[0]
+    lines = text.splitlines()
+    if lines.count("<skills_instructions>") != 1 or lines.count("</skills_instructions>") != 1:
+        raise PreflightError("expected one complete skills instruction block")
+    block_start = lines.index("<skills_instructions>")
+    block_end = lines.index("</skills_instructions>")
+    if block_end <= block_start:
+        raise PreflightError("skills instruction block is malformed")
+    block_lines = lines[block_start : block_end + 1]
+    available_headers = [index for index, line in enumerate(block_lines) if line == "### Available skills"]
+    if len(available_headers) != 1:
+        raise PreflightError(f"expected one Available skills section, found {len(available_headers)}")
+    available_index = available_headers[0]
+    if any(line.startswith("- ") and "(file:" in line for line in block_lines[:available_index]):
+        raise PreflightError("skill inventory entry appeared before the Available skills section")
+
+    block = "\n".join(block_lines)
     roots: dict[str, Path] = {}
-    for line in block.splitlines():
+    for line in block_lines[:available_index]:
         match = ROOT_PATTERN.match(line)
         if match:
             roots[match.group("alias")] = Path(match.group("path")).resolve(strict=False)
 
     entries: list[SkillEntry] = []
-    in_available_skills = False
-    for line in block.splitlines():
-        if line == "### Available skills":
-            in_available_skills = True
-            continue
-        if line == "</skills_instructions>":
-            break
-        if not in_available_skills or not line.startswith("- "):
+    for line in block_lines[available_index + 1 : -1]:
+        if not line.startswith("- "):
             continue
         match = ENTRY_PATTERN.match(line)
         if not match:
@@ -235,12 +245,15 @@ def run_codex(
 
 
 def codex_version(codex_path: Path) -> str:
-    completed = subprocess.run(  # nosec B603 - argv is fixed and shell execution is disabled.
-        [str(codex_path), "--version"],
-        check=False,
-        capture_output=True,
-        timeout=10,
-    )
+    try:
+        completed = subprocess.run(  # nosec B603 - argv is fixed and shell execution is disabled.
+            [str(codex_path), "--version"],
+            check=False,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise PreflightError("Codex CLI version check timed out") from error
     if completed.returncode != 0:
         raise PreflightError("could not read the Codex CLI version")
     return completed.stdout.decode("utf-8", errors="replace").strip()
@@ -286,21 +299,25 @@ def verify_expected_evidence(
     resolved_path, evidence_sha256, expected = read_expected_evidence(expected_path, workspace)
     if expected.get("schema_version") != 2 or expected.get("passed") is not True:
         raise PreflightError("expected evidence must be a passed schema-version 2 preflight record")
+    before = expected.get("before")
+    after = expected.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise PreflightError("expected evidence before and after sections must be JSON objects")
 
     comparisons = {
         "Codex version": (expected.get("codex_version"), result["codex_version"]),
         "skill name": (expected.get("skill_name"), result["skill_name"]),
         "workspace": (expected.get("workspace"), result["workspace"]),
         "candidate": (expected.get("candidate"), result["candidate"]),
-        "before inventory": (expected.get("before", {}).get("inventory"), result["before"]["inventory"]),
+        "before inventory": (before.get("inventory"), result["before"]["inventory"]),
         "before skills block": (
-            expected.get("before", {}).get("skills_instructions_sha256"),
+            before.get("skills_instructions_sha256"),
             result["before"]["skills_instructions_sha256"],
         ),
         "filter": (expected.get("filter"), result["filter"]),
-        "after inventory": (expected.get("after", {}).get("inventory"), result["after"]["inventory"]),
+        "after inventory": (after.get("inventory"), result["after"]["inventory"]),
         "after skills block": (
-            expected.get("after", {}).get("skills_instructions_sha256"),
+            after.get("skills_instructions_sha256"),
             result["after"]["skills_instructions_sha256"],
         ),
     }

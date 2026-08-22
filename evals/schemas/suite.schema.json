@@ -43,7 +43,11 @@
       ],
       "properties": {
         "baseline": { "enum": ["no-skill", "previous-skill"] },
-        "trials_per_harness": { "type": "integer", "minimum": 3 },
+        "trials_per_harness": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 100
+        },
         "live_side_effects": { "const": false },
         "complete_trace_required": { "const": true },
         "pre_post_hash_required": { "const": true }

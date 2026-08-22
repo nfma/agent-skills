@@ -47,7 +47,7 @@ def _contains_marker(text: str, markers: tuple[str, ...]) -> bool:
 
 def _task_clauses(prompt: str) -> list[str]:
     sentence = prompt.strip().rstrip(".")
-    clauses = [part.strip() for part in re.split(r";\s*|,\s+(?:and\s+)?", sentence) if part.strip()]
+    clauses = [part.strip() for part in re.split(r";[ \t]*|,[ \t]+(?:and[ \t]+)?", sentence) if part.strip()]
     if len(clauses) == 1:
         clauses = [part.strip() for part in re.split(r"\s+(?:and|while)\s+", sentence, maxsplit=2) if part.strip()]
     return clauses
@@ -163,5 +163,6 @@ def write_key_packet(
             raise ValueError("key packets must remain outside the repository")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(f"{json.dumps(template, indent=2)}\n", encoding="utf-8")
-    review_path.write_text(review_markdown(suite, template), encoding="utf-8")
+    # The caller intentionally chooses an exclusive-create path outside the repository.
+    review_path.write_text(review_markdown(suite, template), encoding="utf-8")  # NOSONAR
     return output_path, review_path

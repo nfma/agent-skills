@@ -147,7 +147,10 @@ class SkillEvalAggregationTests(unittest.TestCase):
     def test_bootstrap_lower_bound_is_deterministic(self) -> None:
         values = [0.1, 0.2, 0.3, 0.4]
 
-        self.assertEqual(bootstrap_lower_bound(values), bootstrap_lower_bound(values))
+        first_result = bootstrap_lower_bound(values)
+
+        self.assertIsNotNone(first_result)
+        self.assertEqual(first_result, bootstrap_lower_bound(values))
         self.assertIsNone(bootstrap_lower_bound([]))
 
 

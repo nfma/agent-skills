@@ -31,7 +31,11 @@
           "items": { "enum": ["cursor", "antigravity", "codex", "claude-code"] }
         },
         "minimum_tasks": { "type": "integer", "minimum": 20 },
-        "trials_per_harness": { "type": "integer", "minimum": 3 },
+        "trials_per_harness": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 100
+        },
         "human_calibration_required": { "const": true },
         "recheck_days": { "type": "integer", "minimum": 1, "maximum": 183 }
       }

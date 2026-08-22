@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
+MAX_TRIALS_PER_HARNESS = 100
 HARNESSES = {"cursor", "antigravity", "codex", "claude-code"}
 STATUSES = {"draft", "provisional", "production", "stale", "unavailable"}
 RISKS = {"low", "medium", "high"}
@@ -143,8 +144,9 @@ def validate_defaults(defaults: Any) -> list[str]:
         errors.append("registry.defaults.required_harnesses must list each supported harness exactly once")
     if not isinstance(defaults.get("minimum_tasks"), int) or defaults["minimum_tasks"] < 20:
         errors.append("registry.defaults.minimum_tasks must be at least 20")
-    if not isinstance(defaults.get("trials_per_harness"), int) or defaults["trials_per_harness"] < 3:
-        errors.append("registry.defaults.trials_per_harness must be at least 3")
+    trials_per_harness = defaults.get("trials_per_harness")
+    if not isinstance(trials_per_harness, int) or not 3 <= trials_per_harness <= MAX_TRIALS_PER_HARNESS:
+        errors.append(f"registry.defaults.trials_per_harness must be between 3 and {MAX_TRIALS_PER_HARNESS}")
     if defaults.get("human_calibration_required") is not True:
         errors.append("registry.defaults.human_calibration_required must be true")
     recheck_days = defaults.get("recheck_days")

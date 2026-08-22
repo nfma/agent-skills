@@ -9,6 +9,7 @@ from typing import Any
 
 from .validation import (
     HARNESSES,
+    MAX_TRIALS_PER_HARNESS,
     canonical_digest,
     is_within,
     read_object,
@@ -73,6 +74,9 @@ def build_plan(
         entry = registered[name]
         suite_path = repository_root / entry["suite"]
         suite = read_object(suite_path)
+        trial_count = suite["execution_policy"]["trials_per_harness"]
+        if not isinstance(trial_count, int) or not 3 <= trial_count <= MAX_TRIALS_PER_HARNESS:
+            raise ValueError(f"{name} trials_per_harness must be between 3 and {MAX_TRIALS_PER_HARNESS}")
         skill_root = repository_root / "skills" / name
         suites.append(
             {
@@ -87,7 +91,8 @@ def build_plan(
                 arms = ["with-skill"]
                 if task["kind"] == "positive":
                     arms.append("baseline")
-                for trial_number in range(1, suite["execution_policy"]["trials_per_harness"] + 1):
+                bounded_trial_count = min(trial_count, MAX_TRIALS_PER_HARNESS)
+                for trial_number in range(1, bounded_trial_count + 1):
                     for arm in arms:
                         expected_discovery = arm == "with-skill"
                         expected_load = arm == "with-skill" and task["kind"] == "positive"
@@ -108,7 +113,7 @@ def build_plan(
                                 "prohibited_effects": task["prohibited_effects"],
                             }
                         )
-    secrets.SystemRandom().shuffle(trials)
+    secrets.SystemRandom().shuffle(trials)  # NOSONAR - SystemRandom is cryptographically secure.
     for sequence, trial in enumerate(trials, start=1):
         trial["sequence"] = sequence
     return {
@@ -131,4 +136,5 @@ def write_external_plan(plan: dict[str, Any], output_path: Path, repository_root
     if is_within(parent, repository_root):
         raise ValueError("plan output must be outside the repository")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(f"{json.dumps(plan, indent=2)}\n", encoding="utf-8")
+    # The caller intentionally chooses an exclusive-create path outside the repository.
+    output_path.write_text(f"{json.dumps(plan, indent=2)}\n", encoding="utf-8")  # NOSONAR

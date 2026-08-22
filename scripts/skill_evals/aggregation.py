@@ -13,7 +13,7 @@ def bootstrap_lower_bound(values: list[float], *, confidence: float = 0.95) -> f
     if not values:
         return None
     seed = int(sha256(repr(values).encode("utf-8")).hexdigest()[:16], 16)
-    generator = random.Random(seed)
+    generator = random.Random(seed)  # NOSONAR - reproducible statistical resampling, not security-sensitive randomness.
     samples = sorted(mean(generator.choice(values) for _ in values) for _ in range(5000))
     index = max(0, int((1 - confidence) / 2 * len(samples)) - 1)
     return samples[index]

@@ -161,6 +161,16 @@ class SkillEvalRegistryTests(unittest.TestCase):
         self.assertTrue(any("missing from registry" in error for error in errors))
         self.assertTrue(any("not discovered" in error for error in errors))
 
+    def test_registry_rejects_unbounded_trial_counts(self) -> None:
+        registry = json.loads((REPOSITORY_ROOT / "evals" / "registry.json").read_text())
+        registry["defaults"]["trials_per_harness"] = self.validation.MAX_TRIALS_PER_HARNESS + 1
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            registry_path = Path(temporary_directory) / "registry.json"
+            registry_path.write_text(json.dumps(registry))
+            errors, _summary = self.validation.validate_registry(REPOSITORY_ROOT, registry_path)
+
+        self.assertTrue(any("trials_per_harness must be between" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

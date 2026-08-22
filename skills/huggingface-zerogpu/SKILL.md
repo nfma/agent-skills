@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_zerogpu_goal, target_space
   skill-audit-context-writes: files_changed, remote_resources_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires Python, Gradio, the `spaces` package, and a Gradio Space eligible for ZeroGPU; deployment requires Hub network access and authentication, and execution is subject to ZeroGPU quota.
 ---
 
 # Hugging Face ZeroGPU

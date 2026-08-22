@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_evaluation_goal, target_model
   skill-audit-context-writes: files_changed, commands_run, evaluation_results, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires Python with `uv` and the bundled evaluation dependencies. Local GPU backends require compatible NVIDIA GPU/CUDA support; provider-backed runs require network access, and gated or private models require a Hub token.
 ---
 
 # Overview

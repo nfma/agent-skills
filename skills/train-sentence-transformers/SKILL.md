@@ -6,6 +6,7 @@ metadata:
   skill-audit-context-requires: explicit_training_goal, target_model_or_dataset
   skill-audit-context-writes: files_changed, training_runs, model_artifacts, remote_resources_changed, commands_run, verification_result
   skill-audit-confirmation: on-risk
+compatibility: Requires Python with `sentence-transformers[train]>=5.0`; the bundled training templates additionally need `trackio`, the default tracker on non-smoke runs, and `peft` for the LoRA template — both resolved automatically under `uv run` from each script's PEP 723 header. Practical training usually requires a compatible GPU. Hub downloads/publishing require network access, and gated/private or push workflows require Hub authentication.
 ---
 
 # Train a sentence-transformers Model

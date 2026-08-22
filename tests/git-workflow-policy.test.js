@@ -7,11 +7,16 @@ const test = require("node:test");
 
 const skillPath = join(__dirname, "..", "skills", "git-workflow", "SKILL.md");
 const skill = readFileSync(skillPath, "utf8");
-const stackedSection = skill
-  .split(/^## Stacked pull requests$/m)[1]
-  ?.split(/^## /m)[0];
+/** @type {string} */
+let stackedSection;
 
-assert.ok(stackedSection, "stacked pull request policy section must exist");
+test.before(() => {
+  const section = skill
+    .split(/^## Stacked pull requests$/m)[1]
+    ?.split(/^## /m)[0];
+  assert.ok(section, "stacked pull request policy section must exist");
+  stackedSection = section;
+});
 
 test("keeps direct force-pushes prohibited", () => {
   assert.match(skill, /Never force-push directly/);

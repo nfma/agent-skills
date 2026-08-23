@@ -76,7 +76,7 @@ usually needs the first step and no seam beyond the one it touches. Test using
 
 Collect evidence for the rules the change exercises:
 
-- semantic evidence for `R2`, `R3`, and `R5`;
+- semantic evidence for `R2`, `R3`, `R5`, and `R8`;
 - structural evidence for `R4` and `R7`; and
 - behavioral evidence for `R6`.
 

@@ -13,7 +13,7 @@ reason: Nuno requires ports-and-adapters as the default design lens for maintain
 owner and canonical destination: Nuno; skills/hexagonal-architecture
 positive trigger: “Add a sync command to this maintained CLI that calls an external API and stores state.”
 near-miss: “Write a disposable script to rename these local files once.”
-success checks: Loads for durable software without a pattern keyword; satisfies R1-R7 through SR1-SR6; abstains on the disposable near-miss.
+success checks: Loads for durable software without a pattern keyword; satisfies R1-R8 through SR1-SR6; abstains on the disposable near-miss.
 ```
 
 ## Local architecture decisions

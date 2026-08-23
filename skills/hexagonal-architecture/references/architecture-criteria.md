@@ -113,8 +113,8 @@ Place each folder, module, file, type, function, and configuration section in
 the smallest responsibility bucket that owns it. Name it for the capability,
 policy, conversation, or adapter it implements. Do not create or expand
 catch-all `misc`, `util`, `utils`, `helper`, `helpers`, or similarly abstract
-containers. Rename or split code whose name does not reveal one defined goal,
-owner, and boundary scope, but do not reorganize unrelated code beyond `R1`.
+containers. Rename or split code whose name does not reveal one defined goal
+and boundary scope, but do not reorganize unrelated code beyond `R1`.
 
 Evidence: every touched code unit has one stated responsibility and a
 purpose-bearing name; no touched catch-all container gains code.

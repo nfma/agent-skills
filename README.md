@@ -119,6 +119,69 @@ installing the shared baseline, authenticate Codex with
 prompt when Cursor or Antigravity first connects. See Notion's
 [connection guide](https://developers.notion.com/guides/mcp/get-started-with-mcp).
 
+Store the Discord bot token interactively under the `DISCORD_MCP_TOKEN` service
+for the current macOS account, including its required `Bot ` prefix, then run
+the guided profile setup:
+
+```sh
+security add-generic-password -U \
+  -s DISCORD_MCP_TOKEN -a "$USER" -w
+./scripts/install-mcps.sh --setup-discord
+```
+
+The setup verifies the caller-owned bot, selects the allowed guild, and creates
+the non-secret `agent-coordination` profile. The tracked wrapper exposes the
+token only to the pinned Discord MCP child and restricts its runtime to the
+`messages`, `threads`, and `channels` categories with progressive discovery.
+Discord is coordination transport only: Notion remains the task-status board,
+and coordination messages should include the matching `TASK-*` reference.
+
+### Optional Discord wake relay on macOS
+
+After installing the MCP baseline and creating the Discord profile, optionally
+install a user LaunchAgent that keeps the Discord wake relay running:
+
+```sh
+./scripts/install-mcps.sh --dry-run --setup-wake-relay
+./scripts/install-mcps.sh --setup-wake-relay
+```
+
+This service setup is explicit: ordinary MCP installation never enables it.
+Preflight requires macOS, the existing tracked Discord wrapper and profile,
+Traycer at `~/.local/bin/traycer`, and Homebrew Python at
+`/opt/homebrew/bin/python3`. The installed plist contains only fixed executable
+paths and sends service stdout and stderr to `/dev/null`, so repeated startup or
+idle output cannot grow a persistent service log. The Discord token remains in
+Keychain and is passed only from the credential wrapper to its MCP child.
+
+The coordination skill registers or refreshes role ownership separately. The
+installer does not register roles, create agents, or change relay processing
+state. Inspect or restart the current-user service with:
+
+```sh
+launchctl print "gui/$(id -u)/com.nfma.discord-wake-relay"
+launchctl kickstart -k "gui/$(id -u)/com.nfma.discord-wake-relay"
+```
+
+Use `launchctl print` for service status and launchd diagnostics. Registration,
+delivery cursor, cooldown, and the relay's bounded metadata-only audit state
+remain under `~/.local/state/discord-agent-coordination/wake-relay/`. Older
+`~/Library/Logs/discord-wake-relay/` files are preserved, but the service no
+longer creates or writes them.
+
+Preview removal, then stop and remove the optional service:
+
+```sh
+./scripts/install-mcps.sh --dry-run --uninstall-wake-relay
+./scripts/install-mcps.sh --uninstall-wake-relay
+```
+
+Uninstall removes only the relay-owned LaunchAgent plist and launcher link. It
+preserves relay state, any legacy logs, the Discord profile and token, inbox
+content, and agent processing state. Without the service, agents can continue
+using the `discord-agent-coordination` skill to read and process handoffs
+manually.
+
 The installer uses the pinned Bats-core test framework; the JSON-line filter
 uses Node's built-in test runner:
 

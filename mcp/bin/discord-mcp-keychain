@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Load the shared Discord bot token from macOS Keychain. The token is exposed
+# only to the pinned MCP child and is never written to configuration.
+set -euo pipefail
+
+profile_name=agent-coordination
+package_pin=@discord-mcp/cli@0.23.0
+account_name=${USER:-$(/usr/bin/id -un)}
+security_bin=${DISCORD_MCP_SECURITY_BIN:-/usr/bin/security}
+npx_bin=${DISCORD_MCP_NPX_BIN:-${HOME:?HOME is unavailable}/.local/bin/npx}
+
+if [[ "$security_bin" != /* || ! -x "$security_bin" ]]; then
+  printf '%s\n' 'discord-mcp-keychain: security command is unavailable' >&2
+  exit 127
+fi
+if [[ "$npx_bin" != /* || ! -x "$npx_bin" ]]; then
+  printf '%s\n' 'discord-mcp-keychain: tracked npx launcher is unavailable' >&2
+  exit 127
+fi
+
+token=$(
+  "$security_bin" find-generic-password \
+    -s DISCORD_MCP_TOKEN -a "$account_name" -w 2>/dev/null
+) || token=
+if [[ -z "$token" ]]; then
+  printf 'discord-mcp-keychain: Keychain item DISCORD_MCP_TOKEN is missing for %s\n' \
+    "$account_name" >&2
+  exit 1
+fi
+
+export DISCORD_TOKEN="$token"
+unset token
+export MCP_CATEGORIES=messages,threads,channels
+export MCP_TOOL_SURFACE=progressive
+
+profile_ready() {
+  "$npx_bin" -y "$package_pin" profile show "$profile_name" --json \
+    >/dev/null 2>&1
+}
+
+if [[ "${1:-}" == setup ]]; then
+  if [[ $# -ne 1 ]]; then
+    printf '%s\n' 'discord-mcp-keychain: setup does not accept additional arguments' >&2
+    exit 64
+  fi
+  if profile_ready; then
+    printf 'Discord MCP profile is already configured: %s\n' "$profile_name"
+    exit 0
+  fi
+  "$npx_bin" -y "$package_pin" setup \
+    --profile "$profile_name" \
+    --client generic \
+    --tool-surface progressive
+  profile_ready || {
+    printf 'discord-mcp-keychain: Discord MCP profile setup did not create %s\n' \
+      "$profile_name" >&2
+    exit 1
+  }
+  exit 0
+fi
+
+if [[ $# -ne 0 ]]; then
+  printf '%s\n' 'discord-mcp-keychain: unexpected arguments' >&2
+  exit 64
+fi
+
+profile_ready || {
+  printf '%s\n' \
+    'discord-mcp-keychain: profile agent-coordination is missing; run the repository installer with --setup-discord' >&2
+  exit 1
+}
+
+exec "$npx_bin" -y "$package_pin" serve --profile "$profile_name"

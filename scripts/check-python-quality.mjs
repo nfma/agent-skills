@@ -9,6 +9,7 @@ import { checkQualityBaseline, uniqueSorted } from "./quality-baseline.mjs";
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const baselinePath = resolve(repositoryRoot, ".python-quality-baseline.json");
 const printBaseline = process.argv.includes("--print-baseline");
+const pythonRoots = ["services", "skills", "tests/python", "evals"];
 
 /** @param {string} candidate */
 function repositoryRelative(candidate) {
@@ -65,14 +66,7 @@ function parseJson(value) {
 
 function collectRuff() {
   const output = parseJson(
-    runUv([
-      "ruff",
-      "check",
-      "skills",
-      "tests/python",
-      "evals",
-      "--output-format=json",
-    ]),
+    runUv(["ruff", "check", ...pythonRoots, "--output-format=json"]),
   );
   if (!Array.isArray(output)) {
     throw new TypeError("Unexpected Ruff JSON output");
@@ -89,9 +83,7 @@ function collectRuffFormat() {
       "ruff",
       "format",
       "--check",
-      "skills",
-      "tests/python",
-      "evals",
+      ...pythonRoots,
       "--output-format=json",
     ]),
   );
@@ -106,9 +98,7 @@ function collectRuffFormat() {
 
 function collectPyright() {
   const output = /** @type {Record<string, any>} */ (
-    parseJson(
-      runUv(["pyright", "--outputjson", "skills", "tests/python", "evals"]),
-    )
+    parseJson(runUv(["pyright", "--outputjson", ...pythonRoots]))
   );
   if (!Array.isArray(output.generalDiagnostics)) {
     throw new TypeError("Unexpected Pyright JSON output");
@@ -120,13 +110,7 @@ function collectPyright() {
 }
 
 function collectMypy() {
-  const output = runUv([
-    "mypy",
-    "skills",
-    "tests/python",
-    "evals",
-    "--output=json",
-  ]).trim();
+  const output = runUv(["mypy", ...pythonRoots, "--output=json"]).trim();
   if (!output) return [];
   return output.split("\n").map((line) => {
     const item = /** @type {Record<string, any>} */ (JSON.parse(line));
@@ -136,18 +120,7 @@ function collectMypy() {
 
 function collectBandit() {
   const output = /** @type {Record<string, any>} */ (
-    parseJson(
-      runUv([
-        "bandit",
-        "-r",
-        "skills",
-        "tests/python",
-        "evals",
-        "-f",
-        "json",
-        "-q",
-      ]),
-    )
+    parseJson(runUv(["bandit", "-r", ...pythonRoots, "-f", "json", "-q"]))
   );
   if (!Array.isArray(output.results)) {
     throw new TypeError("Unexpected Bandit JSON output");

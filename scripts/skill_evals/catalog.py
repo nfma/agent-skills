@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TypedDict
+import json
+from pathlib import Path
+from typing import TypedDict, cast
 
 
 class SuiteSeed(TypedDict):
@@ -9,7 +11,7 @@ class SuiteSeed(TypedDict):
     near_miss: list[str]
 
 
-SUITE_SEEDS: dict[str, SuiteSeed] = {
+INLINE_SUITE_SEEDS: dict[str, SuiteSeed] = {
     "coding-preferences": {
         "drift_signals": [
             "Nuno changes repository-wide coding conventions",
@@ -158,36 +160,6 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Update a package version in a lockfile; no maintained code boundary changes.",
             "Write a single-use shell command to count files by extension.",
             "Draw an ASCII honeycomb pattern for a terminal banner.",
-        ],
-    },
-    "hexagonal-architecture-rust": {
-        "drift_signals": [
-            "the hav release, schema, exit semantics, or attestation profile changes",
-            "Rust module resolution or Cargo workspace behavior changes the validator evidence boundary",
-        ],
-        "positive": [
-            "Review a maintained Rust Cargo workspace that claims ports-and-adapters boundaries. Plan the hav roles, rules, and evidence needed for a deterministic structural review without changing code.",
-            "Map a Rust workspace with library use cases, binary startup wiring, HTTP inputs, and database outputs into precise hexagonal roles, then explain how to audit its hav.toml without forcing one crate per role.",
-            "A Rust pricing module imports a concrete sqlx repository and constructs it inside the use case. Assess the hexagonal dependency violation and state what a fail-closed hav result must show.",
-            "Plan a focused Rust change that adds an S3-backed driven adapter to an existing hexagonal service. Preserve application-owned contracts, keep wiring at the edge, and say when structural validation is justified.",
-            "Review a Rust workspace design and propose the smallest hav role and rule model that substantiates dependency direction without requiring one crate per role.",
-            "Assess a hav v0.1.1 exit-zero claim that uses only the built-in preset while one generic adapter role hides driving and driven adapters.",
-            "Explain what can be concluded when a reviewed hav.toml has the intended roles and rules but hav exits 2 with an unresolved-import analysis error.",
-            "Verify a Rust repository's claimed core-to-adapter prohibition using the pinned hav release, including checksum and provenance evidence before execution.",
-            "A prior Rust architecture check treated a clean dependency graph as proof of transaction and retry behavior. Correct the evidence claims while retaining valid structural findings.",
-            "Review a cfg-heavy Rust workspace for hexagonal boundaries and describe the fail-closed limitations that must accompany any hav result.",
-        ],
-        "near_miss": [
-            "Fix an off-by-one error in a maintained Rust iterator helper. The change is local, has no external dependency or architecture boundary, and needs only focused unit tests.",
-            "Review a TypeScript dependency-cruiser configuration that forbids domain imports from infrastructure. Keep the answer specific to TypeScript and dependency-cruiser.",
-            "Explain Rust ownership and borrowing to a new engineer using a short, non-architectural example. Do not review or change a project.",
-            "Run the existing cargo test command once and summarize whether it passes. Do not redesign, refactor, or assess architecture.",
-            "Improve cancellation tests in a Rust integration-test file without changing production boundaries or architecture.",
-            "Update one Rust dependency version in Cargo.lock and report the resolved version; no architecture claim is requested.",
-            "Review a Rust formatting-only patch and identify rustfmt drift without assessing modules, ports, or adapters.",
-            "Explain what Cargo workspaces are at a conceptual level without reviewing a repository or proposing architecture.",
-            "Add a benchmark under benches for an existing parser; no maintained component boundary or structural proof is involved.",
-            "Review a Python service's ports-and-adapters design using a language-appropriate structural validator; keep the assessment and tool choice specific to that repository.",
         ],
     },
     "hf-cli": {
@@ -942,3 +914,29 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
         ],
     },
 }
+
+
+def load_external_suite_seeds() -> dict[str, SuiteSeed]:
+    evals_root = Path(__file__).resolve().parents[2] / "evals"
+    expected_fields = {"drift_signals", "positive", "near_miss"}
+    external: dict[str, SuiteSeed] = {}
+
+    for path in sorted(evals_root.glob("*/seed.json")):
+        name = path.parent.name
+        if name in INLINE_SUITE_SEEDS:
+            raise ValueError(f"duplicate inline and external eval seed: {name}")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or set(payload) != expected_fields:
+            raise ValueError(f"invalid eval seed fields: {path}")
+        for field in expected_fields:
+            values = payload[field]
+            if not isinstance(values, list) or not values or not all(
+                isinstance(value, str) and value for value in values
+            ):
+                raise ValueError(f"invalid eval seed {field}: {path}")
+        external[name] = cast(SuiteSeed, payload)
+
+    return external
+
+
+SUITE_SEEDS = {**INLINE_SUITE_SEEDS, **load_external_suite_seeds()}

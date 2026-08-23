@@ -106,7 +106,7 @@ class SupervisorTestCase(unittest.TestCase):
         self.environment.stop()
         self.temporary.cleanup()
 
-    def supervisor(self):
+    def _make_supervisor(self):
         return MODULE.Supervisor(
             client_factory=self.backend.client,
             process_scanner=self.backend.scan,
@@ -417,7 +417,7 @@ class CommandSurfaceTests(unittest.TestCase):
 
 class RecoveryStateTests(SupervisorTestCase):
     def test_blocked_group_marks_every_registry_open_session_as_candidate(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         first = self.register(supervisor, "token-a", AGENT_A)
         second = self.register(supervisor, "token-b", AGENT_B, PARENT)
         self.backend.quotas[("codex", "ambient")] = MODULE.QuotaStatus("blocked", "full")
@@ -429,7 +429,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(self.backend.quota_calls, [("codex", "ambient", "token-a")])
 
     def test_available_transition_wakes_candidates_and_notifies_parent(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         first = self.register(supervisor, "token-a", AGENT_A)
         second = self.register(supervisor, "token-b", AGENT_B, PARENT)
         self.backend.quotas[("codex", "ambient")] = [
@@ -448,7 +448,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(second.status, "open")
 
     def test_new_session_discovered_while_group_blocked_is_candidate(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         self.register(supervisor, "token-a", AGENT_A)
         self.backend.quotas[("codex", "ambient")] = MODULE.QuotaStatus("blocked", "full")
         supervisor.poll_groups()
@@ -458,7 +458,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(second.status, "candidate")
 
     def test_archived_candidate_is_not_woken(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         session = self.register(supervisor, "token-a", AGENT_A)
         self.backend.quotas[("codex", "ambient")] = MODULE.QuotaStatus("blocked", "full")
         supervisor.poll_groups()
@@ -472,7 +472,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(self.backend.sent, [])
 
     def test_parent_retry_does_not_resend_agent_wake(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         session = self.register(supervisor, "token-a", AGENT_A, PARENT)
         session.status = "candidate"
         self.backend.failures[PARENT] = 1
@@ -486,7 +486,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(session.status, "open")
 
     def test_fresh_non_messageable_candidate_ends_without_a_late_wake(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         session = self.register(supervisor, "token-a", AGENT_A)
         session.status = "candidate"
         session.messageable = False
@@ -510,7 +510,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual([target for _, target, _ in self.backend.sent], [AGENT_A])
 
     def test_cursor_and_antigravity_use_ambient_without_a2a_profile_lookup(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
 
         cursor = self.register(supervisor, "cursor-token", AGENT_A, harness="cursor")
         antigravity = self.register(
@@ -525,7 +525,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(self.backend.profile_calls, [])
 
     def test_known_reset_schedules_an_earlier_probe(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         reset_ms = int((self.clock() + 300) * 1_000)
         next_poll = supervisor._next_poll_at(
             MODULE.QuotaStatus("blocked", "full", reset_ms),
@@ -534,7 +534,7 @@ class RecoveryStateTests(SupervisorTestCase):
         self.assertEqual(next_poll, self.clock() + 300 + MODULE.DEFAULT_RESET_GRACE_SECONDS)
 
     def test_persisted_state_contains_no_credentials(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         session = self.register(supervisor, "do-not-persist-this-token", AGENT_A)
         session.status = "candidate"
         supervisor.persist()
@@ -573,7 +573,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         return credential
 
     def test_provider_process_exit_does_not_hide_or_block_registry_open_claude_recovery(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         view = self.registry_view()
         credential = self.configure_registry_transport(supervisor, view, view)
         self.backend.quotas[("claude", "claude-profile")] = [
@@ -617,7 +617,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         self.assertEqual(child.status, "open")
 
     def test_successful_registry_refresh_removes_archived_child(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         self.configure_registry_transport(
             supervisor,
             self.registry_view(),
@@ -632,7 +632,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         self.assertEqual(self.backend.sent, [])
 
     def test_stale_parentless_candidate_is_not_polled_or_woken_until_confirmed(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         session = self.register(supervisor, "token-a", AGENT_A)
         session.status = "candidate"
         key = MODULE.group_key("codex", "ambient")
@@ -656,7 +656,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         self.assertEqual(session.status, "open")
 
     def test_successful_authoritative_registry_refresh_removes_absent_child(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         self.configure_registry_transport(
             supervisor,
             self.registry_view(),
@@ -678,7 +678,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         self.assertEqual(self.backend.sent, [])
 
     def test_failed_registry_refresh_preserves_candidate_and_cached_transport(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         credential = self.configure_registry_transport(
             supervisor,
             self.registry_view(),
@@ -708,7 +708,7 @@ class RegistryRecoveryTests(SupervisorTestCase):
         self.assertEqual(self.backend.sent, [])
 
     def test_rejected_transport_is_evicted_without_removing_sessions(self):
-        supervisor = self.supervisor()
+        supervisor = self._make_supervisor()
         credential = self.configure_registry_transport(
             supervisor,
             self.registry_view(),
@@ -728,9 +728,11 @@ class TransportDiscoveryTests(unittest.TestCase):
     def test_any_traycer_managed_process_is_discovered_and_deduplicated(self):
         output = "\n".join(
             [
-                "10 /Users/nfma/.local/bin/cursor-agent agent "
-                "TRAYCER_A2A_MCP_TOKEN=secret-token "
-                "TRAYCER_A2A_MCP_URL=http://127.0.0.1:49440/mcp",
+                (
+                    "10 /Users/nfma/.local/bin/cursor-agent agent "
+                    + "TRAYCER_A2A_MCP_TOKEN=secret-token "
+                    + "TRAYCER_A2A_MCP_URL=http://127.0.0.1:49440/mcp"
+                ),
                 "11 /Users/nfma/.local/bin/cursor-agent worker TRAYCER_A2A_MCP_TOKEN=secret-token",
                 "12 /Users/nfma/.local/bin/agy TRAYCER_A2A_MCP_TOKEN=other-token",
                 "13 /usr/bin/other --without-credential",

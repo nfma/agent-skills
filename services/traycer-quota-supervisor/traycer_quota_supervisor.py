@@ -29,7 +29,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from uuid import UUID
@@ -524,7 +524,7 @@ def parse_parent_id(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     match = re.search(
-        r"(?:^|\n)Parent:\s*(?:\n\s*)?([0-9a-fA-F-]{36})\b",
+        r"(?:^|\n)Parent:\s*([0-9a-f-]{36})\b",
         value,
         flags=re.IGNORECASE,
     )
@@ -691,7 +691,7 @@ class A2AClient:
             if error.code in {401, 403}:
                 raise TransportRejectedError("Traycer A2A rejected the transport credential") from error
             raise SupervisorError(f"Traycer A2A request failed with HTTP status {error.code}") from error
-        except (URLError, TimeoutError, OSError) as error:
+        except OSError as error:
             raise SupervisorError(f"Traycer A2A request failed: {error}") from error
         payload = self._parse_response(body)
         if isinstance(payload.get("error"), dict):

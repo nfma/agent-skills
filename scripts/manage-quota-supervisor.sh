@@ -19,7 +19,7 @@ legacy_executable_sha256=ff90223a24e99517c4f1c811a619d4a589eaac98b27beb965fb817e
 # Future releases must retain explicit prior pairs when they need to update or
 # uninstall an older recognized manager installation.
 managed_launcher_sha256=c46405b32b5788263310c2018475510dd90fcffdccd75a3254afc6276d6c96d9
-managed_runtime_sha256=e6682f247ca1ce06591c3fa03d87944343f4ec5af080f723799e2f886af9e3e6
+managed_runtime_sha256=bef5646c371578cb676b13a6b5e385eded5ee0d4a9ae4c38a87bb941c41e33da
 
 install_home=${QUOTA_SUPERVISOR_INSTALL_HOME:-"${HOME:-}"}
 python_bin=${QUOTA_SUPERVISOR_PYTHON_BIN:-/opt/homebrew/bin/python3}

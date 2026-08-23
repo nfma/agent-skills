@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill_name": "discord-agent-coordination",
+  "suite_canonical_sha256": "22d94e777a42b7c276e3b17a97a048c2085766a2e629b2ea71e52d1cf8163425",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "pos-01",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-02",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-03",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-04",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-05",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-06",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-07",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-08",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-09",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-10",
+      "criterion_count": 3
+    }
+  ]
+}

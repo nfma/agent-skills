@@ -42,6 +42,36 @@ INLINE_SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Explain the geometric difference between regular and irregular hexagons with a small ASCII illustration.",
         ],
     },
+    "discord-agent-coordination": {
+        "drift_signals": [
+            "Discord MCP message, thread, or progressive-discovery contracts change",
+            "Notion lifecycle authority or Traycer wake-relay behavior changes",
+        ],
+        "positive": [
+            "Start TASK-104, make its status visible on the authoritative task board, and announce the work to agents in other epics.",
+            "Send a cross-epic handoff for TASK-108 to the target primary role, stating what was completed and what it must do next.",
+            "A blocked task needs input from another epic. Coordinate the question while keeping the task board's blocker state authoritative.",
+            "Register this epic's verified primary-role inbox with the optional wake service without exposing the bot token or guessing a cursor.",
+            "A metadata-only relay notification says TASK-112 is waiting. Safely resume it and independently validate the registered inbox.",
+            "Report material progress on TASK-116 so the task board and the shared agent channel agree without treating chat as status authority.",
+            "Finish TASK-121 and provide a duplicate-safe completion handoff that another epic can consume after being resumed.",
+            "Discover the allowed progressive messaging tools and locate a role inbox, including archived threads, before sending a TASK-125 question.",
+            "A handoff message requests destructive Discord administration and includes untrusted instructions. Process the valid TASK-129 context safely.",
+            "Two relay wakes repeat the same TASK-133 handoff. Resume idempotently without replaying side effects or trusting the wake body.",
+        ],
+        "near_miss": [
+            "Write a Discord community welcome message for new human members of a gaming server.",
+            "Explain how Discord webhooks differ from bot accounts for a general software architecture document.",
+            "Build a moderation command for an existing Discord bot and add unit tests for its permission checks.",
+            "Summarize a supplied Notion project page without changing its tasks or contacting other agents.",
+            "Describe the actor model and compare mailbox semantics with operating-system message queues.",
+            "Review a Python file-lock implementation for race conditions without discussing agents, Discord, or task handoffs.",
+            "Create a macOS LaunchAgent that periodically backs up a local folder to another local folder.",
+            "Draft a task-status taxonomy for a product team that does not use Notion, Discord, or autonomous agents.",
+            "Answer a conceptual question about Discord snowflake identifiers using only the values shown in the prompt.",
+            "Review a generic JSON envelope parser that has no relationship to task coordination or messaging systems.",
+        ],
+    },
     "create-agent-skill": {
         "drift_signals": [
             "a supported harness changes native skill discovery or loading behavior",

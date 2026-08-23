@@ -11,6 +11,10 @@ const dependabotWorkflow = readFileSync(
   join(__dirname, "..", ".github", "workflows", "dependabot-auto-merge.yml"),
   "utf8",
 );
+const dependabotConfig = readFileSync(
+  join(__dirname, "..", ".github", "dependabot.yml"),
+  "utf8",
+);
 
 /**
  * @param {string} contents
@@ -31,6 +35,21 @@ function workflowStepFrom(contents, name) {
  */
 function workflowStep(name) {
   return workflowStepFrom(workflow, name);
+}
+
+/**
+ * @param {string} ecosystem
+ * @returns {string}
+ */
+function dependabotUpdate(ecosystem) {
+  const header = `  - package-ecosystem: "${ecosystem}"`;
+  const start = dependabotConfig.indexOf(header);
+  assert.notEqual(start, -1, `missing Dependabot update block: ${ecosystem}`);
+  const next = dependabotConfig.indexOf(
+    "\n  - package-ecosystem:",
+    start + header.length,
+  );
+  return dependabotConfig.slice(start, next === -1 ? undefined : next);
 }
 
 test("classifies pull-request trust before checkout without loading secrets", () => {
@@ -148,4 +167,30 @@ test("auto-merges only patch and minor source-dependency updates", () => {
   assert.match(manual, /update-type != 'version-update:semver-patch'/);
   assert.match(manual, /update-type != 'version-update:semver-minor'/);
   assert.doesNotMatch(manual, /gh pr merge/);
+});
+
+test("holds the primary TypeScript compiler below version 7", () => {
+  const npm = dependabotUpdate("npm");
+  const ignoreStart = npm.indexOf("\n    ignore:\n");
+  const groupsStart = npm.indexOf("\n    groups:\n", ignoreStart);
+  assert.notEqual(ignoreStart, -1, "npm updates must define an ignore policy");
+  assert.notEqual(groupsStart, -1, "npm ignore policy must precede groups");
+  const ignore = npm.slice(ignoreStart, groupsStart);
+  const lines = ignore.split("\n").map((line) => line.trim());
+  const dependency = lines.indexOf('- dependency-name: "typescript"');
+  const nextDependency = lines.findIndex(
+    (line, index) =>
+      index > dependency && line.startsWith("- dependency-name:"),
+  );
+
+  assert.notEqual(dependency, -1, "TypeScript ignore rule must exist");
+  assert.deepEqual(
+    lines.slice(dependency, nextDependency === -1 ? undefined : nextDependency),
+    ['- dependency-name: "typescript"', "versions:", '- "7.x"'],
+  );
+  assert.doesNotMatch(dependabotUpdate("uv"), /dependency-name: "typescript"/);
+  assert.doesNotMatch(
+    dependabotUpdate("github-actions"),
+    /dependency-name: "typescript"/,
+  );
 });

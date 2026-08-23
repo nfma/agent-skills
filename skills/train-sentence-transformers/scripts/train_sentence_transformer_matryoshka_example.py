@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from trackio_dashboard import log_trackio_dashboard
 import os
 from contextlib import nullcontext
 
@@ -53,20 +54,6 @@ def autocast_ctx():
         return nullcontext()
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     return torch.autocast("cuda", dtype=dtype)
-
-
-def log_trackio_dashboard():
-    """Surface the Trackio dashboard URL so the user can watch training live."""
-    try:
-        from huggingface_hub import whoami
-
-        hf_user = whoami().get("name")
-        if hf_user:
-            logging.info(
-                f"Trackio dashboard (live training progress): https://huggingface.co/spaces/{hf_user}/trackio"
-            )
-    except Exception:
-        logging.debug("Trackio dashboard URL unavailable")
 
 
 MODEL_NAME = "microsoft/mpnet-base"

@@ -31,6 +31,28 @@ class PythonScriptTests(unittest.TestCase):
                 ]
                 self.assertEqual(silent_handlers, [])
 
+    def test_training_examples_share_trackio_dashboard_helper(self) -> None:
+        scripts_dir = SKILLS_ROOT / "train-sentence-transformers" / "scripts"
+        examples = sorted(scripts_dir.glob("train_*_example.py"))
+
+        self.assertEqual(len(examples), 12)
+        for script in examples:
+            with self.subTest(script=script.name):
+                tree = ast.parse(script.read_text(encoding="utf-8"), filename=str(script))
+                imports_helper = any(
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "trackio_dashboard"
+                    and any(alias.name == "log_trackio_dashboard" for alias in node.names)
+                    for node in tree.body
+                )
+                defines_helper = any(
+                    isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "log_trackio_dashboard"
+                    for node in tree.body
+                )
+
+                self.assertTrue(imports_helper)
+                self.assertFalse(defines_helper)
+
 
 if __name__ == "__main__":
     unittest.main()

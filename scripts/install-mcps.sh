@@ -15,8 +15,22 @@ install_home=${MCP_INSTALL_HOME:-"${HOME:-}"}
 security_bin=${MCP_SECURITY_BIN:-/usr/bin/security}
 node_check_bin=${MCP_NODE_CHECK_BIN:-"$wrapper_root/nvm-default-exec"}
 codex_config_updater="$repo_root/scripts/update-codex-mcp-config.cjs"
+discord_profile_bin=${MCP_DISCORD_PROFILE_BIN:-"$install_home/.local/bin/npx"}
+launchctl_bin=${MCP_LAUNCHCTL_BIN:-/bin/launchctl}
+uname_bin=${MCP_UNAME_BIN:-/usr/bin/uname}
+id_bin=${MCP_ID_BIN:-/usr/bin/id}
+stat_bin=${MCP_STAT_BIN:-/usr/bin/stat}
+plutil_bin=${MCP_PLUTIL_BIN:-/usr/bin/plutil}
+wake_relay_label=com.nfma.discord-wake-relay
+wake_relay_launcher_source="$wrapper_root/discord-wake-relay"
+wake_relay_check_bin=${MCP_WAKE_RELAY_CHECK_BIN:-"$wake_relay_launcher_source"}
+wake_relay_runtime="$repo_root/skills/discord-agent-coordination/scripts/discord_wake_relay.py"
+wake_relay_plist_template="$repo_root/mcp/launchd/$wake_relay_label.plist.template"
 
 dry_run=0
+setup_discord=0
+setup_wake_relay=0
+uninstall_wake_relay=0
 selected_harnesses=0
 install_codex=0
 install_claude=0
@@ -28,10 +42,20 @@ claude_config_snapshotted=0
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/install-mcps.sh [--dry-run] [--harness NAME]...
+Usage: ./scripts/install-mcps.sh [--dry-run] [--setup-discord]
+       [--setup-wake-relay | --uninstall-wake-relay]
+       [--harness NAME]...
 
 Install the repository's credential-free MCP baseline into every detected
 harness. NAME may be codex, claude, cursor, antigravity, or all.
+
+--setup-discord creates the non-secret agent-coordination profile from the
+Discord bot token stored in macOS Keychain.
+
+--setup-wake-relay installs and starts the optional user LaunchAgent. Run the
+Discord profile setup first. --uninstall-wake-relay stops and removes only the
+relay-owned LaunchAgent plist and launcher link; relay state is preserved.
+
 EOF
 }
 
@@ -74,10 +98,29 @@ select_harness() {
   esac
 }
 
+harness_install_selected() {
+  [ "$install_codex" -eq 1 ] \
+    || [ "$install_claude" -eq 1 ] \
+    || [ "$install_cursor" -eq 1 ] \
+    || [ "$install_antigravity" -eq 1 ]
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run)
       dry_run=1
+      shift
+      ;;
+    --setup-discord)
+      setup_discord=1
+      shift
+      ;;
+    --setup-wake-relay)
+      setup_wake_relay=1
+      shift
+      ;;
+    --uninstall-wake-relay)
+      uninstall_wake_relay=1
       shift
       ;;
     --harness)
@@ -97,18 +140,42 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-if [ "$selected_harnesses" -eq 0 ]; then
+if [ "$setup_wake_relay" -eq 1 ] && [ "$uninstall_wake_relay" -eq 1 ]; then
+  die '--setup-wake-relay and --uninstall-wake-relay are mutually exclusive'
+fi
+if [ "$setup_wake_relay" -eq 1 ] && [ "$setup_discord" -eq 1 ]; then
+  die '--setup-wake-relay requires an existing profile; run --setup-discord separately first'
+fi
+if [ "$uninstall_wake_relay" -eq 1 ] \
+  && { [ "$setup_discord" -eq 1 ] || [ "$selected_harnesses" -eq 1 ]; }; then
+  die '--uninstall-wake-relay cannot be combined with setup or harness installation'
+fi
+
+if [ "$selected_harnesses" -eq 0 ] \
+  && [ "$setup_wake_relay" -eq 0 ] \
+  && [ "$uninstall_wake_relay" -eq 0 ]; then
   select_harness all
 fi
 
 [ -n "$install_home" ] || die 'installation home is unavailable'
-[[ "$install_home" = /* && "$install_home" != / ]] \
-  || die 'installation home must be an absolute path other than /'
+case "$install_home" in
+  /*) [ "$install_home" != / ] || die 'installation home must be an absolute path other than /' ;;
+  *) die 'installation home must be an absolute path other than /' ;;
+esac
 [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
 [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
 [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
 [ -r "$codex_config_updater" ] \
   || die "Codex config updater is unavailable at $codex_config_updater"
+case "$install_home" in
+  *[[:cntrl:]]*) die 'installation home must not contain control characters' ;;
+esac
+
+wake_relay_launcher="$install_home/.local/bin/discord-wake-relay"
+wake_relay_launch_agents="$install_home/Library/LaunchAgents"
+wake_relay_plist="$wake_relay_launch_agents/$wake_relay_label.plist"
+wake_relay_domain=
+wake_relay_service_target=
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command is unavailable: $1"
@@ -119,6 +186,24 @@ keychain_item_available() {
   keychain_value=$("$security_bin" find-generic-password \
     "$@" -w 2>/dev/null) || return 1
   [ -n "$keychain_value" ]
+}
+
+validate_node_runtime() {
+  local node_version
+  local node_major
+  local node_minor
+
+  node_version=$("$node_check_bin" node --version 2>/dev/null) \
+    || die 'the NVM default Node runtime is unavailable'
+  if [[ ! "$node_version" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    die "cannot parse the NVM default Node version: $node_version"
+  fi
+  node_major=${BASH_REMATCH[1]}
+  node_minor=${BASH_REMATCH[2]}
+  if [ "$node_major" -lt 22 ] \
+    || { [ "$node_major" -eq 22 ] && [ "$node_minor" -lt 12 ]; }; then
+    die "@discord-mcp/cli@0.23.0 requires Node 22.12 or newer; the NVM default reports $node_version. Set a supported NVM default and rerun."
+  fi
 }
 
 validate_harness_fragment() {
@@ -161,6 +246,9 @@ validate_harness_fragment() {
 }
 
 preflight() {
+  [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
+  [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
+  [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
   require_command jq
   require_command git
 
@@ -186,14 +274,15 @@ preflight() {
   jq -e '.mcpServers | type == "object"' "$repo_root/mcp/antigravity/mcp_config.json" >/dev/null \
     || die 'Antigravity MCP config is invalid'
 
-  "$node_check_bin" node --version >/dev/null 2>&1 \
-    || die 'the NVM default Node runtime is unavailable'
+  validate_node_runtime
 
   if [ "$install_codex" -eq 1 ] || [ "$install_claude" -eq 1 ] \
     || [ "$install_cursor" -eq 1 ] || [ "$install_antigravity" -eq 1 ]; then
     account_name=${USER:-$(/usr/bin/id -un)}
     keychain_item_available -s HF_TOKEN -a "$account_name" \
       || die "Keychain item HF_TOKEN is missing for $account_name"
+    keychain_item_available -s DISCORD_MCP_TOKEN -a "$account_name" \
+      || die "Keychain item DISCORD_MCP_TOKEN is missing for $account_name"
     keychain_item_available -l GITHUB_MCP_PAT \
       || die 'Keychain item labeled GITHUB_MCP_PAT is missing'
     command -v github-mcp-server >/dev/null 2>&1 \
@@ -204,6 +293,333 @@ preflight() {
       || die 'Serena config is unavailable at ~/.serena/serena_config.yml'
     [ -x "$install_home/.local/share/uv/tools/serena-agent/bin/serena" ] \
       || die 'the Serena uv tool is unavailable'
+  fi
+}
+
+preflight_wake_relay_platform() {
+  [ -x "$launchctl_bin" ] || die "launchctl is unavailable at $launchctl_bin"
+  [ -x "$uname_bin" ] || die "uname is unavailable at $uname_bin"
+  [ -x "$id_bin" ] || die "id is unavailable at $id_bin"
+  [ -x "$stat_bin" ] || die "stat is unavailable at $stat_bin"
+  [ "$($uname_bin -s 2>/dev/null)" = Darwin ] \
+    || die 'the Discord wake relay LaunchAgent is supported only on macOS'
+
+  wake_relay_uid=$($id_bin -u 2>/dev/null) \
+    || die 'cannot determine the current user ID'
+  [[ "$wake_relay_uid" =~ ^[0-9]+$ ]] && [ "$wake_relay_uid" -gt 0 ] \
+    || die 'the Discord wake relay must be installed by a non-root user'
+  wake_relay_domain="gui/$wake_relay_uid"
+  wake_relay_service_target="$wake_relay_domain/$wake_relay_label"
+}
+
+validate_wake_relay_profile() {
+  local discord_token
+  local discord_package
+
+  discord_token=$("$security_bin" find-generic-password \
+    -s DISCORD_MCP_TOKEN -a "${USER:-$($id_bin -un)}" -w 2>/dev/null) \
+    || discord_token=
+  [ -n "$discord_token" ] \
+    || die 'Keychain item DISCORD_MCP_TOKEN is missing for the current user'
+  discord_package=$(package_pin discord)
+  if ! DISCORD_TOKEN="$discord_token" \
+    MCP_CATEGORIES=messages,threads,channels \
+    MCP_TOOL_SURFACE=progressive \
+    "$discord_profile_bin" -y "$discord_package" \
+    profile show agent-coordination --json >/dev/null 2>&1; then
+    unset discord_token
+    die 'Discord MCP profile agent-coordination is missing; run --setup-discord first'
+  fi
+  unset discord_token
+}
+
+preflight_wake_relay_setup() {
+  preflight_wake_relay_platform
+  if [ -e "$wake_relay_launcher" ] || [ -L "$wake_relay_launcher" ]; then
+    wake_relay_launcher_owned \
+      || die "refusing to replace an unrecognized wake relay launcher: $wake_relay_launcher"
+  fi
+  [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
+  [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
+  [ -x "$discord_profile_bin" ] \
+    || die "Discord MCP profile command is unavailable at $discord_profile_bin"
+  if [ -z "${MCP_DISCORD_PROFILE_BIN:-}" ]; then
+    [ -L "$discord_profile_bin" ] \
+      && [ "$(readlink "$discord_profile_bin")" = "$wrapper_root/npx" ] \
+      || die 'the installed npx wrapper is missing or does not point to this repository'
+  fi
+  [ -x "$plutil_bin" ] || die "plutil is unavailable at $plutil_bin"
+  [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
+  [ -x "$wake_relay_launcher_source" ] \
+    || die "wake relay launcher is unavailable at $wake_relay_launcher_source"
+  [ -x "$wake_relay_check_bin" ] \
+    || die "wake relay launcher check is unavailable at $wake_relay_check_bin"
+  [ -x "$wake_relay_runtime" ] \
+    || die "wake relay runtime is unavailable at $wake_relay_runtime"
+  [ -r "$wake_relay_plist_template" ] \
+    || die "wake relay LaunchAgent template is unavailable at $wake_relay_plist_template"
+  require_command jq
+  require_command sed
+  validate_node_runtime
+  "$plutil_bin" -lint "$wake_relay_plist_template" >/dev/null \
+    || die 'wake relay LaunchAgent template is invalid'
+  if [ -e "$wake_relay_plist" ] || [ -L "$wake_relay_plist" ]; then
+    wake_relay_plist_owned \
+      || die "refusing to replace an unrecognized LaunchAgent plist: $wake_relay_plist"
+  fi
+
+  wake_relay_traycer="$install_home/.local/bin/traycer"
+  wake_relay_mcp_wrapper="$install_home/.local/bin/discord-mcp-keychain"
+  [ -x "$wake_relay_traycer" ] \
+    || die "Traycer CLI is unavailable at $wake_relay_traycer"
+  [ -L "$wake_relay_mcp_wrapper" ] \
+    && [ "$(readlink "$wake_relay_mcp_wrapper")" = "$wrapper_root/discord-mcp-keychain" ] \
+    || die 'the installed Discord MCP wrapper is missing or does not point to this repository'
+  HOME="$install_home" "$wake_relay_check_bin" check >/dev/null \
+    || die 'wake relay launcher validation failed'
+  validate_wake_relay_profile
+}
+
+wake_relay_loaded() {
+  "$launchctl_bin" print "$wake_relay_service_target" >/dev/null 2>&1
+}
+
+wake_relay_loaded_definition_current() {
+  local definition
+
+  definition=$("$launchctl_bin" print "$wake_relay_service_target" 2>/dev/null) \
+    || return 1
+  [[ "$definition" == *"path = $wake_relay_plist"* ]] || return 1
+  [[ "$definition" == *"program = $wake_relay_launcher"* ]] || return 1
+  [[ "$definition" == *'stdout path = /dev/null'* ]] || return 1
+  [[ "$definition" == *'stderr path = /dev/null'* ]]
+}
+
+wake_relay_launcher_owned() {
+  local owner
+
+  [ -L "$wake_relay_launcher" ] \
+    && [ "$(readlink "$wake_relay_launcher")" = "$wake_relay_launcher_source" ] \
+    || return 1
+  owner=$("$stat_bin" -f %u "$wake_relay_launcher") || return 1
+  [ "$owner" = "$wake_relay_uid" ]
+}
+
+ensure_wake_relay_directory() {
+  local directory=$1
+  local label=$2
+  local owner
+  local mode
+
+  if [ -e "$directory" ] || [ -L "$directory" ]; then
+    [ ! -L "$directory" ] && [ -d "$directory" ] \
+      || die "$label is not a real directory: $directory"
+    owner=$("$stat_bin" -f %u "$directory") \
+      || die "cannot inspect $label ownership: $directory"
+    [ "$owner" = "$wake_relay_uid" ] \
+      || die "$label is not owned by the current user: $directory"
+    mode=$("$stat_bin" -f %Lp "$directory") \
+      || die "cannot inspect $label permissions: $directory"
+    (((8#$mode & 0022) == 0)) \
+      || die "$label is group- or other-writable: $directory"
+    return 0
+  fi
+  if [ "$dry_run" -eq 1 ]; then
+    note "Would create $label: $directory"
+    return 0
+  fi
+  /bin/mkdir -p "$directory"
+  /bin/chmod 700 "$directory"
+}
+
+escape_plist_replacement() {
+  printf '%s' "$1" \
+    | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+    | sed -e 's/[\\&|]/\\&/g'
+}
+
+render_wake_relay_plist() {
+  local launcher_value
+
+  launcher_value=$(escape_plist_replacement "$wake_relay_launcher")
+  sed \
+    -e "s|__WAKE_RELAY_LAUNCHER__|$launcher_value|g" \
+    "$wake_relay_plist_template"
+}
+
+wake_relay_plist_owned() {
+  local owner
+  local mode
+
+  [ ! -L "$wake_relay_plist" ] \
+    && [ -f "$wake_relay_plist" ] \
+    && grep -F "<string>$wake_relay_label</string>" "$wake_relay_plist" >/dev/null \
+    || return 1
+  owner=$("$stat_bin" -f %u "$wake_relay_plist") || return 1
+  [ "$owner" = "$wake_relay_uid" ] || return 1
+  mode=$("$stat_bin" -f %Lp "$wake_relay_plist") || return 1
+  (((8#$mode & 0022) == 0))
+}
+
+stage_wake_relay_plist() {
+  local temporary_plist
+  wake_relay_plist_changed=1
+  wake_relay_temporary_plist=
+
+  if [ -e "$wake_relay_plist" ] || [ -L "$wake_relay_plist" ]; then
+    wake_relay_plist_owned \
+      || die "refusing to replace an unrecognized LaunchAgent plist: $wake_relay_plist"
+  fi
+  if [ "$dry_run" -eq 1 ]; then
+    if [ -f "$wake_relay_plist" ] \
+      && render_wake_relay_plist | /usr/bin/cmp -s "$wake_relay_plist" -; then
+      wake_relay_plist_changed=0
+      note "Wake relay LaunchAgent plist is current: $wake_relay_plist"
+    else
+      note "Would reconcile wake relay LaunchAgent plist: $wake_relay_plist"
+    fi
+    return 0
+  fi
+
+  temporary_plist=$(mktemp "$wake_relay_plist.tmp.XXXXXX") \
+    || die 'cannot create a temporary wake relay LaunchAgent plist'
+  if ! render_wake_relay_plist >"$temporary_plist" \
+    || ! "$plutil_bin" -lint "$temporary_plist" >/dev/null; then
+    /bin/rm -f "$temporary_plist"
+    die 'cannot render a valid wake relay LaunchAgent plist'
+  fi
+  /bin/chmod 600 "$temporary_plist"
+  if [ -f "$wake_relay_plist" ] \
+    && /usr/bin/cmp -s "$wake_relay_plist" "$temporary_plist"; then
+    /bin/rm -f "$temporary_plist"
+    wake_relay_plist_changed=0
+    note "Wake relay LaunchAgent plist is current: $wake_relay_plist"
+    return 0
+  fi
+  wake_relay_temporary_plist=$temporary_plist
+}
+
+install_staged_wake_relay_plist() {
+  [ "$wake_relay_plist_changed" -eq 1 ] || return 0
+  if ! /bin/mv "$wake_relay_temporary_plist" "$wake_relay_plist"; then
+    /bin/rm -f "$wake_relay_temporary_plist"
+    wake_relay_temporary_plist=
+    die 'cannot install the wake relay LaunchAgent plist'
+  fi
+  wake_relay_temporary_plist=
+  note "Installed wake relay LaunchAgent plist: $wake_relay_plist"
+}
+
+discard_staged_wake_relay_plist() {
+  [ -n "$wake_relay_temporary_plist" ] || return 0
+  /bin/rm -f "$wake_relay_temporary_plist"
+  wake_relay_temporary_plist=
+}
+
+setup_wake_relay_service() {
+  local was_loaded=0
+  local loaded_definition_current=0
+
+  preflight_wake_relay_setup
+  wake_relay_loaded && was_loaded=1
+  if [ "$was_loaded" -eq 1 ] && wake_relay_loaded_definition_current; then
+    loaded_definition_current=1
+  fi
+  link_tracked_file \
+    "$wake_relay_launcher_source" \
+    "$wake_relay_launcher" \
+    local-bin-discord-wake-relay
+  ensure_wake_relay_directory "$wake_relay_launch_agents" 'LaunchAgents directory'
+  stage_wake_relay_plist
+
+  if [ "$dry_run" -eq 1 ]; then
+    if [ "$was_loaded" -eq 1 ] \
+      && { [ "$wake_relay_plist_changed" -eq 1 ] \
+        || [ "$loaded_definition_current" -eq 0 ]; }; then
+      note "Would reload wake relay service: $wake_relay_service_target"
+      quote_command "$launchctl_bin" bootout "$wake_relay_service_target"
+      quote_command "$launchctl_bin" bootstrap "$wake_relay_domain" "$wake_relay_plist"
+    elif [ "$was_loaded" -eq 1 ]; then
+      note "Would restart wake relay service: $wake_relay_service_target"
+      quote_command "$launchctl_bin" kickstart -k "$wake_relay_service_target"
+    else
+      note "Would bootstrap wake relay service in $wake_relay_domain"
+      quote_command "$launchctl_bin" bootstrap "$wake_relay_domain" "$wake_relay_plist"
+    fi
+    note 'Wake relay setup dry run complete; no files or services were changed.'
+    return 0
+  fi
+
+  if [ "$was_loaded" -eq 1 ] \
+    && { [ "$wake_relay_plist_changed" -eq 1 ] \
+      || [ "$loaded_definition_current" -eq 0 ]; }; then
+    if ! "$launchctl_bin" bootout "$wake_relay_service_target" >/dev/null 2>&1; then
+      discard_staged_wake_relay_plist
+      die "cannot boot out wake relay service: $wake_relay_service_target"
+    fi
+    install_staged_wake_relay_plist
+    "$launchctl_bin" bootstrap "$wake_relay_domain" "$wake_relay_plist" >/dev/null 2>&1 \
+      || die "cannot bootstrap wake relay service in $wake_relay_domain"
+  elif [ "$was_loaded" -eq 1 ]; then
+    "$launchctl_bin" kickstart -k "$wake_relay_service_target" >/dev/null 2>&1 \
+      || die "cannot kickstart wake relay service: $wake_relay_service_target"
+  else
+    install_staged_wake_relay_plist
+    "$launchctl_bin" bootstrap "$wake_relay_domain" "$wake_relay_plist" >/dev/null 2>&1 \
+      || die "cannot bootstrap wake relay service in $wake_relay_domain"
+  fi
+  if ! wake_relay_loaded || ! wake_relay_loaded_definition_current; then
+    die "wake relay service did not load the expected definition: $wake_relay_service_target"
+  fi
+  note "Wake relay service is ready: $wake_relay_service_target"
+}
+
+uninstall_wake_relay_service() {
+  local was_loaded=0
+
+  preflight_wake_relay_platform
+  if [ -e "$wake_relay_plist" ] || [ -L "$wake_relay_plist" ]; then
+    wake_relay_plist_owned \
+      || die "refusing to remove an unrecognized LaunchAgent plist: $wake_relay_plist"
+  fi
+  wake_relay_loaded && was_loaded=1
+
+  if [ "$was_loaded" -eq 1 ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      note "Would stop wake relay service: $wake_relay_service_target"
+      quote_command "$launchctl_bin" bootout "$wake_relay_service_target"
+    else
+      "$launchctl_bin" bootout "$wake_relay_service_target" >/dev/null 2>&1 \
+        || die "cannot boot out wake relay service: $wake_relay_service_target"
+    fi
+  else
+    note "Wake relay service is not loaded: $wake_relay_service_target"
+  fi
+
+  if [ -f "$wake_relay_plist" ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      note "Would remove wake relay LaunchAgent plist: $wake_relay_plist"
+    else
+      /bin/rm -f "$wake_relay_plist"
+      note "Removed wake relay LaunchAgent plist: $wake_relay_plist"
+    fi
+  fi
+  if [ -L "$wake_relay_launcher" ] \
+    && [ "$(readlink "$wake_relay_launcher")" = "$wake_relay_launcher_source" ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      note "Would remove wake relay launcher link: $wake_relay_launcher"
+    else
+      /bin/rm -f "$wake_relay_launcher"
+      note "Removed wake relay launcher link: $wake_relay_launcher"
+    fi
+  elif [ -e "$wake_relay_launcher" ] || [ -L "$wake_relay_launcher" ]; then
+    note "Preserved unrecognized launcher path: $wake_relay_launcher"
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    note 'Wake relay uninstall dry run complete; no files or services were changed.'
+  else
+    note 'Wake relay service uninstalled; relay state, legacy logs, and Discord data were preserved.'
   fi
 }
 
@@ -283,12 +699,19 @@ install_wrappers() {
     hf-mcp-remote \
     serena-mcp \
     github-mcp-keychain \
+    discord-mcp-keychain \
     guardian-mcp; do
     link_tracked_file \
       "$wrapper_root/$wrapper_name" \
       "$install_home/.local/bin/$wrapper_name" \
       "local-bin-$wrapper_name"
   done
+}
+
+setup_discord_profile() {
+  [ "$setup_discord" -eq 1 ] || return 0
+  note 'Ensuring the non-secret Discord MCP profile is configured'
+  run_command "$install_home/.local/bin/discord-mcp-keychain" setup
 }
 
 ensure_codex_marketplace() {
@@ -653,13 +1076,16 @@ verify_version_pins() {
     || die 'Chrome DevTools Vivaldi wrapper is out of sync with the manifest'
   grep -F -- "$(package_pin hf-bridge)" "$wrapper_root/hf-mcp-filter.js" >/dev/null \
     || die 'Hugging Face bridge filter is out of sync with the manifest'
+  grep -F -- "$(package_pin discord)" "$wrapper_root/discord-mcp-keychain" >/dev/null \
+    || die 'Discord MCP wrapper is out of sync with the manifest'
 }
 
 verify_links() {
   for wrapper_name in \
     aikido-mcp-isolated-home.cjs chrome-devtools-vivaldi \
     nvm-default-exec npx hf-mcp-filter.js \
-    hf-mcp-remote serena-mcp github-mcp-keychain guardian-mcp; do
+    hf-mcp-remote serena-mcp github-mcp-keychain discord-mcp-keychain \
+    guardian-mcp; do
     target_file="$install_home/.local/bin/$wrapper_name"
     [ -L "$target_file" ] || die "wrapper is not linked: $target_file"
     [ "$(readlink "$target_file")" = "$wrapper_root/$wrapper_name" ] \
@@ -721,24 +1147,33 @@ verify_installed_state() {
   fi
 }
 
-preflight
-install_wrappers
-install_native_plugins
+if harness_install_selected; then
+  preflight
+  install_wrappers
+  setup_discord_profile
+  install_native_plugins
 
-if [ "$install_codex" -eq 1 ]; then
-  install_fragment_mcps codex "$codex_fragment"
+  if [ "$install_codex" -eq 1 ]; then
+    install_fragment_mcps codex "$codex_fragment"
+  fi
+  if [ "$install_claude" -eq 1 ]; then
+    install_fragment_mcps claude "$claude_fragment"
+  fi
+
+  install_dedicated_configs
+  verify_installed_state
+
+  if [ "$dry_run" -eq 1 ]; then
+    note 'Dry run complete; no files or harness settings were changed.'
+  elif [ -n "$backup_dir" ]; then
+    note "MCP installation complete. Backups: $backup_dir"
+  else
+    note 'MCP installation complete; no changes were necessary.'
+  fi
 fi
-if [ "$install_claude" -eq 1 ]; then
-  install_fragment_mcps claude "$claude_fragment"
-fi
 
-install_dedicated_configs
-verify_installed_state
-
-if [ "$dry_run" -eq 1 ]; then
-  note 'Dry run complete; no files or harness settings were changed.'
-elif [ -n "$backup_dir" ]; then
-  note "MCP installation complete. Backups: $backup_dir"
-else
-  note 'MCP installation complete; no changes were necessary.'
+if [ "$setup_wake_relay" -eq 1 ]; then
+  setup_wake_relay_service
+elif [ "$uninstall_wake_relay" -eq 1 ]; then
+  uninstall_wake_relay_service
 fi

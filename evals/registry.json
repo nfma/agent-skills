@@ -18,6 +18,13 @@
       "suite": "evals/coding-preferences/suite.json"
     },
     {
+      "name": "discord-agent-coordination",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/discord-agent-coordination/suite.json"
+    },
+    {
       "name": "create-agent-skill",
       "source": "first-party",
       "risk": "high",

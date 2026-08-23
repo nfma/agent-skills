@@ -38,6 +38,11 @@
       "overridesPlugin": true,
       "startupTimeoutSec": 20
     },
+    "discord": {
+      "type": "stdio",
+      "localCommand": "discord-mcp-keychain",
+      "args": []
+    },
     "excalidraw": {
       "type": "stdio",
       "localCommand": "npx",

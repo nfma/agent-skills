@@ -3,10 +3,14 @@ from __future__ import annotations
 import importlib.util
 import json
 import stat
+import subprocess  # nosec B404
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import ModuleType
+
+import yaml
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 HELPER = REPOSITORY_ROOT / "skills/discord-agent-coordination/scripts/discord_coordination.py"
@@ -165,11 +169,111 @@ class DiscordCoordinationTests(unittest.TestCase):
             self.assertFalse((state_directory / "state.json").exists())
 
 
+class DiscordSendWorkflowTests(unittest.TestCase):
+    helper: ModuleType
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.helper = load_helper()
+
+    @staticmethod
+    def render(
+        *,
+        body: str = "notion-sync: current",
+        kind: str = "status",
+        message_id: str = MESSAGE_ID,
+        sender: str = "epic/759f/role/primary/agent-abc",
+        task: str = "TASK-60",
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # nosec B603
+            [
+                sys.executable,
+                str(HELPER),
+                "render",
+                "--id",
+                message_id,
+                "--kind",
+                kind,
+                "--from",
+                sender,
+                "--to",
+                "epic/759f",
+                "--task",
+                task,
+                "--needs",
+                "none",
+                "--body",
+                body,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_successful_render_emits_only_validated_stdout(self) -> None:
+        rendered = self.render()
+
+        self.assertEqual(rendered.returncode, 0)
+        self.assertEqual(rendered.stderr, "")
+        self.assertTrue(rendered.stdout.endswith("\n"))
+        message = rendered.stdout.removesuffix("\n")
+        validated = subprocess.run(  # nosec B603
+            [sys.executable, str(HELPER), "validate"],
+            input=message,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(validated.returncode, 0)
+        self.assertEqual(validated.stderr, "")
+        self.assertEqual(json.loads(validated.stdout)["task"], "TASK-60")
+
+    def test_maximal_render_strips_only_the_renderer_newline_before_validation(self) -> None:
+        baseline = self.render(body="x")
+        self.assertEqual(baseline.returncode, 0)
+        baseline_message = baseline.stdout.removesuffix("\n")
+        maximal_body = "x" * (self.helper.DISCORD_MESSAGE_LIMIT - len(baseline_message) + 1)
+
+        rendered = self.render(body=maximal_body)
+        self.assertEqual(rendered.returncode, 0)
+        self.assertEqual(len(rendered.stdout), self.helper.DISCORD_MESSAGE_LIMIT + 1)
+        message = rendered.stdout.removesuffix("\n")
+        validated = subprocess.run(  # nosec B603
+            [sys.executable, str(HELPER), "validate"],
+            input=message,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(len(message), self.helper.DISCORD_MESSAGE_LIMIT)
+        self.assertEqual(validated.returncode, 0)
+        self.assertEqual(validated.stderr, "")
+
+    def test_failed_renders_emit_no_sendable_stdout(self) -> None:
+        failure_cases = {
+            "invalid task reference": {"task": "TASK-60 artifacts/local-only-reference"},
+            "invalid kind": {"kind": "command"},
+            "invalid sender": {"sender": "epic/759f"},
+            "invalid UUID": {"message_id": "not-a-uuid"},
+            "empty body": {"body": ""},
+            "oversized body": {"body": "x" * 2_000},
+        }
+
+        for label, arguments in failure_cases.items():
+            with self.subTest(label=label):
+                rendered = self.render(**arguments)
+                self.assertNotEqual(rendered.returncode, 0)
+                self.assertEqual(rendered.stdout, "")
+                self.assertTrue(rendered.stderr)
+
+
 class WakeRelayDocumentationTests(unittest.TestCase):
     skill: str
     openai: str
     protocol: str
     wake_relay: str
+    openai_prompt: str
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -177,6 +281,11 @@ class WakeRelayDocumentationTests(unittest.TestCase):
         cls.openai = OPENAI_PATH.read_text(encoding="utf-8")
         cls.protocol = PROTOCOL_PATH.read_text(encoding="utf-8")
         cls.wake_relay = WAKE_RELAY_PATH.read_text(encoding="utf-8")
+        openai_config = yaml.safe_load(cls.openai)
+        openai_prompt = openai_config["interface"]["default_prompt"]
+        if not isinstance(openai_prompt, str):
+            raise TypeError("Discord coordination default prompt must be a string")
+        cls.openai_prompt = openai_prompt
 
     def test_skill_routes_optional_wake_relay_without_weakening_authority(self) -> None:
         skill = " ".join(self.skill.split())
@@ -247,6 +356,20 @@ class WakeRelayDocumentationTests(unittest.TestCase):
         combined = "\n".join((self.skill, self.protocol, self.wake_relay)).lower()
         self.assertNotIn("without a wake relay", combined)
         self.assertNotIn("no wake relay", combined)
+
+    def test_send_workflow_is_fail_closed_at_the_mcp_boundary(self) -> None:
+        skill = " ".join(self.skill.split())
+        protocol = " ".join(self.protocol.split())
+        openai_prompt = " ".join(self.openai_prompt.split())
+
+        self.assertIn("validated message text after a zero exit code", skill)
+        self.assertIn("do not call any Discord operation that creates a message", protocol)
+        self.assertIn("remove exactly one final newline only when the captured stdout ends with one", protocol)
+        self.assertIn("otherwise use the captured stdout unchanged", protocol)
+        self.assertIn("Run `discord_coordination.py validate` against that exact message text", protocol)
+        self.assertIn("`messages_send`, `channels_forum_create_thread`", protocol)
+        self.assertIn("Never send that field", protocol)
+        self.assertIn("validated message text after a zero exit code", openai_prompt)
 
 
 if __name__ == "__main__":

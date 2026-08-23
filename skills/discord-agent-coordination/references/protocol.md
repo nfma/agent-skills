@@ -46,6 +46,25 @@ Discord communicates context; it does not change task state. For lifecycle messa
 first. If the sync did not succeed, say `notion-sync: pending` in the body, name the proposed transition, and do not
 describe it as current. Retry before any later lifecycle announcement.
 
+### Fail-closed send boundary
+
+Treat renderer execution as a subprocess boundary, not as message content:
+
+1. Run `discord_coordination.py render` and retain its exit code, stdout, and stderr separately.
+2. If the exit code is not zero, discard all captured output and do not call any Discord operation that creates a
+   message.
+3. After a zero exit code, remove exactly one final newline only when the captured stdout ends with one; otherwise use
+   the captured stdout unchanged. Never remove any other character or use a general whitespace-trimming operation.
+   Require the resulting message text to be non-empty.
+4. Run `discord_coordination.py validate` against that exact message text. If validation does not exit zero, discard
+   the render and do not call any Discord operation that creates a message.
+5. Pass only the validated message text, without stderr or wrapper diagnostics, as the message content for
+   `messages_send`, `channels_forum_create_thread`, or any other Discord operation that creates a message.
+
+Some execution tools expose a combined output field containing both stdout and stderr. Never send that field. Check
+the renderer exit code first and use only its validated message text; on any ambiguity, fail closed and report the
+error locally.
+
 ## Delivery and cursor state
 
 At turn start, list messages newer than the stored cursor in the owned role inbox and process them oldest-first.
@@ -71,4 +90,6 @@ and validate the inbox independently and sync Notion before claiming a lifecycle
 - Duplicate or mismatched thread: stop routing to that address.
 - Discord unavailable or rate-limited: retain the cursor, continue safe local work, and report coordination as pending.
 - Malformed or oversized envelope: reject it before sending or processing.
+- Renderer or validation failure: discard stdout and stderr and do not call any Discord operation that creates a
+  message.
 - Notion sync unavailable: retain the last authoritative state, mark `notion-sync: pending`, and retry.

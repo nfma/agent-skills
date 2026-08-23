@@ -105,6 +105,16 @@ Cancellation tokens are cooperative. A future can still be dropped or aborted
 without observing its token, so token handling does not replace local
 cancellation safety.
 
+Analyze caller-driven cancellation separately from an error produced inside
+the operation. When composed futures are owned by the returned future, dropping
+that outer future drops the local future graph and its accumulator, so those
+futures cease being polled. This abandons their Rust-side progress; it does not
+promise that a request already handed to an external system is halted or rolled
+back. When a fallible stream stops on an error, also define the fate of pending
+futures and any results accumulated before the error. A normal fail-fast
+collection discards that partial collection unless the API deliberately returns
+partial success.
+
 ## 5. Bound concurrency and queues
 
 Every source of concurrency or queuing needs a limit and overload policy:
@@ -210,7 +220,10 @@ nonblocking.
 - Avoid starting hidden background tasks from a constructor. If unavoidable,
   return an owner that exposes shutdown and task failure.
 - Document cancellation semantics, blocking behavior, ordering, concurrency,
-  queue bounds, and runtime requirements.
+  queue bounds, and runtime requirements in the public API's rustdoc. For a
+  collection-producing operation, also say whether an early error discards
+  completed items and what caller cancellation does to locally owned in-flight
+  futures.
 - Decide whether public trait futures must be `Send`. Multithreaded spawning
   commonly requires it; local executors may not.
 - Decide whether dynamic dispatch is required. Native async trait methods and

@@ -190,7 +190,11 @@ Do not apply `async-trait` or a boxed future automatically.
 - Use default `rustfmt` style unless the repository pins an alternative.
 - Document every public item that is not self-evident, emphasizing purpose and
   contracts rather than repeating the signature.
-- Include `# Errors`, `# Panics`, and `# Safety` sections when applicable.
+- On every public function returning `Result`, add a `# Errors` section that
+  connects inputs or runtime states to the error families callers can receive.
+  Documentation on the error type supplements this function-level contract; it
+  does not replace it.
+- Include `# Panics` and `# Safety` sections when applicable.
 - Explain cancellation, blocking, ordering, and resource-lifetime behavior for
   async APIs.
 - Keep examples copyable and use `?` for fallible flows. Under this project's

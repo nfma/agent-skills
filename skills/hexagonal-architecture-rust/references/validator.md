@@ -32,26 +32,57 @@ archives to the release workflow at the pinned commit and `refs/tags/v0.1.1`.
 ## Retrieve and verify
 
 Obtain approval before downloading or installing a binary. Select the archive
-for the current platform, download it and `SHA256SUMS` from the pinned release,
-then verify both checksum and provenance before extraction:
+for the current platform, download it from the pinned release, then bind it to
+the documented digest, release workflow, source commit, tag, and hosted runner
+before extraction:
 
 ```console
+set -eu
 version=v0.1.1
-artifact=hexagonal-architecture-validator-v0.1.1-aarch64-apple-darwin.tar.gz
+source_digest=7a625d7dc7491b63ac835719fee250759d4badae
+source_ref="refs/tags/$version"
+platform="$(uname -s)-$(uname -m)"
+case "$platform" in
+  Darwin-arm64)
+    artifact=hexagonal-architecture-validator-v0.1.1-aarch64-apple-darwin.tar.gz
+    expected_sha256=de1d0d3c879defa1c7aa5616c2999800461532d67f5eff50d5512d88f6b82731
+    ;;
+  Linux-x86_64)
+    artifact=hexagonal-architecture-validator-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
+    expected_sha256=4af9f7ad02d7ee521c4226b252acb178c3ac1f09a5c400f3f94d4b3ee64e2f4b
+    ;;
+  *)
+    printf 'Unsupported platform: %s\n' "$platform" >&2
+    exit 64
+    ;;
+esac
 base=https://github.com/nfma/hexagonal-architecture-validator
 base="$base/releases/download/$version"
+work_dir="$(mktemp -d)"
+trap 'rm -rf "$work_dir"' EXIT
+cd "$work_dir"
 curl --proto '=https' --tlsv1.2 -fLO "$base/$artifact"
-curl --proto '=https' --tlsv1.2 -fLO "$base/SHA256SUMS"
-grep "  $artifact\$" SHA256SUMS | shasum -a 256 -c -
+case "$platform" in
+  Darwin-arm64)
+    printf '%s  %s\n' "$expected_sha256" "$artifact" | shasum -a 256 -c -
+    ;;
+  Linux-x86_64)
+    printf '%s  %s\n' "$expected_sha256" "$artifact" | sha256sum -c -
+    ;;
+esac
 gh attestation verify "$artifact" \
-  --repo nfma/hexagonal-architecture-validator
+  --repo nfma/hexagonal-architecture-validator \
+  --signer-workflow nfma/hexagonal-architecture-validator/.github/workflows/release.yml \
+  --source-digest "$source_digest" \
+  --source-ref "$source_ref" \
+  --deny-self-hosted-runners
 tar -xzf "$artifact"
 ./hav --version
 ```
 
-On Linux, select the `x86_64-unknown-linux-gnu` archive and replace `shasum -a
-256` with `sha256sum`. Prefer a temporary or project-owned tool directory over
-a global installation.
+The command rejects unsupported platforms and uses a temporary directory. Move
+the verified binary into a project-owned tool directory only when the task
+requires repeated use; do not install it globally by default.
 
 ## Configure and run
 

@@ -19,7 +19,7 @@ evidence of declared boundaries, not proof of semantic correctness.
 
 ## Canonical rules and optional detail
 
-Read the `R1`–`R7` registry in [architecture
+Read the `R1`–`R8` registry in [architecture
 criteria](references/architecture-criteria.md) before changing or assessing
 durable software. Those handles are normative inside this bundle: references
 cite them instead of restating their rules. In user-facing results, cite a
@@ -34,7 +34,8 @@ Load other references only when needed:
 
 ## SR1 — Scope the boundary
 
-Apply `R1` before editing. Record only what the task needs:
+Apply `R1` before editing and `R8` to every code unit the task touches. Record
+only what the task needs:
 
 - the application or component forming the hexagon;
 - behavior inside it;

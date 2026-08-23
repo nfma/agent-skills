@@ -191,7 +191,7 @@
       "id": "pos-09",
       "kind": "positive",
       "class": "regression",
-      "prompt": "A previous refactor created interfaces for every helper. Identify needless abstractions while preserving the essential external boundaries.",
+      "prompt": "A previous refactor created interfaces for every helper and put unrelated code in misc, utils, and helpers. Identify needless abstractions and replace only touched catch-alls with purpose-and-scope names while preserving the essential external boundaries.",
       "fixture_root": null,
       "graders": [
         "native-trigger",

@@ -146,7 +146,7 @@ INLINE_SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Design test seams for a long-lived library that currently constructs its HTTP client inside business logic.",
             "The service handles commands, persistence, and serialization in one class. Propose a staged ports-and-adapters refactor scoped to the requested feature.",
             "Review a new repository adapter and verify that domain errors, transaction boundaries, and mappings remain outside the core model.",
-            "A previous refactor created interfaces for every helper. Identify needless abstractions while preserving the essential external boundaries.",
+            "A previous refactor created interfaces for every helper and put unrelated code in misc, utils, and helpers. Identify needless abstractions and replace only touched catch-alls with purpose-and-scope names while preserving the essential external boundaries.",
             "Extend a maintained daemon with a message-broker input while keeping the existing scheduled-job input and shared application use case.",
         ],
         "near_miss": [

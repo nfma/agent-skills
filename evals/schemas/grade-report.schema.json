@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/grade-report.schema.json",
+  "title": "Blind Agent Skill grade report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_sha256",
+    "run_manifest_sha256",
+    "key_sha256",
+    "arm_labels_anonymized",
+    "graded_after_both_arms",
+    "grades"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "plan_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "run_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "key_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "arm_labels_anonymized": { "const": true },
+    "graded_after_both_arms": { "const": true },
+    "grades": { "type": "array", "items": { "type": "object" } }
+  }
+}

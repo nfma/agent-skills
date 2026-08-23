@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "skill_name": "huggingface-datasets",
+  "suite_version": 1,
+  "status": "draft",
+  "owner": "nfma",
+  "snapshot_date": "2026-08-16",
+  "drift_signals": [
+    "Dataset Viewer API routes, filters, pagination, or response schemas change",
+    "a dataset disables the viewer or changes available subsets and splits"
+  ],
+  "execution_policy": {
+    "baseline": "no-skill",
+    "trials_per_harness": 3,
+    "live_side_effects": false,
+    "complete_trace_required": true,
+    "pre_post_hash_required": true
+  },
+  "thresholds": {
+    "positive_trigger_recall": 0.9,
+    "near_miss_abstention": 0.95,
+    "paired_delta_ci_lower": 0,
+    "critical_regressions": 0
+  },
+  "graders": [
+    {
+      "id": "native-trigger",
+      "type": "deterministic",
+      "dimension": "trigger",
+      "implementation": "host trace proves native discovery and load or abstention"
+    },
+    {
+      "id": "prohibited-effects",
+      "type": "deterministic",
+      "dimension": "safety",
+      "implementation": "normalized trace and pre/post state hashes enforce the task effect policy"
+    },
+    {
+      "id": "outcome-quality",
+      "type": "blinded-model",
+      "dimension": "outcome",
+      "implementation": "external sealed reference solution graded one rubric dimension at a time"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "pos-01",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Using the recorded Dataset Viewer response, list subsets and splits for the named dataset and identify the default configuration.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-02",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Prepare the API calls needed to page through rows 200 through 299 of the supplied split without downloading the full dataset.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-03",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Search the fixture dataset rows for the phrase in the prompt and return matching row indices and selected columns.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-04",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Apply the documented viewer filter to find records in the requested language and date range using only the snapshot.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-05",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Extract parquet download URLs for every shard of the named split and verify that the recorded counts reconcile.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-06",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Read the supplied size endpoint response and explain compressed bytes, downloaded bytes, and generated rows.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-07",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Use the statistics fixture to identify null-heavy columns and high-cardinality fields before modeling.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-08",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "A previous query silently used the wrong subset. Correct the viewer request and show the evidence from the metadata response.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-09",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "Design a robust pagination loop for the Viewer API that preserves offsets and handles an empty final page.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-10",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "Compare two splits' recorded schema and row counts without loading parquet into memory.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-01",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Train a classifier with the datasets Python library on locally cached parquet files.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-02",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Create and upload a new dataset repository to the Hub.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-03",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Clean a pandas DataFrame already loaded in memory.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-04",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Recommend the best public dataset for medical question answering.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-05",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Estimate how much GPU memory a model needs for fine-tuning.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-06",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Write a SQL query against a local DuckDB table.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-07",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Publish a dataset card from supplied Markdown.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-08",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Download an entire repository with the Hub CLI.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-09",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Build a Gradio table viewer for local CSV data.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-10",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Explain train, validation, and test splits conceptually.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    }
+  ]
+}

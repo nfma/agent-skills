@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Production Rust"
+  short_description: "Idiomatic, functional-first Rust for src/"
+  default_prompt: "Use $write-production-rust to implement idiomatic, functional-first Rust production code under src/."

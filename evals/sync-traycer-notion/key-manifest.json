@@ -1,55 +1,47 @@
 {
   "schema_version": 1,
   "skill_name": "sync-traycer-notion",
-  "suite_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
+  "suite_canonical_sha256": "374931227b623d72d1f5a4735a64e899e4fea0367515a98f71de562522ae287a",
   "key_sha256": "PENDING-COORDINATOR-SEAL",
   "cases": [
     {
-      "task_id": "first-turn-new-story",
+      "task_id": "pos-01",
       "criterion_count": 3
     },
     {
-      "task_id": "move-ticket-and-complete",
+      "task_id": "pos-02",
       "criterion_count": 3
     },
     {
-      "task_id": "board-status-pull",
+      "task_id": "pos-03",
       "criterion_count": 3
     },
     {
-      "task_id": "duplicate-identity-stop",
+      "task_id": "pos-04",
       "criterion_count": 3
     },
     {
-      "task_id": "first-turn-existing-epic",
+      "task_id": "pos-05",
       "criterion_count": 3
     },
     {
-      "task_id": "new-ticket-under-story",
+      "task_id": "pos-06",
       "criterion_count": 3
     },
     {
-      "task_id": "orphan-ticket-stop",
+      "task_id": "pos-07",
       "criterion_count": 3
     },
     {
-      "task_id": "cycle-parent-stop",
+      "task_id": "pos-08",
       "criterion_count": 3
     },
     {
-      "task_id": "explicit-status-push",
+      "task_id": "pos-09",
       "criterion_count": 3
     },
     {
-      "task_id": "partial-write-retry",
-      "criterion_count": 3
-    },
-    {
-      "task_id": "spec-artifact-exclusion",
-      "criterion_count": 3
-    },
-    {
-      "task_id": "review-artifact-exclusion",
+      "task_id": "pos-10",
       "criterion_count": 3
     }
   ]

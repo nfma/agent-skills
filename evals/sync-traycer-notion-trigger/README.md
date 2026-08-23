@@ -2,7 +2,7 @@
 
 This runner executes the Claude Code lane in the repository production-eval
 framework. It reads the 20-task production suite from
-`evals/sync-traycer-notion/suite.json`, runs three fresh trials per task, and
+`evals/sync-traycer-notion-trigger/suite.json`, runs three fresh trials per task, and
 compares each of 12 positive treatment responses with a no-skill baseline.
 Eight near-miss tasks run only with the project skill installed, for 96 total
 sessions.
@@ -20,12 +20,16 @@ execution. The generated report contains aggregate results, check identifiers,
 and hashes that bind the external evidence. See [the custody runbook](CUSTODY.md)
 for encrypted-key and raw-archive recovery.
 
-The committed `proof-report.json` is a deterministic, zero-model repository
-snapshot. It binds the current public skill, suite, runner, and custody tools
-while marking every harness, private-evidence artifact, and trigger claim
-pending. It is not a successful evaluation report and cannot authorize a paid
-canary. No trigger `key-manifest.json` is committed until the encrypted key is
-genuinely sealed under the custody contract.
+The central framework's `draft-key-manifest.json`,
+`draft-calibration-manifest.json`, and `draft-evidence-manifest.json` are the
+authority for evaluation status. The committed `proof-report.json` is a
+temporary, deterministic, zero-model compatibility snapshot. It binds those
+manifests plus the current public skill, suite, runner, and custody tools while
+marking every harness, private-evidence artifact, and trigger claim pending. It
+is not a successful evaluation report and cannot authorize a paid canary. Keep
+it only until the central evidence contract natively binds the deployed skill
+and evaluator implementation. No trigger `key-manifest.json` is committed until
+the encrypted key is genuinely sealed under the custody contract.
 
 Run from the repository root:
 
@@ -65,7 +69,8 @@ production-evidence status is `not-proven`.
 ## Committed evidence status
 
 Refresh the committed pending snapshot after changing the skill, suite, runner,
-custody contract, private verifier, or a later sealed key manifest:
+central draft manifests, custody contract, private verifier, or a later sealed
+key manifest:
 
 ```sh
 uv run --frozen --no-build python \

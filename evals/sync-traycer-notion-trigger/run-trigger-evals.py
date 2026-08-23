@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess  # nosec B404 - fixed argv, shell=False, and trace capture are required for the eval harness.
 import sys
+import tempfile
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,11 +31,17 @@ SKILL_ROOT = REPOSITORY_ROOT / "skills" / SKILL_NAME
 DEFAULT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/key-manifest.json"
 DEFAULT_PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 DEFAULT_CUSTODY_RUNBOOK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/CUSTODY.md"
+DEFAULT_DRAFT_CALIBRATION_MANIFEST = (
+    REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-calibration-manifest.json"
+)
+DEFAULT_DRAFT_EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-evidence-manifest.json"
+DEFAULT_DRAFT_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-key-manifest.json"
 DEFAULT_EVIDENCE_CONTRACT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/evidence_contract.py"
+DEFAULT_HARNESS_PROFILE = REPOSITORY_ROOT / "evals/harnesses.json"
 DEFAULT_PRIVATE_VERIFIER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/verify_private_evidence.py"
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
-DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
+DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/suite.json"
 RESPONSE_FIELDS = (
     "classification",
     "ordered_plan",
@@ -973,11 +980,76 @@ def count_manifest_checks(key: Mapping[str, Any]) -> dict[str, int]:
     return counts
 
 
+def central_pending_contract(pack: Mapping[str, Any]) -> dict[str, Any]:
+    suite_digest = canonical_json_sha256(pack)
+    harness_profile = read_json(DEFAULT_HARNESS_PROFILE)
+    key_manifest = read_json(DEFAULT_DRAFT_KEY_MANIFEST)
+    calibration = read_json(DEFAULT_DRAFT_CALIBRATION_MANIFEST)
+    evidence = read_json(DEFAULT_DRAFT_EVIDENCE_MANIFEST)
+
+    if pack.get("status") != "draft":
+        raise EvalError("the temporary repository snapshot requires a draft suite")
+    if key_manifest.get("suite_canonical_sha256") != suite_digest:
+        raise EvalError("the central draft key manifest does not bind the current suite")
+    if key_manifest.get("key_sha256") != "PENDING-COORDINATOR-SEAL":
+        raise EvalError("the central draft key manifest must remain pending")
+    if calibration.get("status") != "pending" or calibration.get("key_sha256") != key_manifest.get("key_sha256"):
+        raise EvalError("the central calibration manifest must remain pending and bind the draft key")
+    if evidence.get("status") != "pending" or evidence.get("suite_canonical_sha256") != suite_digest:
+        raise EvalError("the central evidence manifest must remain pending and bind the current suite")
+    if evidence.get("harness_profile_canonical_sha256") != canonical_json_sha256(harness_profile):
+        raise EvalError("the central evidence manifest does not bind the current harness profile")
+    if evidence.get("aggregate_report_sha256") != "PENDING-COORDINATOR-SEAL":
+        raise EvalError("the central aggregate report must remain pending")
+    if evidence.get("evaluated_at") is not None or evidence.get("expires_at") is not None:
+        raise EvalError("the central evidence dates must remain empty while pending")
+
+    raw_harnesses = evidence.get("harnesses")
+    if not isinstance(raw_harnesses, list):
+        raise EvalError("the central evidence harnesses must be a list")
+    harnesses: dict[str, str] = {}
+    for raw_harness in raw_harnesses:
+        if not isinstance(raw_harness, dict):
+            raise EvalError("the central evidence contains an invalid harness entry")
+        harness = require_string(raw_harness.get("harness"), "central evidence harness")
+        if harness in harnesses:
+            raise EvalError(f"the central evidence duplicates harness {harness}")
+        if (
+            raw_harness.get("status") != "pending"
+            or raw_harness.get("evidence_sha256") != "PENDING-COORDINATOR-SEAL"
+            or raw_harness.get("reason") is not None
+        ):
+            raise EvalError(f"the central evidence for {harness} must remain empty while pending")
+        harnesses[harness] = "pending"
+    if set(harnesses) != {"antigravity", "claude-code", "codex", "cursor"}:
+        raise EvalError("the central evidence must cover all four harnesses exactly once")
+
+    return {
+        "human_calibration": "pending",
+        "harnesses": dict(sorted(harnesses.items())),
+        "overall_status": "not-proven",
+        "suite_status": "draft",
+    }
+
+
+def central_draft_contract_sha256() -> str:
+    records = [
+        path.name.encode("utf-8") + b"\0" + sha256_file(path).encode("ascii") + b"\n"
+        for path in sorted(
+            (DEFAULT_DRAFT_CALIBRATION_MANIFEST, DEFAULT_DRAFT_EVIDENCE_MANIFEST, DEFAULT_DRAFT_KEY_MANIFEST),
+            key=lambda candidate: candidate.name.encode("utf-8"),
+        )
+    ]
+    return sha256_bytes(b"".join(records))
+
+
 def repository_evidence_report() -> dict[str, Any]:
     pack, cases = validated_case_pack(DEFAULT_CASE_PACK)
+    production_contract = central_pending_contract(pack)
     sealed_inputs = {
         "case_pack_canonical_sha256": canonical_json_sha256(pack),
         "case_pack_sha256": sha256_file(DEFAULT_CASE_PACK),
+        "central_draft_contract_sha256": central_draft_contract_sha256(),
         "custody_runbook_sha256": sha256_file(DEFAULT_CUSTODY_RUNBOOK),
         "evidence_contract_sha256": sha256_file(DEFAULT_EVIDENCE_CONTRACT),
         "private_verifier_sha256": sha256_file(DEFAULT_PRIVATE_VERIFIER),
@@ -1009,8 +1081,8 @@ def repository_evidence_report() -> dict[str, Any]:
         "status": "pending",
         "passed": False,
         "claim_scope": (
-            "Repository binding only; no target-skill evaluation, automatic-trigger proof, "
-            "or cross-harness portability claim"
+            "Temporary repository-binding compatibility layer only; no target-skill evaluation, "
+            "automatic-trigger proof, or cross-harness portability claim"
         ),
         "generation": {
             "kind": "deterministic-repository-snapshot",
@@ -1019,17 +1091,7 @@ def repository_evidence_report() -> dict[str, Any]:
         },
         "private_evidence": private_evidence,
         "sealed_inputs": sealed_inputs,
-        "production_contract": {
-            "human_calibration": "pending",
-            "harnesses": {
-                "antigravity": "pending",
-                "claude-code": "pending",
-                "codex": "pending",
-                "cursor": "pending",
-            },
-            "overall_status": "not-proven",
-            "suite_status": "draft",
-        },
+        "production_contract": production_contract,
         "trigger_proof": {
             "baseline_isolated": None,
             "near_miss_non_trigger": None,
@@ -1040,8 +1102,29 @@ def repository_evidence_report() -> dict[str, Any]:
 
 
 def refresh_repository_evidence(arguments: argparse.Namespace) -> int:
-    output = arguments.output.expanduser().resolve()
-    write_json(output, repository_evidence_report())
+    requested_output = arguments.output.expanduser()
+    if requested_output.is_symlink():
+        raise EvalError("repository evidence output must not be a symlink")
+    output = requested_output.resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    mode = stat.S_IMODE(output.stat().st_mode) if output.exists() else 0o644
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=output.parent,
+            prefix=f".{output.name}.",
+            delete=False,
+        ) as temporary:
+            json.dump(repository_evidence_report(), temporary, ensure_ascii=False, indent=2, sort_keys=True)
+            temporary.write("\n")
+            temporary_path = Path(temporary.name)
+        temporary_path.chmod(mode)
+        temporary_path.replace(output)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
     print(f"wrote pending repository evidence to {output}")
     print("model calls: 0")
     return 0

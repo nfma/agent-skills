@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "skill_name": "write-production-rust",
+  "status": "pending",
+  "suite_canonical_sha256": "287ea81325fdca4c6e77950fb650b494e5c4465a253e8a90cdcb7106bcd7d369",
+  "harness_profile_canonical_sha256": "fbd2f7434a560213da902393c4f430a9164f714c085fa51e175af9b019a97509",
+  "aggregate_report_sha256": "PENDING-COORDINATOR-SEAL",
+  "evaluated_at": null,
+  "expires_at": null,
+  "harnesses": [
+    {
+      "harness": "cursor",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "antigravity",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "codex",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "claude-code",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    }
+  ]
+}

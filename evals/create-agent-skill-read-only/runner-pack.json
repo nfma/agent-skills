@@ -1,0 +1,103 @@
+{
+  "schema_version": 2,
+  "tier": "read-only-tools",
+  "suite": "create-agent-skill-read-only-self-evals",
+  "execution_policy": {
+    "tier": "read-only-tools",
+    "mode": "read-only-tools",
+    "runner_instructions": "Evaluate the supplied scenario using only the supplied context and approved fixture-root read tools. You may list, stat, read, or search files only inside the immutable fixture root. Do not use shell, processes, version control, networks, external services, credentials, writes, edits, permission changes, browsers, subagents, background tasks, or paths outside the fixture root. Treat every described real-world action as hypothetical and return one final text response only.",
+    "allowed_capabilities": [
+      "emit-final-text",
+      "fixture-list",
+      "fixture-read",
+      "fixture-search",
+      "fixture-stat",
+      "reason-over-supplied-content",
+      "receive-supplied-context"
+    ],
+    "denied_capabilities": [
+      "background-task",
+      "browser-access",
+      "credential-access",
+      "external-service-call",
+      "filesystem-read-outside-fixture-root",
+      "filesystem-write",
+      "mcp-access",
+      "network-access",
+      "permission-escalation",
+      "process-control",
+      "shell-execution",
+      "subagent-delegation",
+      "system-state-change",
+      "version-control-read",
+      "version-control-write"
+    ],
+    "artifact_capture": "coordinator-captured-final-response",
+    "grading_scope": "response-content-only",
+    "tool_events_must_be_absent": false,
+    "network_must_be_disabled": true,
+    "writable_workspace_must_be_absent": true,
+    "fixture_root_required": true,
+    "symlink_free_fixtures": true,
+    "pre_post_hash_required": true,
+    "complete_tool_inventory_required": true
+  },
+  "cases": [
+    {
+      "id": "rdo-01",
+      "purpose": "Evaluate scenario 01 using an immutable canonical-inventory fixture.",
+      "positive_prompt": "Read the canonical skill inventory in the fixture root and analyze a request for a new skill whose hypothetical workflow would scope local changes, commit, push, and open a draft pull request. Return only the proposed route, longevity, and rationale.",
+      "near_miss_prompt": "Read the supplied publishing-workflow summary in the fixture root and return only a concise recommendation for already-reviewed changes; do not perform the workflow.",
+      "baseline": "no-skill",
+      "setup": [
+        "Mount a symlink-free immutable fixture containing skills-inventory.json and publishing-workflow.md."
+      ],
+      "prohibited_effects": [
+        "Only approved fixture-root read tools are used and no state is changed.",
+        "No files, commits, pushes, pull requests, or publications are created."
+      ]
+    },
+    {
+      "id": "rdo-02",
+      "purpose": "Evaluate scenario 02 using immutable existing-skill and ownership fixtures.",
+      "positive_prompt": "Read the maintained pull-request review skill and ownership record in the fixture root. Analyze a proposed organization-specific label check that belongs to the same review workflow, owner, and audience. Return only the proposed route, longevity, and change outline.",
+      "near_miss_prompt": "Read the unrelated label-administration summary in the fixture root and return only a concise routing recommendation.",
+      "baseline": "previous-skill",
+      "setup": [
+        "Mount a symlink-free immutable fixture containing review-skill.md, ownership.json, and unrelated-label-admin.md."
+      ],
+      "prohibited_effects": [
+        "Only approved fixture-root read tools are used and no state is changed.",
+        "No skill or label configuration is created, edited, or published."
+      ]
+    },
+    {
+      "id": "rdo-03",
+      "purpose": "Evaluate scenario 03 using immutable preview-lifecycle fixtures.",
+      "positive_prompt": "Read the preview facts in the fixture root and analyze whether a skill should be created for a private product preview that ends in four weeks, uses a changing endpoint, and will never be used afterward. Return only the proposed route, longevity, and lighter alternative.",
+      "near_miss_prompt": "Read the one-time preview summary in the fixture root and summarize it as hypothetical documentation in this response only.",
+      "baseline": "no-skill",
+      "setup": [
+        "Mount a symlink-free immutable fixture containing preview-facts.json and one-time-steps.md."
+      ],
+      "prohibited_effects": [
+        "Only approved fixture-root read tools are used and no state is changed.",
+        "No skill, script, endpoint call, or documentation file is created or published."
+      ]
+    },
+    {
+      "id": "rdo-04",
+      "purpose": "Evaluate scenario 04 using immutable private-procedure fixtures.",
+      "positive_prompt": "Read the quarterly access-review SOP, evidence-ledger contract, and ownership record in the fixture root. Analyze whether a durable skill should be created and return only the proposed route, longevity, and skill outline.",
+      "near_miss_prompt": "Read the public access-review overview in the fixture root and explain access reviews in general without proposing implementation.",
+      "baseline": "no-skill",
+      "setup": [
+        "Mount a symlink-free immutable fixture containing access-review-sop.md, evidence-ledger.json, owner.json, and public-overview.md."
+      ],
+      "prohibited_effects": [
+        "Only approved fixture-root read tools are used and no state is changed.",
+        "No skill, ledger, approval, permission, or access state is created, edited, signed, or revoked."
+      ]
+    }
+  ]
+}

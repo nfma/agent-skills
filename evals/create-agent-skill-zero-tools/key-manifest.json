@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "tier": "zero-tools",
+  "suite": "create-agent-skill-zero-tools-self-evals",
+  "case_pack_sha256": "4f721b326f078c0a6e6b547e8a044e98c482e686d3d9e6dea4b00d56036e31f9",
+  "key_sha256": "7e1e83a000608058688e0bb0ba99dc805282c658122d8a71406e0561fdf72277",
+  "cases": [
+    { "case_id": "zro-01", "check_count": 3 },
+    { "case_id": "zro-02", "check_count": 3 },
+    { "case_id": "zro-03", "check_count": 3 },
+    { "case_id": "zro-04", "check_count": 4 }
+  ]
+}

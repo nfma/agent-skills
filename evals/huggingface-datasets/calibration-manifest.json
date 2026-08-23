@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "skill_name": "huggingface-datasets",
+  "status": "pending",
+  "reviewer": null,
+  "reviewed_at": null,
+  "expires_at": null,
+  "sample_size": 0,
+  "clean_case_count": 0,
+  "seeded_case_count": 0,
+  "binary_agreement": null,
+  "ordinal_weighted_agreement": null,
+  "critical_failure_recall": null,
+  "noncritical_failure_agreement": null,
+  "clean_acceptance_rate": null,
+  "critical_disagreements": null,
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "calibration_set_sha256": "PENDING-COORDINATOR-SEAL",
+  "calibration_report_sha256": "PENDING-COORDINATOR-SEAL"
+}

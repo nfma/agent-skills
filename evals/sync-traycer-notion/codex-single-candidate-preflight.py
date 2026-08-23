@@ -170,7 +170,13 @@ def parse_diagnostic(raw: bytes) -> Diagnostic:
     for line in block_lines[:available_index]:
         match = ROOT_PATTERN.match(line)
         if match:
-            roots[match.group("alias")] = Path(match.group("path")).resolve(strict=False)
+            alias = match.group("alias")
+            root = Path(match.group("path"))
+            if alias in roots:
+                raise PreflightError(f"duplicate skill root alias: {alias}")
+            if not root.is_absolute():
+                raise PreflightError(f"skill root must be absolute: {root}")
+            roots[alias] = root.resolve(strict=False)
 
     entries: list[SkillEntry] = []
     for line in block_lines[available_index + 1 : -1]:
@@ -190,14 +196,15 @@ def parse_diagnostic(raw: bytes) -> Diagnostic:
             alias, separator, remainder = locator.partition("/")
             if not separator or alias not in roots:
                 raise PreflightError(f"unresolved skill locator in Codex prompt: {locator}")
-            located_path = roots[alias] / remainder
-        entries.append(
-            SkillEntry(
-                name=name,
-                description=description,
-                path=located_path.resolve(strict=False),
-            )
-        )
+            root = roots[alias]
+            located_path = (root / remainder).resolve(strict=False)
+            if not located_path.is_relative_to(root):
+                raise PreflightError(f"skill locator escapes declared root: {locator}")
+        else:
+            located_path = located_path.resolve(strict=False)
+        if located_path.name != "SKILL.md":
+            raise PreflightError(f"skill file locator must name SKILL.md: {locator}")
+        entries.append(SkillEntry(name=name, description=description, path=located_path))
     if not entries:
         raise PreflightError("Codex prompt-input exposed an empty skill inventory")
     return Diagnostic(

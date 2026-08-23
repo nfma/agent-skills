@@ -185,6 +185,37 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
                 ):
                     self.preflight.parse_diagnostic(raw)
 
+    def test_prompt_parser_rejects_ambiguous_and_escaping_file_locators(self) -> None:
+        def diagnostic(root_lines: tuple[str, ...], locator: str) -> bytes:
+            raw = prompt_input(
+                available_skill_lines=(f"- other-skill: Other skill (file: {locator})",),
+                use_aliases=False,
+            )
+            payload = json.loads(raw)
+            text = payload[0]["content"][0]["text"]
+            payload[0]["content"][0]["text"] = text.replace(
+                "### Skill roots",
+                "\n".join(("### Skill roots", *root_lines)),
+            )
+            return json.dumps(payload).encode()
+
+        cases = (
+            (
+                ("- `r0` = `/first`", "- `r0` = `/second`"),
+                "r0/other-skill/SKILL.md",
+                "duplicate skill root alias",
+            ),
+            (("- `r0` = `relative/root`",), "r0/other-skill/SKILL.md", "skill root must be absolute"),
+            (("- `r0` = `/trusted/root`",), "r0/../../outside/SKILL.md", "escapes declared root"),
+            (("- `r0` = `/trusted/root`",), "r0/other-skill/not-a-skill.txt", "must name SKILL.md"),
+        )
+        for root_lines, locator, message in cases:
+            with (
+                self.subTest(locator=locator, message=message),
+                self.assertRaisesRegex(self.preflight.PreflightError, message),
+            ):
+                self.preflight.parse_diagnostic(diagnostic(root_lines, locator))
+
     def test_prompt_parser_rejects_every_nonempty_malformed_inventory_line(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")
         malformed_lines = (

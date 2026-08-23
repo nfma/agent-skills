@@ -1,6 +1,12 @@
 ---
 name: discord-agent-coordination
 description: Coordinate agents through shared Discord epic and role inboxes while keeping Notion authoritative. Use at task start, material status changes, blockers, cross-epic questions, handoffs, completion, and before major plan changes when Discord MCP coordination is configured.
+metadata:
+  skill-audit-context-reads: user_goal, traycer_task_identity, notion_task_state, discord_role_inbox, local_coordination_state, auth_status
+  skill-audit-context-requires: explicit_coordination_goal, traycer_task_identity, configured_guild, target_role
+  skill-audit-context-writes: notion_task_state, discord_coordination_messages, local_processing_cursors, relay_registration, verification_result
+  skill-audit-confirmation: on-risk
+compatibility: Requires Python 3.11+, network access, a configured Discord MCP agent-coordination profile with messages, threads, and channels access, and an authenticated Notion MCP connection to Nuno's Task List. Optional automatic wakes additionally require macOS, Traycer CLI, launchd, Keychain, Node.js 22.12+, and Homebrew Python at /opt/homebrew/bin/python3.
 ---
 
 # Discord Agent Coordination

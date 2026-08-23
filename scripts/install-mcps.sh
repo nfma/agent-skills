@@ -23,6 +23,7 @@ stat_bin=${MCP_STAT_BIN:-/usr/bin/stat}
 plutil_bin=${MCP_PLUTIL_BIN:-/usr/bin/plutil}
 wake_relay_label=com.nfma.discord-wake-relay
 wake_relay_launcher_source="$wrapper_root/discord-wake-relay"
+wake_relay_check_bin=${MCP_WAKE_RELAY_CHECK_BIN:-"$wake_relay_launcher_source"}
 wake_relay_runtime="$repo_root/skills/discord-agent-coordination/scripts/discord_wake_relay.py"
 wake_relay_plist_template="$repo_root/mcp/launchd/$wake_relay_label.plist.template"
 
@@ -157,15 +158,17 @@ if [ "$selected_harnesses" -eq 0 ] \
 fi
 
 [ -n "$install_home" ] || die 'installation home is unavailable'
-[[ "$install_home" = /* && "$install_home" != / ]] \
-  || die 'installation home must be an absolute path other than /'
+case "$install_home" in
+  /*) [ "$install_home" != / ] || die 'installation home must be an absolute path other than /' ;;
+  *) die 'installation home must be an absolute path other than /' ;;
+esac
 [ -x "$security_bin" ] || die "security command is unavailable at $security_bin"
 [ -x "$node_check_bin" ] || die "Node runtime check is unavailable at $node_check_bin"
 [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
 [ -r "$codex_config_updater" ] \
   || die "Codex config updater is unavailable at $codex_config_updater"
 case "$install_home" in
-  *$'\n'* | *$'\r'*) die 'installation home must not contain newlines' ;;
+  *[[:cntrl:]]*) die 'installation home must not contain control characters' ;;
 esac
 
 wake_relay_launcher="$install_home/.local/bin/discord-wake-relay"
@@ -349,6 +352,8 @@ preflight_wake_relay_setup() {
   [ -r "$manifest" ] || die "manifest is unavailable at $manifest"
   [ -x "$wake_relay_launcher_source" ] \
     || die "wake relay launcher is unavailable at $wake_relay_launcher_source"
+  [ -x "$wake_relay_check_bin" ] \
+    || die "wake relay launcher check is unavailable at $wake_relay_check_bin"
   [ -x "$wake_relay_runtime" ] \
     || die "wake relay runtime is unavailable at $wake_relay_runtime"
   [ -r "$wake_relay_plist_template" ] \
@@ -370,7 +375,7 @@ preflight_wake_relay_setup() {
   [ -L "$wake_relay_mcp_wrapper" ] \
     && [ "$(readlink "$wake_relay_mcp_wrapper")" = "$wrapper_root/discord-mcp-keychain" ] \
     || die 'the installed Discord MCP wrapper is missing or does not point to this repository'
-  HOME="$install_home" "$wake_relay_launcher_source" check >/dev/null \
+  HOME="$install_home" "$wake_relay_check_bin" check >/dev/null \
     || die 'wake relay launcher validation failed'
   validate_wake_relay_profile
 }

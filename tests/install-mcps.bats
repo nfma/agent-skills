@@ -740,9 +740,11 @@ EOF
   ! grep -E 'TOKEN|token|handoff|message content' "$WAKE_RELAY_LAUNCHER"
   [[ "$output" != *'test-credential'* ]]
 
-  run env HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/discord-wake-relay" check
-  [ "$status" -eq 0 ]
-  [ "$output" = 'Discord wake relay launcher is ready.' ]
+  if [ "$(/usr/bin/uname -s)" = Darwin ]; then
+    run env HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/discord-wake-relay" check
+    [ "$status" -eq 0 ]
+    [ "$output" = 'Discord wake relay launcher is ready.' ]
+  fi
 }
 
 @test "wake relay setup preserves pre-existing legacy logs" {

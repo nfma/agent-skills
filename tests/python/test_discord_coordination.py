@@ -41,7 +41,7 @@ class DiscordCoordinationTests(unittest.TestCase):
 
         self.assertEqual(role, "epic/epic-759f/role/security-review")
         self.assertEqual(sender, "epic/epic-759f/role/security-review/agent-abc")
-        self.assertEqual(self.helper.thread_name(role), self.helper.thread_name(role))
+        self.assertEqual(self.helper.thread_name(role), "epic-epic-759f-role-security-review-cfed4d4e9dc4")
         self.assertLessEqual(len(self.helper.thread_name(role)), 100)
 
         shared_prefix = "x" * 160

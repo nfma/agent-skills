@@ -29,7 +29,9 @@ setup_installer_test() {
   write_discord_launcher_mock
   write_launchctl_mock
   write_uname_mock
+  write_stat_mock
   write_plutil_mock
+  write_wake_relay_check_mock
   write_codex_mock
   write_claude_mock
   write_serena_mock
@@ -43,7 +45,9 @@ setup_installer_test() {
   export MCP_DISCORD_PROFILE_BIN="$FAKE_BIN/discord-npx"
   export MCP_LAUNCHCTL_BIN="$FAKE_BIN/launchctl"
   export MCP_UNAME_BIN="$FAKE_BIN/uname"
+  export MCP_STAT_BIN="$FAKE_BIN/stat"
   export MCP_PLUTIL_BIN="$FAKE_BIN/plutil"
+  export MCP_WAKE_RELAY_CHECK_BIN="$FAKE_BIN/wake-relay-check"
   export MCP_TEST_STATE
 
   WAKE_RELAY_PLIST="$INSTALL_HOME/Library/LaunchAgents/com.nfma.discord-wake-relay.plist"
@@ -248,6 +252,26 @@ EOF
   chmod +x "$FAKE_BIN/uname"
 }
 
+write_stat_mock() {
+  cat >"$FAKE_BIN/stat" <<'EOF'
+#!/bin/sh
+set -eu
+case "${1:-} ${2:-}" in
+  '-f %u') /usr/bin/id -u ;;
+  '-f %Lp')
+    if [ -d "${3:-}" ]; then
+      printf '%s\n' 700
+    else
+      printf '%s\n' 600
+    fi
+    ;;
+  *) exit 64 ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/stat"
+  return 0
+}
+
 write_plutil_mock() {
   cat >"$FAKE_BIN/plutil" <<'EOF'
 #!/bin/sh
@@ -258,6 +282,19 @@ grep -F '<plist version="1.0">' "$2" >/dev/null
 grep -F '</plist>' "$2" >/dev/null
 EOF
   chmod +x "$FAKE_BIN/plutil"
+}
+
+write_wake_relay_check_mock() {
+  cat >"$FAKE_BIN/wake-relay-check" <<'EOF'
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ]
+[ "$1" = check ]
+[ "${MCP_TEST_TRAYCER_FAILURE:-0}" != 1 ]
+printf '%s\n' 'Discord wake relay launcher is ready.'
+EOF
+  chmod +x "$FAKE_BIN/wake-relay-check"
+  return 0
 }
 
 prepare_wake_relay_preflight() {

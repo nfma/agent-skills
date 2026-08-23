@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TypedDict
+import json
+from pathlib import Path
+from typing import TypedDict, cast
 
 
 class SuiteSeed(TypedDict):
@@ -9,7 +11,7 @@ class SuiteSeed(TypedDict):
     near_miss: list[str]
 
 
-SUITE_SEEDS: dict[str, SuiteSeed] = {
+INLINE_SUITE_SEEDS: dict[str, SuiteSeed] = {
     "coding-preferences": {
         "drift_signals": [
             "Nuno changes repository-wide coding conventions",
@@ -158,6 +160,36 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Review a Google Apps Script snippet for a JavaScript bug; no account operation is requested.",
             "Organize local files in the repository's docs folder rather than files in cloud storage.",
             "Summarize a pasted email thread that already contains all relevant content.",
+        ],
+    },
+    "hexagonal-architecture": {
+        "drift_signals": [
+            "the repository adopts a different explicit architecture standard",
+            "framework constraints invalidate a documented port or adapter boundary",
+        ],
+        "positive": [
+            "Design a durable payment service so domain policy is independent from HTTP, database, and queue integrations; return ports, adapters, and dependency direction.",
+            "Refactor the supplied CLI application so argument parsing and filesystem access do not leak into the core use case.",
+            "Review a worker whose domain layer imports an ORM model and propose the smallest boundary correction.",
+            "Add a second notification provider to the maintained service without branching provider logic throughout the domain.",
+            "Debug a flaky integration caused by global clock access and show how to introduce a time port without over-architecting the fix.",
+            "Design test seams for a long-lived library that currently constructs its HTTP client inside business logic.",
+            "The service handles commands, persistence, and serialization in one class. Propose a staged ports-and-adapters refactor scoped to the requested feature.",
+            "Review a new repository adapter and verify that domain errors, transaction boundaries, and mappings remain outside the core model.",
+            "A previous refactor created interfaces for every helper and put unrelated code in misc, utils, and helpers. Identify needless abstractions and replace only touched catch-alls with purpose-and-scope names while preserving the essential external boundaries.",
+            "Extend a maintained daemon with a message-broker input while keeping the existing scheduled-job input and shared application use case.",
+        ],
+        "near_miss": [
+            "Write a disposable ten-line script that renames today's exported files and will be deleted after use.",
+            "Explain how to calculate the area of a regular hexagon from its side length.",
+            "Fix a typo in a README paragraph without changing application design.",
+            "Draft a one-off SQL query to inspect a staging table.",
+            "Review only naming and formatting in the supplied utility function.",
+            "Create a throwaway notebook cell that plots a CSV for a meeting.",
+            "Summarize the trade-offs between microservices and monoliths at a conceptual level.",
+            "Update a package version in a lockfile; no maintained code boundary changes.",
+            "Write a single-use shell command to count files by extension.",
+            "Draw an ASCII honeycomb pattern for a terminal banner.",
         ],
     },
     "hf-cli": {
@@ -912,3 +944,29 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
         ],
     },
 }
+
+
+def load_external_suite_seeds() -> dict[str, SuiteSeed]:
+    evals_root = Path(__file__).resolve().parents[2] / "evals"
+    expected_fields = {"drift_signals", "positive", "near_miss"}
+    external: dict[str, SuiteSeed] = {}
+
+    for path in sorted(evals_root.glob("*/seed.json")):
+        name = path.parent.name
+        if name in INLINE_SUITE_SEEDS:
+            raise ValueError(f"duplicate inline and external eval seed: {name}")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or set(payload) != expected_fields:
+            raise ValueError(f"invalid eval seed fields: {path}")
+        for field in expected_fields:
+            values = payload[field]
+            if not isinstance(values, list) or not values or not all(
+                isinstance(value, str) and value for value in values
+            ):
+                raise ValueError(f"invalid eval seed {field}: {path}")
+        external[name] = cast(SuiteSeed, payload)
+
+    return external
+
+
+SUITE_SEEDS = {**INLINE_SUITE_SEEDS, **load_external_suite_seeds()}

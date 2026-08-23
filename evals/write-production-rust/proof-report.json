@@ -1,32 +1,32 @@
 {
   "behavior": {
-    "baseline_total": 30,
+    "baseline_total": 25,
     "grades": [
       {
         "case_id": "bounded-async-pipeline",
         "errors": [],
         "grader_model": "claude-opus-5",
-        "grader_trace_sha256": "52bf2299c771a829c33b2cad49117694b20b27e312a334ba970b6caca7805b12",
+        "grader_trace_sha256": "1a65b4724bef6765c723345e7a0cbeda79c269371090ed6ead58a80c9b3574b9",
         "scores": {
           "baseline": {
-            "bounded-lazy-concurrency": 2,
-            "cancellation-contract": 1,
-            "fallible-no-panic": 2,
-            "input-order": 2,
-            "owned-concurrency": 2,
-            "scope-discipline": 2
+            "accurate-drop-cancellation": 2,
+            "api-cancellation-docs": 0,
+            "first-error-disposal": 1,
+            "in-task-composition": 0,
+            "lazy-bounded-materialization": 2,
+            "spawned-task-ownership": 0
           },
           "with_skill": {
-            "bounded-lazy-concurrency": 2,
-            "cancellation-contract": 2,
-            "fallible-no-panic": 2,
-            "input-order": 2,
-            "owned-concurrency": 2,
-            "scope-discipline": 2
+            "accurate-drop-cancellation": 2,
+            "api-cancellation-docs": 2,
+            "first-error-disposal": 2,
+            "in-task-composition": 2,
+            "lazy-bounded-materialization": 2,
+            "spawned-task-ownership": 2
           }
         },
         "totals": {
-          "baseline": 11,
+          "baseline": 5,
           "with_skill": 12
         },
         "winner": "with_skill"
@@ -35,12 +35,12 @@
         "case_id": "strict-source-boundary",
         "errors": [],
         "grader_model": "claude-opus-5",
-        "grader_trace_sha256": "724348b970e6247162421915af7b0127f8f251edab3262646810d77b468d51e1",
+        "grader_trace_sha256": "09d42a06545e1b30be0ff7c36a35c99cba7c1f5d67f4565f2061e3ce9c0957d2",
         "scores": {
           "baseline": {
             "external-test-handoff": 0,
             "no-reverse-dependency": 2,
-            "no-test-cfg": 2,
+            "no-test-cfg": 1,
             "no-test-only-seam": 2,
             "production-domain-model": 2,
             "src-only-scope": 0
@@ -55,7 +55,7 @@
           }
         },
         "totals": {
-          "baseline": 8,
+          "baseline": 7,
           "with_skill": 12
         },
         "winner": "with_skill"
@@ -64,46 +64,81 @@
         "case_id": "typed-functional-core",
         "errors": [],
         "grader_model": "claude-opus-5",
-        "grader_trace_sha256": "2ad5dc7ddcf40df13e01104acda92fcab5aa36be45fe5dc26492327fd9b019f0",
+        "grader_trace_sha256": "2340d6d416e6015b198bc17ce05f2e001a730af0bb9bdd140bab6b70164beafc",
         "scores": {
           "baseline": {
-            "enum-not-booleans": 2,
-            "ownership-efficiency": 2,
-            "readable-composition": 1,
-            "structured-source-error": 2,
-            "total-field-parsing": 2,
-            "validated-percentage": 2
+            "direct-field-consumption": 2,
+            "error-location-context": 2,
+            "error-trait-source-chain": 2,
+            "errors-doc-contract": 0,
+            "per-line-parse-unit": 1,
+            "strict-field-arity": 2,
+            "unknown-mode-rejection": 2,
+            "validated-percent-type": 2
           },
           "with_skill": {
-            "enum-not-booleans": 2,
-            "ownership-efficiency": 2,
-            "readable-composition": 2,
-            "structured-source-error": 2,
-            "total-field-parsing": 2,
-            "validated-percentage": 2
+            "direct-field-consumption": 2,
+            "error-location-context": 2,
+            "error-trait-source-chain": 2,
+            "errors-doc-contract": 2,
+            "per-line-parse-unit": 2,
+            "strict-field-arity": 1,
+            "unknown-mode-rejection": 2,
+            "validated-percent-type": 2
           }
         },
         "totals": {
-          "baseline": 11,
-          "with_skill": 12
+          "baseline": 13,
+          "with_skill": 15
         },
         "winner": "with_skill"
       }
     ],
-    "improvement_points": 6,
+    "improvement_points": 14,
     "no_case_regressions": true,
     "with_skill_case_wins": 3,
-    "with_skill_total": 36
+    "with_skill_total": 39
+  },
+  "behavior_records": {
+    "count": 6,
+    "keys": [
+      {
+        "arm": "baseline",
+        "case_id": "bounded-async-pipeline"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "bounded-async-pipeline"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "strict-source-boundary"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "strict-source-boundary"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "typed-functional-core"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "typed-functional-core"
+      }
+    ]
   },
   "claim_scope": "Claude Code trigger qualification and zero-tool behavior comparison; not cross-harness portability",
-  "generated_at": "2026-08-16T13:20:08+00:00",
+  "generated_at": "2026-08-23T15:17:31+00:00",
   "grader_profile": {
     "effort": "high",
     "model_alias": "opus",
     "tools": []
   },
   "passed": true,
-  "run_manifest_sha256": "2a93974a0e6fa495673589ae11283ecf424599512297ec95b66db2114e8b505d",
+  "proof_contract_version": 2,
+  "proof_id": "sha256:38f691c231045cb81ef7c684977dbe045a19d634853101070fe3fca7dead03cc",
+  "run_manifest_sha256": "74ebbfe42f8d1881116cc700613edc90a7bbb3015a1ac3a8b43057c51c0aec71",
   "runner_profile": {
     "behavior_tools": [],
     "effort": "high",
@@ -116,10 +151,35 @@
   },
   "schema_version": 1,
   "sealed_inputs": {
-    "case_pack_sha256": "8b3cf2660cf07f16792f4aa90d2136d62032c197963f4493c9c18a5b0bc23f0d",
-    "key_manifest_sha256": "ff7c459412ec8f17ec9564011ab20d874ab551e7b97750f8364791454e2e6828",
-    "key_sha256": "936addc0281565c75d02141f00c94d590c5c2c9b3fae0b5d6ccc366de27d6692",
-    "skill_sha256": "50bf4e6a6f7c649b5d0aba7d37d40dbd854a91a185ee80cfe8109217a67ef4e9"
+    "case_pack_sha256": "e19902442cebc3eb8924ae3031b032da241c87e3fe2eb00b5d1695281da20198",
+    "guidance_bundle": {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "0dead67f31a0cfad38d73279b1d2e3c78bad71db0268178a1b5304c469394d2a"
+        },
+        {
+          "path": "references/async-rust.md",
+          "sha256": "d2db1b96e7236d360b83fba7d8eae495b669649ecd83e3c6cce71885d33e3f57"
+        },
+        {
+          "path": "references/functional-rust.md",
+          "sha256": "6dbaa5d39a5aa94cf2a8d8653411b6c6d706bbc6abb3cb4dbaf6ed69539c7894"
+        },
+        {
+          "path": "references/idiomatic-rust.md",
+          "sha256": "c6c472cfd1e5181f432f12ddda991eda7e36349595b5c0668bfa97a46ba2d652"
+        },
+        {
+          "path": "references/source-boundary.md",
+          "sha256": "ca0561565bba4844ae81d1b8102d4502ceee0c32f29787c341a37add7231de47"
+        }
+      ],
+      "sha256": "33cdd4faa608fc26f03bd564cbcd9b30036c47bd6c101dce5a5244c044d130c5"
+    },
+    "key_manifest_sha256": "814fb25ea05c26040c37ecf7aaa9f2cf40589f34daa8c5d820536e272ff94bbc",
+    "key_sha256": "44d586e3b6520d269f25bca34725bd8ed8360808e9400b0405dfef38008bfbe4",
+    "skill_sha256": "0dead67f31a0cfad38d73279b1d2e3c78bad71db0268178a1b5304c469394d2a"
   },
   "suite": "write-production-rust-trigger-behavior",
   "trigger_proof": {
@@ -127,5 +187,70 @@
     "near_miss_non_trigger": true,
     "positive_automatic_trigger": true,
     "trace_contract_passed": true
+  },
+  "trigger_records": {
+    "count": 12,
+    "keys": [
+      {
+        "arm": "baseline",
+        "case_id": "async-src-refactor",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "async-src-refactor",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "async-src-refactor",
+        "variant": "positive"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "async-src-refactor",
+        "variant": "positive"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "functional-src-refactor",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "functional-src-refactor",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "functional-src-refactor",
+        "variant": "positive"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "functional-src-refactor",
+        "variant": "positive"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "mixed-source-boundary",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "mixed-source-boundary",
+        "variant": "near_miss"
+      },
+      {
+        "arm": "baseline",
+        "case_id": "mixed-source-boundary",
+        "variant": "positive"
+      },
+      {
+        "arm": "with_skill",
+        "case_id": "mixed-source-boundary",
+        "variant": "positive"
+      }
+    ]
   }
 }

@@ -27,7 +27,7 @@ select = ["B", "E4", "E7", "E9", "F", "I", "SIM", "UP"]
 
 [tool.pyright]
 exclude = ["**/node_modules", "vendor"]
-include = ["skills"]
+include = ["services", "skills"]
 pythonVersion = "3.11"
 reportMissingImports = false
 reportMissingTypeStubs = false

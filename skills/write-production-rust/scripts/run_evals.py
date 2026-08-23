@@ -14,13 +14,15 @@ import subprocess  # nosec B404
 import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
 SCHEMA_VERSION = 1
+PROOF_CONTRACT_VERSION = 2
 SKILL_NAME = "write-production-rust"
 SKILL_DOCUMENT = "SKILL.md"
+GUIDANCE_DIRECTORY = "references"
 SUITE_NAME = "write-production-rust-trigger-behavior"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +48,10 @@ def format_json(value: Mapping[str, Any]) -> str:
     return json.dumps(value, indent=2, sort_keys=True) + "\n"
 
 
+def canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -55,7 +61,8 @@ def sha256_file(path: Path) -> str:
 
 
 def utc_now() -> str:
-    return datetime.now(tz=UTC).isoformat(timespec="seconds")
+    # datetime.UTC is unavailable on the supported Python 3.9 floor.
+    return datetime.now(tz=timezone.utc).isoformat(timespec="seconds")  # noqa: UP017
 
 
 def path_is_within(path: Path, parent: Path) -> bool:
@@ -131,6 +138,61 @@ def validated_trigger_cases(pack: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def skill_root_or_default(skill_root: Path | None) -> Path:
+    return SKILL_ROOT if skill_root is None else skill_root
+
+
+def discovered_guidance_files(skill_root: Path | None = None) -> list[str]:
+    root = skill_root_or_default(skill_root).resolve(strict=True)
+    skill_document = root / SKILL_DOCUMENT
+    if skill_document.is_symlink() or not skill_document.is_file():
+        raise EvalError(f"guidance file must be a regular file: {SKILL_DOCUMENT}")
+
+    references = root / GUIDANCE_DIRECTORY
+    if references.is_symlink() or not references.is_dir():
+        raise EvalError(f"guidance directory must be a regular directory: {GUIDANCE_DIRECTORY}")
+
+    files = [SKILL_DOCUMENT]
+    for path in sorted(references.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise EvalError(f"guidance bundle contains a symlink: {relative}")
+        if path.is_file() and path.suffix in {".md", ".txt"}:
+            files.append(relative)
+    return files
+
+
+def validated_guidance_bundle(pack: Mapping[str, Any], skill_root: Path | None = None) -> list[str]:
+    declared = [
+        require_string(raw_file, "guidance_bundle file")
+        for raw_file in require_list(pack.get("guidance_bundle"), "guidance_bundle")
+    ]
+    if len(declared) != len(set(declared)):
+        raise EvalError("guidance_bundle contains duplicate paths")
+
+    actual = discovered_guidance_files(skill_root)
+    if declared != actual:
+        if set(declared) == set(actual):
+            raise EvalError("guidance_bundle files are reordered")
+        missing = [path for path in actual if path not in declared]
+        extra = [path for path in declared if path not in actual]
+        details: list[str] = []
+        if missing:
+            details.append(f"missing={missing}")
+        if extra:
+            details.append(f"extra={extra}")
+        raise EvalError(f"guidance_bundle does not match committed guidance: {'; '.join(details)}")
+    return declared
+
+
+def guidance_bundle_report(guidance_files: Sequence[str], skill_root: Path | None = None) -> dict[str, Any]:
+    root = skill_root_or_default(skill_root)
+    files = [
+        {"path": relative, "sha256": sha256_file((root / relative).resolve(strict=True))} for relative in guidance_files
+    ]
+    return {"files": files, "sha256": sha256_bytes(canonical_json_bytes(files))}
+
+
 def validated_guidance_files(case_id: str, raw_files: Any) -> list[str]:
     guidance_files: list[str] = []
     for raw_file in require_list(raw_files, f"{case_id}.guidance_files"):
@@ -139,6 +201,8 @@ def validated_guidance_files(case_id: str, raw_files: Any) -> list[str]:
         if not path_is_within(candidate, SKILL_ROOT) or candidate.suffix not in {".md", ".txt"}:
             raise EvalError(f"invalid guidance path: {relative}")
         guidance_files.append(relative)
+    if len(guidance_files) != len(set(guidance_files)):
+        raise EvalError(f"{case_id}.guidance_files contains duplicate paths")
     if SKILL_DOCUMENT not in guidance_files:
         raise EvalError(f"{case_id} must inject {SKILL_DOCUMENT}")
     return guidance_files
@@ -167,8 +231,14 @@ def validated_behavior_cases(pack: Mapping[str, Any]) -> list[dict[str, Any]]:
 def validated_case_pack(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     pack = read_json(path)
     validate_case_pack_identity(pack)
+    guidance_files = set(validated_guidance_bundle(pack))
     trigger_cases = validated_trigger_cases(pack)
     behavior_cases = validated_behavior_cases(pack)
+
+    for case in behavior_cases:
+        undeclared = [relative for relative in case["guidance_files"] if relative not in guidance_files]
+        if undeclared:
+            raise EvalError(f"{case['id']}.guidance_files are outside guidance_bundle: {undeclared}")
 
     if len(trigger_cases) < 3 or len(behavior_cases) < 3:
         raise EvalError("case pack must contain at least three trigger and three behavior cases")
@@ -498,7 +568,8 @@ def claude_version(claude_bin: str) -> str:
 
 def run_suite(arguments: argparse.Namespace) -> int:
     case_pack_path = arguments.case_pack.expanduser().resolve(strict=True)
-    _pack, trigger_cases, behavior_cases = validated_case_pack(case_pack_path)
+    pack, trigger_cases, behavior_cases = validated_case_pack(case_pack_path)
+    guidance_report = guidance_bundle_report(validated_guidance_bundle(pack))
     run_root = create_external_output_directory()
     records: list[dict[str, Any]] = []
 
@@ -516,6 +587,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
 
     manifest = {
         "schema_version": SCHEMA_VERSION,
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "suite": SUITE_NAME,
         "case_pack_sha256": sha256_file(case_pack_path),
         "claude_version": claude_version(arguments.claude_bin),
@@ -527,6 +599,7 @@ def run_suite(arguments: argparse.Namespace) -> int:
             "trigger_tools": list(TRIGGER_TOOLS),
             "behavior_tools": [],
         },
+        "guidance_bundle": guidance_report,
         "records": records,
         "skill_sha256": sha256_file(SKILL_ROOT / SKILL_DOCUMENT),
     }
@@ -543,8 +616,11 @@ def indexed_records(run_manifest: Mapping[str, Any]) -> dict[tuple[str, str, str
     for raw_record in require_list(run_manifest.get("records"), "run records"):
         if not isinstance(raw_record, dict):
             raise EvalError("run record must be an object")
+        stage = require_string(raw_record.get("stage"), "record.stage")
+        if stage not in {"trigger", "behavior"}:
+            raise EvalError("record.stage must be trigger or behavior")
         key = (
-            require_string(raw_record.get("stage"), "record.stage"),
+            stage,
             require_string(raw_record.get("case_id"), "record.case_id"),
             require_string(raw_record.get("variant", "none"), "record.variant"),
             require_string(raw_record.get("arm"), "record.arm"),
@@ -555,16 +631,67 @@ def indexed_records(run_manifest: Mapping[str, Any]) -> dict[tuple[str, str, str
     return indexed
 
 
-def validated_run_manifest_digests(run_manifest: Mapping[str, Any]) -> tuple[str, str]:
+def validate_reported_guidance_bundle(raw_bundle: Any, expected: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(raw_bundle, dict):
+        raise EvalError("run manifest guidance_bundle must be an object")
+    raw_files = require_list(raw_bundle.get("files"), "run manifest guidance_bundle.files")
+    reported_files: list[dict[str, str]] = []
+    for index, raw_file in enumerate(raw_files):
+        if not isinstance(raw_file, dict):
+            raise EvalError(f"run manifest guidance_bundle.files[{index}] must be an object")
+        reported_files.append(
+            {
+                "path": require_string(raw_file.get("path"), f"guidance file {index}.path"),
+                "sha256": require_string(raw_file.get("sha256"), f"guidance file {index}.sha256"),
+            }
+        )
+
+    expected_files = cast(list[dict[str, str]], expected["files"])
+    reported_paths = [item["path"] for item in reported_files]
+    expected_paths = [item["path"] for item in expected_files]
+    if reported_paths != expected_paths:
+        if set(reported_paths) == set(expected_paths):
+            raise EvalError("run manifest guidance files are reordered")
+        missing = [path for path in expected_paths if path not in reported_paths]
+        extra = [path for path in reported_paths if path not in expected_paths]
+        details: list[str] = []
+        if missing:
+            details.append(f"missing={missing}")
+        if extra:
+            details.append(f"extra={extra}")
+        raise EvalError(f"run manifest guidance files do not match: {'; '.join(details)}")
+
+    for index, reported in enumerate(reported_files):
+        committed = expected_files[index]
+        if reported["sha256"] != committed["sha256"]:
+            raise EvalError(f"run manifest guidance digest does not match committed {committed['path']}")
+
+    reported_sha256 = require_string(raw_bundle.get("sha256"), "run manifest guidance bundle digest")
+    expected_sha256 = require_string(expected.get("sha256"), "expected guidance bundle digest")
+    if reported_sha256 != expected_sha256:
+        raise EvalError("run manifest guidance bundle digest does not match committed guidance")
+    if reported_sha256 != sha256_bytes(canonical_json_bytes(reported_files)):
+        raise EvalError("run manifest guidance bundle digest does not match its file entries")
+    return {"files": expected_files, "sha256": expected_sha256}
+
+
+def validated_run_manifest_digests(run_manifest: Mapping[str, Any]) -> tuple[str, str, dict[str, Any]]:
+    if run_manifest.get("proof_contract_version") != PROOF_CONTRACT_VERSION:
+        raise EvalError("run manifest proof contract version mismatch")
     case_pack_sha256 = require_string(run_manifest.get("case_pack_sha256"), "case pack digest")
     if case_pack_sha256 != sha256_file(DEFAULT_CASE_PACK):
         raise EvalError("run manifest case pack digest does not match the committed case pack")
+
+    pack = read_json(DEFAULT_CASE_PACK)
+    validate_case_pack_identity(pack)
+    guidance_report = guidance_bundle_report(validated_guidance_bundle(pack))
+    validated_guidance_report = validate_reported_guidance_bundle(run_manifest.get("guidance_bundle"), guidance_report)
 
     skill_sha256 = require_string(run_manifest.get("skill_sha256"), "skill digest")
     if skill_sha256 != sha256_file(SKILL_ROOT / SKILL_DOCUMENT):
         raise EvalError(f"run manifest skill digest does not match the committed {SKILL_DOCUMENT}")
 
-    return case_pack_sha256, skill_sha256
+    return case_pack_sha256, skill_sha256, validated_guidance_report
 
 
 def validate_trigger_record_set(
@@ -591,6 +718,46 @@ def validate_trigger_record_set(
             {"case_id": case_id, "variant": variant, "arm": arm} for _stage, case_id, variant, arm in sorted(expected)
         ],
     }
+
+
+def validate_behavior_record_set(
+    records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
+    behavior_cases: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    expected = {("behavior", cast(str, case["id"]), "none", arm) for case in behavior_cases for arm in ARMS}
+    observed = {key for key in records if key[0] == "behavior"}
+    if observed != expected:
+        details: list[str] = []
+        if missing := sorted(expected - observed):
+            details.append(f"missing={missing}")
+        if extra := sorted(observed - expected):
+            details.append(f"extra={extra}")
+        raise EvalError(f"behavior record set does not match the sealed case pack: {'; '.join(details)}")
+    return {
+        "count": len(expected),
+        "keys": [{"case_id": case_id, "arm": arm} for _stage, case_id, _variant, arm in sorted(expected)],
+    }
+
+
+def validate_behavior_guidance(
+    records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
+    behavior_cases: Sequence[Mapping[str, Any]],
+) -> None:
+    cases = {cast(str, case["id"]): case for case in behavior_cases}
+    for key in sorted(key for key in records if key[0] == "behavior"):
+        _stage, case_id, _variant, arm = key
+        record = records[key]
+        if not isinstance(record, Mapping):
+            raise EvalError(f"behavior record must be an object: {key}")
+        case = cases[case_id]
+        _prompt, injection_sha256, guidance_digests = render_behavior_prompt(case, arm)
+        task_prompt_sha256 = sha256_bytes(require_string(case.get("prompt"), "behavior prompt").encode())
+        if record.get("task_prompt_sha256") != task_prompt_sha256:
+            raise EvalError(f"behavior task prompt digest mismatch for {case_id}/{arm}")
+        if record.get("injection_sha256") != injection_sha256:
+            raise EvalError(f"behavior guidance injection digest mismatch for {case_id}/{arm}")
+        if record.get("guidance_digests") != guidance_digests:
+            raise EvalError(f"behavior guidance file digests mismatch for {case_id}/{arm}")
 
 
 def read_frozen_trace(record: Mapping[str, Any], stage: str, identity: str) -> dict[str, Any]:
@@ -664,6 +831,7 @@ def recompute_behavior_record(key: tuple[str, str, str, str], record: Mapping[st
         "mcp_server_count": summary["mcp_server_count"],
         "success": summary["success"],
         "errors": errors,
+        "trace_sha256": require_string(record.get("trace_sha256"), f"behavior trace digest for {label}"),
     }
 
 
@@ -713,8 +881,12 @@ def validate_key(
     return key, manifest
 
 
-def candidate_mapping(case_id: str, run_manifest_sha256: str) -> dict[str, str]:
-    digest = hashlib.sha256(f"{case_id}:{run_manifest_sha256}".encode()).digest()
+def candidate_mapping(case_id: str, behavior_trace_sha256s: Sequence[str]) -> dict[str, str]:
+    material = {
+        "behavior_trace_sha256s": sorted(behavior_trace_sha256s),
+        "case_id": case_id,
+    }
+    digest = hashlib.sha256(canonical_json_bytes(material)).digest()
     return {"A": "baseline", "B": "with_skill"} if digest[0] % 2 == 0 else {"A": "with_skill", "B": "baseline"}
 
 
@@ -766,7 +938,7 @@ def candidate_total(scores: Mapping[str, Any], candidate: str, criterion_ids: se
     candidate_scores = scores.get(candidate)
     if not isinstance(candidate_scores, dict) or set(candidate_scores) != criterion_ids:
         raise EvalError(f"grader {candidate} score keys do not match criteria")
-    if any(not isinstance(score, int) or score not in {0, 1, 2} for score in candidate_scores.values()):
+    if any(type(score) is not int or score not in {0, 1, 2} for score in candidate_scores.values()):
         raise EvalError(f"grader {candidate} scores must be integers from 0 to 2")
     return sum(cast(dict[str, int], candidate_scores).values())
 
@@ -799,7 +971,7 @@ def grade_case(
     case_id: str,
     criteria: list[Any],
     records: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
-    run_manifest_sha256: str,
+    behavior_trace_sha256s: Sequence[str],
     run_root: Path,
 ) -> dict[str, Any]:
     baseline_record = records.get(("behavior", case_id, "none", "baseline"))
@@ -810,7 +982,7 @@ def grade_case(
         "baseline": read_frozen_response(baseline_record),
         "with_skill": read_frozen_response(treatment_record),
     }
-    mapping = candidate_mapping(case_id, run_manifest_sha256)
+    mapping = candidate_mapping(case_id, behavior_trace_sha256s)
     prompt = grader_prompt(
         criteria=criteria,
         response_a=responses[mapping["A"]],
@@ -884,15 +1056,39 @@ def trigger_proof(records: Mapping[tuple[str, str, str, str], Mapping[str, Any]]
     }
 
 
+def proof_identifier(
+    *, run_manifest_sha256: str, sealed_inputs: Mapping[str, Any], grades: Sequence[Mapping[str, Any]]
+) -> str:
+    grader_traces = [
+        {
+            "case_id": require_string(grade.get("case_id"), "grade case id"),
+            "grader_trace_sha256": require_string(grade.get("grader_trace_sha256"), "grader trace digest"),
+        }
+        for grade in sorted(grades, key=lambda item: require_string(item.get("case_id"), "grade case id"))
+    ]
+    material = {
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
+        "run_manifest_sha256": run_manifest_sha256,
+        "sealed_inputs": dict(sealed_inputs),
+        "grader_traces": grader_traces,
+    }
+    return f"sha256:{sha256_bytes(canonical_json_bytes(material))}"
+
+
 def grade_suite(arguments: argparse.Namespace) -> int:
     run_manifest_path = require_external_input(arguments.run_manifest, "run manifest")
     run_manifest = read_json(run_manifest_path)
     if run_manifest.get("schema_version") != SCHEMA_VERSION or run_manifest.get("suite") != SUITE_NAME:
         raise EvalError("run manifest schema or suite mismatch")
-    case_pack_sha256, skill_sha256 = validated_run_manifest_digests(run_manifest)
-    _pack, trigger_cases, _behavior_cases = validated_case_pack(DEFAULT_CASE_PACK)
+    case_pack_sha256, skill_sha256, guidance_report = validated_run_manifest_digests(run_manifest)
+    _pack, trigger_cases, behavior_cases = validated_case_pack(DEFAULT_CASE_PACK)
     records = indexed_records(run_manifest)
+    expected_record_count = len(trigger_cases) * len(VARIANTS) * len(ARMS) + len(behavior_cases) * len(ARMS)
+    if len(records) != expected_record_count:
+        raise EvalError(f"run record count must be {expected_record_count}, got {len(records)}")
     trigger_record_report = validate_trigger_record_set(records, trigger_cases)
+    behavior_record_report = validate_behavior_record_set(records, behavior_cases)
+    validate_behavior_guidance(records, behavior_cases)
     verified_trigger_records = recompute_trigger_records(records)
     key_path = require_external_input(arguments.key, "semantic key")
     key_manifest_path = arguments.key_manifest.expanduser().resolve(strict=True)
@@ -904,7 +1100,7 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         key_manifest_path=key_manifest_path,
         key_path=key_path,
     )
-    recompute_behavior_records(records)
+    verified_behavior_records = recompute_behavior_records(records)
     raw_cases = key.get("cases")
     if not isinstance(raw_cases, dict):
         raise EvalError("semantic key cases are invalid")
@@ -922,14 +1118,21 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         if not isinstance(case_id, str) or not isinstance(raw_case, dict):
             raise EvalError("semantic key case is invalid")
         criteria = require_list(raw_case.get("criteria"), f"key.{case_id}.criteria")
-        print(f"grading {case_id}", flush=True)
+        print(f"grading {case_id}", file=sys.stderr, flush=True)
+        behavior_trace_sha256s = [
+            require_string(
+                verified_behavior_records[("behavior", case_id, "none", arm)].get("trace_sha256"),
+                f"verified behavior trace digest for {case_id}/{arm}",
+            )
+            for arm in ARMS
+        ]
         grades.append(
             grade_case(
                 arguments=arguments,
                 case_id=case_id,
                 criteria=criteria,
                 records=records,
-                run_manifest_sha256=run_manifest_sha256,
+                behavior_trace_sha256s=behavior_trace_sha256s,
                 run_root=grade_root,
             )
         )
@@ -951,22 +1154,29 @@ def grade_suite(arguments: argparse.Namespace) -> int:
         and treatment_total > baseline_total
         and treatment_wins >= 2
     )
+    sealed_inputs = {
+        "case_pack_sha256": case_pack_sha256,
+        "guidance_bundle": guidance_report,
+        "key_manifest_sha256": sha256_file(key_manifest_path),
+        "key_sha256": key_manifest.get("key_sha256"),
+        "skill_sha256": skill_sha256,
+    }
     report = {
         "schema_version": SCHEMA_VERSION,
+        "proof_contract_version": PROOF_CONTRACT_VERSION,
         "suite": SUITE_NAME,
         "claim_scope": "Claude Code trigger qualification and zero-tool behavior comparison; not cross-harness portability",
         "generated_at": utc_now(),
         "run_manifest_sha256": run_manifest_sha256,
-        "sealed_inputs": {
-            "case_pack_sha256": case_pack_sha256,
-            "key_manifest_sha256": sha256_file(key_manifest_path),
-            "key_sha256": key_manifest.get("key_sha256"),
-            "skill_sha256": skill_sha256,
-        },
+        "proof_id": proof_identifier(
+            run_manifest_sha256=run_manifest_sha256, sealed_inputs=sealed_inputs, grades=grades
+        ),
+        "sealed_inputs": sealed_inputs,
         "runner_profile": profile,
         "grader_profile": {"effort": arguments.grader_effort, "model_alias": arguments.grader_model, "tools": []},
         "trigger_records": trigger_record_report,
         "trigger_proof": trigger,
+        "behavior_records": behavior_record_report,
         "behavior": {
             "baseline_total": baseline_total,
             "with_skill_total": treatment_total,

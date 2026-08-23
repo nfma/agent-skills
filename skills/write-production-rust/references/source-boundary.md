@@ -37,7 +37,7 @@ conventional example.
 - Do not apply to `tests/`, `benches/`, `examples/`, `build.rs`, manifests, or
   generated code.
 - For a request spanning production and tests, change only production files and
-  hand the test portion to the Rust testing skill.
+  hand the test portion to `test-rust`.
 - Read manifests or configuration only to understand production compilation;
   do not edit them under this skill.
 - Validate the crate's library and binary targets without selecting test targets

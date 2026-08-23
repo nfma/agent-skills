@@ -127,3 +127,16 @@ test("retains the verified binary after successful verification", () => {
     "successful verification must disable cleanup only after reporting the path",
   );
 });
+
+test("documents cfg analysis as a syntactic union that fails closed", () => {
+  const section = profile
+    .split(/^## Known blind spots$/m)[1]
+    ?.split(/^## /m)[0];
+  assert.ok(section, "known-blind-spots section must exist");
+
+  const normalized = section.replace(/\s+/g, " ");
+  assert.match(
+    normalized,
+    /`cfg` predicates and Cargo feature selection are not evaluated as a compiled configuration; modules are analyzed as a syntactic union, and alternative sources for one module fail closed as `cfg-ambiguous-module`, while a conditional `#\[cfg_attr\(\.\.\., path = \.\.\.\)\]` fails closed as `unresolved-module`\./,
+  );
+});

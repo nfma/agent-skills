@@ -12,27 +12,37 @@ Behavior runs receive only prompt text and emit final text. The coordinator
 injects frozen skill guidance only into the treatment arm. Both responses are
 frozen before the external semantic key is loaded. A fresh different-model
 grader sees anonymized response pairs and response-only criteria.
+Host traces carry no user-prompt event, so prompt and injection digests are
+runner-asserted rather than host-observed.
 
 Raw responses, traces, and the plaintext semantic key stay outside Git. The
 committed report contains hashes, scores, and proof status only. The current
 runner proves one explicit Claude Code profile; it does not claim cross-harness
 portability.
 
+The ordered guidance inventory in the case pack is the complete treatment
+bundle: `SKILL.md` plus every Markdown or text file below `references/`. A run
+records every path and digest in order. Grading rediscovers the committed
+inventory, rejects missing, extra, reordered, symlinked, or byte-modified
+guidance, and revalidates the exact per-case injection digest. The report's
+`proof_id` also binds the run manifest, semantic key and manifest, complete
+guidance bundle, and every grader trace digest.
+
 ## Evidence status
 
-`suite.json`, `key-manifest.json`, and `calibration-manifest.json` are
-unexecuted draft coordinator inputs. Their `PENDING-COORDINATOR-SEAL`
-placeholders are not evidence.
+`suite.json`, `key-manifest.json`, `calibration-manifest.json`, and
+`evidence-manifest.json` remain unexecuted draft coordinator inputs. Their
+`PENDING-COORDINATOR-SEAL` placeholders are not evidence. Passing evidence
+consists only of the standalone three-case contract: `semantic-key-manifest.json`
+and `proof-report.json`, plus the external run material identified by the
+report's content hashes.
 
-The only passing evidence in this directory is the standalone sealed three-case
-proof: `semantic-key-manifest.json` plus `proof-report.json`.
-
-That report was produced by the pre-hardening grader, so it does not include the
-expected trigger-key evidence emitted by hardened runs. Its committed input
-digests still match the on-disk `SKILL.md`, case pack, and key manifest, but the
-external run manifest and traces were not retained, so the report cannot be
-retroactively revalidated. Trace revalidation applies to future reports only;
-the committed report remains the record of what the earlier run measured.
+Three qualification attempts are retained outside Git as immutable evidence.
+The first two failed the pre-registered two-win gate. Run 3 reused the
+byte-identical recalibrated instrument after a diagnostic-led guidance revision
+and passed all three cases. Its reported +14 margin is not an effect-size
+estimate: on the identical instrument, treatment rose from 33 to 39 (+6), while
+a weaker baseline draw fell from 28 to 25 (-3). Each arm is a single trial.
 
 Run from the repository root:
 

@@ -131,7 +131,11 @@ violation reports were byte-identical.
 
 ## Known blind spots
 
-- `cfg` predicates and Cargo feature selection are not evaluated.
+- `cfg` predicates and Cargo feature selection are not evaluated as a compiled
+  configuration; modules are analyzed as a syntactic union, and alternative
+  sources for one module fail closed as `cfg-ambiguous-module`, while a
+  conditional `#[cfg_attr(..., path = ...)]` fails closed as
+  `unresolved-module`.
 - Macros, derives, and attribute macros are not expanded. `include!` is fatal;
   strict mode rejects other unsupported item-position macros.
 - Public re-export visibility is incomplete and fails closed when a route could

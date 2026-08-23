@@ -314,29 +314,23 @@ class CursorState:
         return True
 
 
-def evaluate_follow_up_gate(
-    payload: object,
-    *,
-    address: str,
-    expected_from_role: str,
-    task: str,
-    in_reply_to: str,
-    inbox_state: dict[str, str | None],
-) -> dict[str, Any]:
-    require_role_address(address)
-    require_role_address(expected_from_role)
-    expected_task_key = task_key(task)
-    require_uuid(in_reply_to, "in-reply-to")
+def require_follow_up_payload(payload: object) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise CoordinationError("Discord messages payload must be a JSON object")
+    return payload
 
+
+def require_owned_inbox_state(inbox_state: dict[str, str | None]) -> tuple[str, str]:
     thread_id = inbox_state.get("thread_id")
     cursor = inbox_state.get("cursor")
     if not isinstance(thread_id, str) or not isinstance(cursor, str):
         raise CoordinationError("owned inbox must have a verified thread ID and processing cursor")
     require_snowflake(thread_id, "owned inbox thread ID")
     require_snowflake(cursor, "owned inbox processing cursor")
+    return thread_id, cursor
 
+
+def normalize_follow_up_messages(payload: dict[str, Any], *, thread_id: str, cursor: str) -> list[tuple[str, str]]:
     channel_id = payload.get("channel_id")
     if not isinstance(channel_id, str) or channel_id != thread_id:
         raise CoordinationError("Discord messages payload is not from the owned inbox thread")
@@ -364,7 +358,34 @@ def evaluate_follow_up_gate(
         seen_message_ids.add(message_id)
         normalized_messages.append((message_id, content))
     normalized_messages.sort(key=lambda item: int(item[0]))
+    return normalized_messages
 
+
+def is_correlated_follow_up_reply(
+    envelope: dict[str, str],
+    *,
+    address: str,
+    expected_from_role: str,
+    expected_task_key: str,
+    in_reply_to: str,
+) -> bool:
+    return (
+        envelope["kind"] == "reply"
+        and envelope["to"] == address
+        and sender_role(envelope["from"]) == expected_from_role
+        and task_key(envelope["task"]) == expected_task_key
+        and envelope["in-reply-to"] == in_reply_to
+    )
+
+
+def classify_follow_up_messages(
+    normalized_messages: list[tuple[str, str]],
+    *,
+    address: str,
+    expected_from_role: str,
+    expected_task_key: str,
+    in_reply_to: str,
+) -> tuple[list[str], list[dict[str, str]], set[str]]:
     reply_message_ids: list[str] = []
     pending: list[dict[str, str]] = []
     resolutions: set[str] = set()
@@ -374,14 +395,13 @@ def evaluate_follow_up_gate(
         except CoordinationError:
             pending.append({"message_id": message_id, "reason": "malformed-envelope"})
             continue
-        correlated = (
-            envelope["kind"] == "reply"
-            and envelope["to"] == address
-            and sender_role(envelope["from"]) == expected_from_role
-            and task_key(envelope["task"]) == expected_task_key
-            and envelope["in-reply-to"] == in_reply_to
-        )
-        if not correlated:
+        if not is_correlated_follow_up_reply(
+            envelope,
+            address=address,
+            expected_from_role=expected_from_role,
+            expected_task_key=expected_task_key,
+            in_reply_to=in_reply_to,
+        ):
             pending.append({"message_id": message_id, "reason": "unrelated-envelope"})
             continue
         explicit_resolutions = set(RESOLUTION_PATTERN.findall(envelope["body"]))
@@ -390,7 +410,18 @@ def evaluate_follow_up_gate(
             continue
         reply_message_ids.append(message_id)
         resolutions.update(explicit_resolutions)
+    return reply_message_ids, pending, resolutions
 
+
+def build_follow_up_gate_result(
+    normalized_messages: list[tuple[str, str]],
+    *,
+    cursor: str,
+    thread_id: str,
+    reply_message_ids: list[str],
+    pending: list[dict[str, str]],
+    resolutions: set[str],
+) -> dict[str, Any]:
     message_ids = [message_id for message_id, _ in normalized_messages]
     result: dict[str, Any] = {
         "cursor": cursor,
@@ -417,6 +448,39 @@ def evaluate_follow_up_gate(
         result["decision"] = "process-inbox"
         result["pending"] = pending
     return result
+
+
+def evaluate_follow_up_gate(
+    payload: object,
+    *,
+    address: str,
+    expected_from_role: str,
+    task: str,
+    in_reply_to: str,
+    inbox_state: dict[str, str | None],
+) -> dict[str, Any]:
+    require_role_address(address)
+    require_role_address(expected_from_role)
+    expected_task_key = task_key(task)
+    require_uuid(in_reply_to, "in-reply-to")
+    validated_payload = require_follow_up_payload(payload)
+    thread_id, cursor = require_owned_inbox_state(inbox_state)
+    normalized_messages = normalize_follow_up_messages(validated_payload, thread_id=thread_id, cursor=cursor)
+    reply_message_ids, pending, resolutions = classify_follow_up_messages(
+        normalized_messages,
+        address=address,
+        expected_from_role=expected_from_role,
+        expected_task_key=expected_task_key,
+        in_reply_to=in_reply_to,
+    )
+    return build_follow_up_gate_result(
+        normalized_messages,
+        cursor=cursor,
+        thread_id=thread_id,
+        reply_message_ids=reply_message_ids,
+        pending=pending,
+        resolutions=resolutions,
+    )
 
 
 def read_body(arguments: argparse.Namespace) -> str:

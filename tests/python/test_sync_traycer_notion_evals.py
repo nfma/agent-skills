@@ -13,15 +13,18 @@ import unittest.mock as mock
 import zipfile
 from fractions import Fraction
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/run-trigger-evals.py"
 PRIVATE_VERIFIER = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/verify_private_evidence.py"
+EVIDENCE_CONTRACT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/evidence_contract.py"
+CUSTODY_RUNBOOK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/CUSTODY.md"
 CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/suite.json"
 PRODUCTION_KEY_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-key-manifest.json"
 CALIBRATION_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-calibration-manifest.json"
 EVIDENCE_MANIFEST = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/draft-evidence-manifest.json"
+PROOF_REPORT = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/proof-report.json"
 SKILL = REPOSITORY_ROOT / "skills/sync-traycer-notion/SKILL.md"
 ADAPTER = REPOSITORY_ROOT / "skills/sync-traycer-notion/references/notion-task-list.md"
 OPENAI_AGENT = REPOSITORY_ROOT / "skills/sync-traycer-notion/agents/openai.yaml"
@@ -227,6 +230,161 @@ class TriggerEvalRunnerTests(unittest.TestCase):
         self.assertIn("| `Parent task` | `Parent task` | relation, limit 1 |", adapter)
         self.assertIn("| `Sub-task` | `Sub-task` | reciprocal relation |", adapter)
         self.assertIn("Temporary compatibility mirror", adapter)
+
+    def test_committed_evidence_is_current_pending_and_reproducible(self) -> None:
+        report = json.loads(PROOF_REPORT.read_text(encoding="utf-8"))
+        sealed_inputs = report["sealed_inputs"]
+
+        self.assertEqual(report, self.runner.repository_evidence_report())
+        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["status"], "pending")
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["generation"]["model_calls"], 0)
+        self.assertFalse(report["generation"]["paid_canaries_run"])
+        self.assertEqual(
+            set(sealed_inputs),
+            {
+                "case_pack_canonical_sha256",
+                "case_pack_sha256",
+                "central_draft_contract_sha256",
+                "custody_runbook_sha256",
+                "evidence_contract_sha256",
+                "private_verifier_sha256",
+                "runner_sha256",
+                "skill_sha256",
+                "skill_tree_sha256",
+            },
+        )
+        for field, path in {
+            "case_pack_sha256": CASE_PACK,
+            "custody_runbook_sha256": CUSTODY_RUNBOOK,
+            "evidence_contract_sha256": EVIDENCE_CONTRACT,
+            "private_verifier_sha256": PRIVATE_VERIFIER,
+            "runner_sha256": RUNNER,
+            "skill_sha256": SKILL,
+        }.items():
+            with self.subTest(field=field):
+                self.assertEqual(sealed_inputs[field], hashlib.sha256(path.read_bytes()).hexdigest())
+        central_contract_records = [
+            path.name.encode() + b"\0" + hashlib.sha256(path.read_bytes()).hexdigest().encode() + b"\n"
+            for path in sorted(
+                (CALIBRATION_MANIFEST, EVIDENCE_MANIFEST, PRODUCTION_KEY_MANIFEST),
+                key=lambda candidate: candidate.name.encode(),
+            )
+        ]
+        self.assertEqual(
+            sealed_inputs["central_draft_contract_sha256"],
+            hashlib.sha256(b"".join(central_contract_records)).hexdigest(),
+        )
+        canonical_case_pack = json.dumps(
+            json.loads(CASE_PACK.read_text(encoding="utf-8")),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        self.assertEqual(
+            sealed_inputs["case_pack_canonical_sha256"],
+            hashlib.sha256(canonical_case_pack).hexdigest(),
+        )
+        skill_records = [
+            path.relative_to(SKILL.parent).as_posix().encode()
+            + b"\0"
+            + hashlib.sha256(path.read_bytes()).hexdigest().encode()
+            + b"\n"
+            for path in sorted(SKILL.parent.rglob("*"))
+            if path.is_file()
+        ]
+        self.assertEqual(sealed_inputs["skill_tree_sha256"], hashlib.sha256(b"".join(skill_records)).hexdigest())
+        self.assertEqual(
+            report["private_evidence"],
+            {
+                "encrypted_key": "pending",
+                "key_manifest": "pending",
+                "raw_archive": "pending",
+            },
+        )
+        self.assertFalse(TRIGGER_KEY_MANIFEST.exists())
+        self.assertTrue(all(value is None for value in report["trigger_proof"].values()))
+        self.assertEqual(
+            report["claim_scope"],
+            "Temporary repository-binding compatibility layer only; no target-skill evaluation, "
+            "automatic-trigger proof, or cross-harness portability claim",
+        )
+        self.assertEqual(report["production_contract"]["suite_status"], "draft")
+        self.assertEqual(report["production_contract"]["overall_status"], "not-proven")
+        central_evidence = json.loads(EVIDENCE_MANIFEST.read_text(encoding="utf-8"))
+        expected_harnesses = {harness["harness"]: harness["status"] for harness in central_evidence["harnesses"]}
+        self.assertEqual(report["production_contract"]["harnesses"], expected_harnesses)
+
+    def test_refreshing_repository_evidence_never_invokes_a_model(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "proof-report.json"
+            output.write_text("{}\n", encoding="utf-8")
+            with (
+                mock.patch.object(
+                    self.runner.subprocess,
+                    "run",
+                    side_effect=AssertionError("refresh must not start a subprocess"),
+                ),
+                mock.patch("builtins.print"),
+            ):
+                exit_code = self.runner.refresh_repository_evidence(SimpleNamespace(output=output))
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), self.runner.repository_evidence_report())
+
+    def test_repository_snapshot_rejects_stale_central_contracts(self) -> None:
+        cases = (
+            (
+                "DEFAULT_DRAFT_KEY_MANIFEST",
+                PRODUCTION_KEY_MANIFEST,
+                lambda manifest: manifest.update(suite_canonical_sha256="0" * 64),
+                "does not bind the current suite",
+            ),
+            (
+                "DEFAULT_DRAFT_CALIBRATION_MANIFEST",
+                CALIBRATION_MANIFEST,
+                lambda manifest: manifest.update(status="passed"),
+                "calibration manifest must remain pending",
+            ),
+            (
+                "DEFAULT_DRAFT_EVIDENCE_MANIFEST",
+                EVIDENCE_MANIFEST,
+                lambda manifest: manifest.update(harness_profile_canonical_sha256="0" * 64),
+                "does not bind the current harness profile",
+            ),
+            (
+                "DEFAULT_DRAFT_EVIDENCE_MANIFEST",
+                EVIDENCE_MANIFEST,
+                lambda manifest: manifest["harnesses"][0].update(status="passed"),
+                "must remain empty while pending",
+            ),
+        )
+        for attribute, source, mutate, message in cases:
+            with (
+                self.subTest(attribute=attribute, message=message),
+                tempfile.TemporaryDirectory() as temporary_directory,
+            ):
+                manifest = json.loads(source.read_text(encoding="utf-8"))
+                mutate(manifest)
+                replacement = Path(temporary_directory) / source.name
+                replacement.write_text(json.dumps(manifest), encoding="utf-8")
+                with (
+                    mock.patch.object(self.runner, attribute, replacement),
+                    self.assertRaisesRegex(self.runner.EvalError, message),
+                ):
+                    self.runner.repository_evidence_report()
+
+    def test_repository_snapshot_rejects_symlink_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            target = root / "target.json"
+            target.write_text("{}\n", encoding="utf-8")
+            output = root / "proof-report.json"
+            output.symlink_to(target)
+
+            with self.assertRaisesRegex(self.runner.EvalError, "must not be a symlink"):
+                self.runner.refresh_repository_evidence(SimpleNamespace(output=output))
 
     def test_skill_excludes_explicit_sync_deferral(self) -> None:
         skill = SKILL.read_text(encoding="utf-8")
@@ -516,8 +674,11 @@ class TriggerEvalRunnerTests(unittest.TestCase):
             )
 
     def test_committed_trigger_evidence_bindings_when_present(self) -> None:
+        proof = self.runner.read_json(TRIGGER_PROOF_REPORT)
+        self.assertEqual(proof, self.runner.repository_evidence_report())
         if not TRIGGER_KEY_MANIFEST.exists():
-            self.assertFalse(TRIGGER_PROOF_REPORT.exists())
+            self.assertEqual(proof["private_evidence"]["key_manifest"], "pending")
+            self.assertNotIn("key_manifest_sha256", proof["sealed_inputs"])
             return
 
         manifest = self.runner.read_json(TRIGGER_KEY_MANIFEST)
@@ -534,18 +695,11 @@ class TriggerEvalRunnerTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(git_show(bundle_commit, path), path.read_bytes())
 
-        if not TRIGGER_PROOF_REPORT.exists():
-            return
-        proof = self.runner.read_json(TRIGGER_PROOF_REPORT)
-        freeze_commit = self.runner.require_commit_sha(proof.get("freeze_commit"), "freeze_commit")
-        self.assertEqual(
-            git_show(freeze_commit, TRIGGER_KEY_MANIFEST),
-            TRIGGER_KEY_MANIFEST.read_bytes(),
-        )
         self.assertEqual(
             proof["sealed_inputs"]["key_manifest_sha256"],
             self.runner.canonical_json_sha256(manifest),
         )
+        self.assertEqual(proof["private_evidence"]["key_manifest"], "sealed")
 
     def test_run_defaults_enforce_the_per_session_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

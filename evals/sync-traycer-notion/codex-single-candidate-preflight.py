@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove that Codex exposes exactly one intended skill candidate without a model call."""
+"""Freeze Codex's full skill inventory around one intended candidate without a model call."""
 
 from __future__ import annotations
 
@@ -16,10 +16,11 @@ from typing import Any
 
 DEFAULT_PROMPT = "A Traycer ticket changed status; reconcile it with Nuno's Notion Task List."
 ROOT_PATTERN = re.compile(r"^- `(?P<alias>r\d+)` = `(?P<path>[^`]+)`$")
+ENTRY_PATTERN = re.compile(r"^- (?P<label>.+) \(file: (?P<locator>[^)]+)\)$")
 
 
 class PreflightError(RuntimeError):
-    """Raised when the single-candidate invariant cannot be proven."""
+    """Raised when the candidate or frozen-inventory invariant cannot be proven."""
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class SkillEntry:
 @dataclass(frozen=True)
 class Diagnostic:
     raw_sha256: str
+    skills_instructions_sha256: str
     entries: tuple[SkillEntry, ...]
 
 
@@ -77,7 +79,10 @@ def parse_scalar(value: str) -> str:
 
 
 def read_frontmatter(skill_path: Path) -> tuple[str, str]:
-    text = skill_path.read_text(encoding="utf-8")
+    try:
+        text = skill_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise PreflightError(f"candidate SKILL.md must be valid UTF-8: {skill_path}") from error
     lines = text.splitlines()
     if not lines or lines[0] != "---":
         raise PreflightError(f"missing YAML frontmatter in {skill_path}")
@@ -135,43 +140,91 @@ def developer_texts(payload: Any) -> list[str]:
     return texts
 
 
-def parse_skill_entries(raw: bytes, skill_name: str) -> tuple[SkillEntry, ...]:
+def parse_diagnostic(raw: bytes) -> Diagnostic:
     try:
         payload = json.loads(raw)
-    except json.JSONDecodeError as error:
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise PreflightError(f"Codex prompt-input returned invalid JSON: {error}") from error
 
     skill_blocks = [text for text in developer_texts(payload) if "<skills_instructions>" in text]
     if len(skill_blocks) != 1:
         raise PreflightError(f"expected one skills instruction block, found {len(skill_blocks)}")
-    block = skill_blocks[0]
+    text = skill_blocks[0]
+    lines = text.splitlines()
+    if lines.count("<skills_instructions>") != 1 or lines.count("</skills_instructions>") != 1:
+        raise PreflightError("expected one complete skills instruction block")
+    block_start = lines.index("<skills_instructions>")
+    block_end = lines.index("</skills_instructions>")
+    if block_end <= block_start:
+        raise PreflightError("skills instruction block is malformed")
+    block_lines = lines[block_start : block_end + 1]
+    available_headers = [index for index, line in enumerate(block_lines) if line == "### Available skills"]
+    if len(available_headers) != 1:
+        raise PreflightError(f"expected one Available skills section, found {len(available_headers)}")
+    available_index = available_headers[0]
+    if any(line.startswith("- ") and not ROOT_PATTERN.match(line) for line in block_lines[:available_index]):
+        raise PreflightError("unexpected non-root bullet appeared before the Available skills section")
+
+    block = "\n".join(block_lines)
     roots: dict[str, Path] = {}
-    for line in block.splitlines():
+    for line in block_lines[:available_index]:
         match = ROOT_PATTERN.match(line)
         if match:
-            roots[match.group("alias")] = Path(match.group("path")).resolve(strict=False)
+            alias = match.group("alias")
+            root = Path(match.group("path"))
+            if alias in roots:
+                raise PreflightError(f"duplicate skill root alias: {alias}")
+            if not root.is_absolute():
+                raise PreflightError(f"skill root must be absolute: {root}")
+            roots[alias] = root.resolve(strict=False)
 
-    entry_pattern = re.compile(rf"^- {re.escape(skill_name)}: (?P<description>.*) \(file: (?P<locator>[^)]+)\)$")
     entries: list[SkillEntry] = []
-    for line in block.splitlines():
-        match = entry_pattern.match(line)
-        if not match:
+    for line in block_lines[available_index + 1 : -1]:
+        if not line.strip():
             continue
+        if not line.startswith("- "):
+            raise PreflightError(f"unrecognized skill inventory entry: {line}")
+        match = ENTRY_PATTERN.match(line)
+        if not match:
+            raise PreflightError(f"unrecognized skill inventory entry: {line}")
+        name, separator, description = match.group("label").partition(": ")
+        if not separator or not name or not description:
+            raise PreflightError(f"invalid skill inventory entry: {line}")
         locator = match.group("locator")
         located_path = Path(locator)
         if not located_path.is_absolute():
             alias, separator, remainder = locator.partition("/")
             if not separator or alias not in roots:
                 raise PreflightError(f"unresolved skill locator in Codex prompt: {locator}")
-            located_path = roots[alias] / remainder
-        entries.append(
-            SkillEntry(
-                name=skill_name,
-                description=match.group("description"),
-                path=located_path.resolve(strict=False),
-            )
-        )
-    return tuple(entries)
+            root = roots[alias]
+            located_path = (root / remainder).resolve(strict=False)
+            if not located_path.is_relative_to(root):
+                raise PreflightError(f"skill locator escapes declared root: {locator}")
+        else:
+            located_path = located_path.resolve(strict=False)
+        if located_path.name != "SKILL.md":
+            raise PreflightError(f"skill file locator must name SKILL.md: {locator}")
+        entries.append(SkillEntry(name=name, description=description, path=located_path))
+    if not entries:
+        raise PreflightError("Codex prompt-input exposed an empty skill inventory")
+    return Diagnostic(
+        raw_sha256=sha256_bytes(raw),
+        skills_instructions_sha256=sha256_bytes(block.encode()),
+        entries=tuple(entries),
+    )
+
+
+def inventory_record(entries: tuple[SkillEntry, ...]) -> dict[str, Any]:
+    records = sorted(
+        (entry.as_record() for entry in entries),
+        key=lambda entry: (entry["name"], entry["path"], entry["description"]),
+    )
+    canonical = json.dumps(records, separators=(",", ":"), sort_keys=True).encode()
+    return {
+        "count": len(records),
+        "sha256": sha256_bytes(canonical),
+        "entries": records,
+    }
 
 
 def run_codex(
@@ -179,7 +232,6 @@ def run_codex(
     workspace: Path,
     prompt: str,
     config_override: str | None,
-    skill_name: str,
 ) -> Diagnostic:
     command = [str(codex_path), "debug", "prompt-input"]
     if config_override is not None:
@@ -198,19 +250,19 @@ def run_codex(
     if completed.returncode != 0:
         stderr = completed.stderr.decode("utf-8", errors="replace").strip()
         raise PreflightError(f"Codex prompt-input diagnostic failed with exit {completed.returncode}: {stderr}")
-    return Diagnostic(
-        raw_sha256=sha256_bytes(completed.stdout),
-        entries=parse_skill_entries(completed.stdout, skill_name),
-    )
+    return parse_diagnostic(completed.stdout)
 
 
 def codex_version(codex_path: Path) -> str:
-    completed = subprocess.run(  # nosec B603 - argv is fixed and shell execution is disabled.
-        [str(codex_path), "--version"],
-        check=False,
-        capture_output=True,
-        timeout=10,
-    )
+    try:
+        completed = subprocess.run(  # nosec B603 - argv is fixed and shell execution is disabled.
+            [str(codex_path), "--version"],
+            check=False,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise PreflightError("Codex CLI version check timed out") from error
     if completed.returncode != 0:
         raise PreflightError("could not read the Codex CLI version")
     return completed.stdout.decode("utf-8", errors="replace").strip()
@@ -223,7 +275,81 @@ def build_config_override(paths: list[Path]) -> str | None:
     return f"skills.config=[{entries}]"
 
 
-def run_preflight(workspace: Path, candidate: Path, skill_name: str, prompt: str) -> dict[str, Any]:
+def diagnostic_record(diagnostic: Diagnostic, skill_name: str) -> dict[str, Any]:
+    return {
+        "prompt_input_sha256": diagnostic.raw_sha256,
+        "skills_instructions_sha256": diagnostic.skills_instructions_sha256,
+        "inventory": inventory_record(diagnostic.entries),
+        "candidates": [entry.as_record() for entry in diagnostic.entries if entry.name == skill_name],
+    }
+
+
+def read_expected_evidence(path: Path, workspace: Path) -> tuple[Path, str, dict[str, Any]]:
+    try:
+        resolved_path = path.resolve(strict=True)
+    except FileNotFoundError as error:
+        raise PreflightError(f"expected evidence does not exist: {path}") from error
+    if resolved_path.is_relative_to(workspace):
+        raise PreflightError("expected evidence must remain outside the evaluated workspace")
+    try:
+        payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise PreflightError(f"expected evidence is not valid UTF-8 JSON: {resolved_path}") from error
+    if not isinstance(payload, dict):
+        raise PreflightError("expected evidence must be a JSON object")
+    return resolved_path, sha256_file(resolved_path), payload
+
+
+def verify_expected_evidence(
+    result: dict[str, Any],
+    expected_path: Path,
+    workspace: Path,
+) -> dict[str, Any]:
+    resolved_path, evidence_sha256, expected = read_expected_evidence(expected_path, workspace)
+    if expected.get("schema_version") != 2 or expected.get("passed") is not True:
+        raise PreflightError("expected evidence must be a passed schema-version 2 preflight record")
+    before = expected.get("before")
+    after = expected.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise PreflightError("expected evidence before and after sections must be JSON objects")
+
+    comparisons = {
+        "Codex version": (expected.get("codex_version"), result["codex_version"]),
+        "skill name": (expected.get("skill_name"), result["skill_name"]),
+        "workspace": (expected.get("workspace"), result["workspace"]),
+        "candidate": (expected.get("candidate"), result["candidate"]),
+        "before inventory": (before.get("inventory"), result["before"]["inventory"]),
+        "before skills block": (
+            before.get("skills_instructions_sha256"),
+            result["before"]["skills_instructions_sha256"],
+        ),
+        "filter": (expected.get("filter"), result["filter"]),
+        "after inventory": (after.get("inventory"), result["after"]["inventory"]),
+        "after skills block": (
+            after.get("skills_instructions_sha256"),
+            result["after"]["skills_instructions_sha256"],
+        ),
+    }
+    mismatches = [label for label, (wanted, observed) in comparisons.items() if wanted != observed]
+    if mismatches:
+        raise PreflightError(f"frozen inventory mismatch: {', '.join(mismatches)}")
+    return {
+        "mode": "verify",
+        "verified": True,
+        "expected_evidence": {
+            "path": str(resolved_path),
+            "sha256": evidence_sha256,
+        },
+    }
+
+
+def run_preflight(
+    workspace: Path,
+    candidate: Path,
+    skill_name: str,
+    prompt: str,
+    expected_evidence: Path | None = None,
+) -> dict[str, Any]:
     resolved_workspace, resolved_candidate = require_physical_candidate(workspace, candidate, skill_name)
     frontmatter_name, frontmatter_description = read_frontmatter(resolved_candidate)
     if frontmatter_name != skill_name:
@@ -234,24 +360,29 @@ def run_preflight(workspace: Path, candidate: Path, skill_name: str, prompt: str
         raise PreflightError("codex executable was not found on PATH")
     codex_path = Path(located_codex).resolve(strict=True)
 
-    before = run_codex(codex_path, resolved_workspace, prompt, None, skill_name)
-    candidate_entries = [entry for entry in before.entries if entry.path == resolved_candidate]
+    before = run_codex(codex_path, resolved_workspace, prompt, None)
+    candidate_entries = [
+        entry for entry in before.entries if entry.name == skill_name and entry.path == resolved_candidate
+    ]
     if len(candidate_entries) != 1:
         raise PreflightError(
             f"Codex must expose the intended candidate exactly once before filtering; found {len(candidate_entries)}"
         )
 
-    competing_paths = sorted({entry.path for entry in before.entries if entry.path != resolved_candidate})
+    competing_paths = sorted(
+        {entry.path for entry in before.entries if entry.name == skill_name and entry.path != resolved_candidate}
+    )
     config_override = build_config_override(competing_paths)
-    after = run_codex(codex_path, resolved_workspace, prompt, config_override, skill_name)
-    if len(after.entries) != 1 or after.entries[0].path != resolved_candidate:
-        remaining = ", ".join(str(entry.path) for entry in after.entries) or "none"
+    after = run_codex(codex_path, resolved_workspace, prompt, config_override)
+    remaining_candidates = [entry for entry in after.entries if entry.name == skill_name]
+    if len(remaining_candidates) != 1 or remaining_candidates[0].path != resolved_candidate:
+        remaining = ", ".join(str(entry.path) for entry in remaining_candidates) or "none"
         raise PreflightError(f"Codex did not converge to the intended single candidate; remaining: {remaining}")
-    if after.entries[0].description != frontmatter_description:
+    if remaining_candidates[0].description != frontmatter_description:
         raise PreflightError("Codex prompt description does not match the candidate frontmatter")
 
-    return {
-        "schema_version": 1,
+    result: dict[str, Any] = {
+        "schema_version": 2,
         "passed": True,
         "model_calls": 0,
         "codex_version": codex_version(codex_path),
@@ -263,19 +394,22 @@ def run_preflight(workspace: Path, candidate: Path, skill_name: str, prompt: str
             "bundle_sha256": sha256_bundle(resolved_candidate.parent),
             "description": frontmatter_description,
         },
-        "before": {
-            "prompt_input_sha256": before.raw_sha256,
-            "candidates": [entry.as_record() for entry in before.entries],
-        },
+        "before": diagnostic_record(before, skill_name),
         "filter": {
             "disabled_paths": [str(path) for path in competing_paths],
             "config_override": config_override,
         },
-        "after": {
-            "prompt_input_sha256": after.raw_sha256,
-            "candidates": [entry.as_record() for entry in after.entries],
-        },
+        "after": diagnostic_record(after, skill_name),
     }
+    if expected_evidence is None:
+        result["verification"] = {
+            "mode": "capture",
+            "verified": False,
+            "expected_evidence": None,
+        }
+    else:
+        result["verification"] = verify_expected_evidence(result, expected_evidence, resolved_workspace)
+    return result
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -284,6 +418,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidate", required=True, type=Path)
     parser.add_argument("--skill-name", default="sync-traycer-notion")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument(
+        "--expected-evidence",
+        type=Path,
+        help="external schema-v2 capture to re-verify immediately before model execution",
+    )
     return parser
 
 
@@ -295,9 +434,10 @@ def main() -> int:
             candidate=arguments.candidate,
             skill_name=arguments.skill_name,
             prompt=arguments.prompt,
+            expected_evidence=arguments.expected_evidence,
         )
     except (OSError, PreflightError) as error:
-        print(json.dumps({"schema_version": 1, "passed": False, "model_calls": 0, "error": str(error)}))
+        print(json.dumps({"schema_version": 2, "passed": False, "model_calls": 0, "error": str(error)}))
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

@@ -1,0 +1,45 @@
+{
+  "claim_scope": "Temporary repository-binding compatibility layer only; no target-skill evaluation, automatic-trigger proof, or cross-harness portability claim",
+  "generation": {
+    "kind": "deterministic-repository-snapshot",
+    "model_calls": 0,
+    "paid_canaries_run": false
+  },
+  "passed": false,
+  "private_evidence": {
+    "encrypted_key": "pending",
+    "key_manifest": "pending",
+    "raw_archive": "pending"
+  },
+  "production_contract": {
+    "harnesses": {
+      "antigravity": "pending",
+      "claude-code": "pending",
+      "codex": "pending",
+      "cursor": "pending"
+    },
+    "human_calibration": "pending",
+    "overall_status": "not-proven",
+    "suite_status": "draft"
+  },
+  "schema_version": 2,
+  "sealed_inputs": {
+    "case_pack_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
+    "case_pack_sha256": "9b71d9fa1852241c6aa496253e868c9562afec4ca07883279ce4f98739e85955",
+    "central_draft_contract_sha256": "f8ceaa0bdad6e76677224b534e16f7cc36082adcd88f8776ba63eb8ee72fc5e3",
+    "custody_runbook_sha256": "d783df8c0af403df522524daf54461f8b96a1b316feb6bcb7455e98b7fede727",
+    "evidence_contract_sha256": "aca7ab061115816bcfe51c4420932db60c49d92f8b49d1c1a8981c24d13693bf",
+    "private_verifier_sha256": "bdd7bad97abb5618d6c353a8a833698e270dc2c0756cb08e773033913aba4508",
+    "runner_sha256": "acf46de323e036ca852f24057a7cfad217f5bbd2a6f347ca71864a7adcadf5f0",
+    "skill_sha256": "3e8e5f26fa12d68332d39547247d4f48c5d5f895c6d83468e70ab681a4ad7721",
+    "skill_tree_sha256": "be0a32738b8ab941bb484270f39640f2d8193372a1d82714d7cb0f36620bf53c"
+  },
+  "status": "pending",
+  "suite": "sync-traycer-notion-trigger-behavior",
+  "trigger_proof": {
+    "baseline_isolated": null,
+    "near_miss_non_trigger": null,
+    "positive_automatic_trigger": null,
+    "trace_contract_passed": null
+  }
+}

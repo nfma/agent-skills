@@ -187,7 +187,7 @@ SUITE_SEEDS: dict[str, SuiteSeed] = {
             "Review a Rust formatting-only patch and identify rustfmt drift without assessing modules, ports, or adapters.",
             "Explain what Cargo workspaces are at a conceptual level without reviewing a repository or proposing architecture.",
             "Add a benchmark under benches for an existing parser; no maintained component boundary or structural proof is involved.",
-            "Review a Python service's ports-and-adapters design using a language-appropriate structural tool; do not use Rust or hav guidance.",
+            "Review a Python service's ports-and-adapters design using a language-appropriate structural validator; keep the assessment and tool choice specific to that repository.",
         ],
     },
     "hf-cli": {

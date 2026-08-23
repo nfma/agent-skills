@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "skill_name": "hexagonal-architecture-rust",
-  "suite_canonical_sha256": "d3cc97e3c1dcdc66a0753bdfb0d86c81c13fe9d91d7dad8cad91cd366216a8f6",
+  "suite_canonical_sha256": "006a7a002f4c1fca31d7b75333d534ae74625156cec2d9d3c49e1665f3c1db47",
   "key_sha256": "PENDING-COORDINATOR-SEAL",
   "cases": [
     {

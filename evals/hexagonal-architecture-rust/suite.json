@@ -380,7 +380,7 @@
       "id": "near-10",
       "kind": "near-miss",
       "class": "regression",
-      "prompt": "Review a Python service's ports-and-adapters design using a language-appropriate structural tool; do not use Rust or hav guidance.",
+      "prompt": "Review a Python service's ports-and-adapters design using a language-appropriate structural validator; keep the assessment and tool choice specific to that repository.",
       "fixture_root": null,
       "graders": [
         "native-trigger",

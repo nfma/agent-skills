@@ -705,6 +705,7 @@ EOF
 }
 
 @test "wake relay setup installs a fixed no-secret user LaunchAgent" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   relay_uid=$(/usr/bin/id -u)
 
@@ -740,14 +741,13 @@ EOF
   ! grep -E 'TOKEN|token|handoff|message content' "$WAKE_RELAY_LAUNCHER"
   [[ "$output" != *'test-credential'* ]]
 
-  if [ "$(/usr/bin/uname -s)" = Darwin ]; then
-    run env HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/discord-wake-relay" check
-    [ "$status" -eq 0 ]
-    [ "$output" = 'Discord wake relay launcher is ready.' ]
-  fi
+  run env HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/discord-wake-relay" check
+  [ "$status" -eq 0 ]
+  [ "$output" = 'Discord wake relay launcher is ready.' ]
 }
 
 @test "wake relay setup preserves pre-existing legacy logs" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   mkdir -p "$WAKE_RELAY_LOG_DIR"
   printf '%s\n' 'legacy stdout' >"$WAKE_RELAY_LOG_DIR/stdout.log"
@@ -765,6 +765,7 @@ EOF
 }
 
 @test "a second wake relay setup is idempotent and kickstarts the loaded service" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
 
   run "$INSTALLER" --setup-wake-relay
@@ -782,6 +783,7 @@ EOF
 }
 
 @test "wake relay setup reloads a loaded service after the rendered plist changes" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   relay_uid=$(/usr/bin/id -u)
   run "$INSTALLER" --setup-wake-relay
@@ -802,6 +804,7 @@ EOF
 }
 
 @test "wake relay setup reloads an unchanged plist when launchd has a stale definition" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]
@@ -826,6 +829,7 @@ EOF
 }
 
 @test "wake relay setup surfaces bootout failure and safely reloads on rerun" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]
@@ -853,6 +857,7 @@ EOF
 }
 
 @test "wake relay setup surfaces bootstrap failure and recovers on rerun" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   export MCP_TEST_LAUNCHCTL_FAILURE=bootstrap
 
@@ -873,6 +878,7 @@ EOF
 }
 
 @test "wake relay setup surfaces kickstart failure and recovers on rerun" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]
@@ -895,6 +901,7 @@ EOF
 }
 
 @test "wake relay uninstall dry run preserves the loaded installation" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]
@@ -912,6 +919,7 @@ EOF
 }
 
 @test "wake relay uninstall is idempotent and preserves relay and Discord state" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   : >"$MCP_TEST_STATE/discord-profile-ready"
   run "$INSTALLER" --setup-wake-relay
@@ -941,6 +949,7 @@ EOF
 }
 
 @test "wake relay uninstall surfaces bootout failure without removing targets and recovers" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]
@@ -972,6 +981,7 @@ EOF
 }
 
 @test "wake relay can be reinstalled without changing preserved registrations" {
+  require_macos_launchd_test
   prepare_wake_relay_preflight
   run "$INSTALLER" --setup-wake-relay
   [ "$status" -eq 0 ]

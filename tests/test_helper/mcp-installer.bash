@@ -311,6 +311,13 @@ EOF
   chmod +x "$INSTALL_HOME/.local/bin/traycer"
 }
 
+require_macos_launchd_test() {
+  if [ "$(/usr/bin/uname -s)" != Darwin ]; then
+    skip 'requires macOS launchd and plutil behavior'
+  fi
+  return 0
+}
+
 write_github_server_mock() {
   cat >"$FAKE_BIN/github-mcp-server" <<'EOF'
 #!/bin/sh

@@ -46,6 +46,20 @@
       "suite": "evals/google-workspace/suite.json"
     },
     {
+      "name": "hexagonal-architecture",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/hexagonal-architecture/suite.json"
+    },
+    {
+      "name": "hexagonal-architecture-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/hexagonal-architecture-rust/suite.json"
+    },
+    {
       "name": "hf-cli",
       "source": "first-party",
       "risk": "high",

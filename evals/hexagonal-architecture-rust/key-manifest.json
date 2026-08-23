@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill_name": "hexagonal-architecture-rust",
+  "suite_canonical_sha256": "006a7a002f4c1fca31d7b75333d534ae74625156cec2d9d3c49e1665f3c1db47",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "pos-01",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-02",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-03",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-04",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-05",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-06",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-07",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-08",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-09",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-10",
+      "criterion_count": 3
+    }
+  ]
+}

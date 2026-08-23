@@ -26,14 +26,29 @@ evaluation batch. The lane must meet every condition below before any paid call:
 4. Create a fresh project root with no parent repository and no user or project
    MCP configuration. Copy, rather than symlink, the candidate bundle to exactly
    `.agents/skills/sync-traycer-notion/`.
-5. Search the project and all four native user roots for `SKILL.md`. Require
-   exactly one declaration named `sync-traycer-notion`, located at the project
-   candidate path. Hash the whole candidate bundle and the task surface.
-6. Keep raw stream-JSON traces, hashes, and the answer-bearing grading key in a
+5. Search the project, every parent directory, and all four native user roots
+   for `SKILL.md`. Canonicalize every discovered entry as its name,
+   description, resolved path, and bundle SHA-256. Require exactly one
+   declaration named `sync-traycer-notion`, located at the project candidate
+   path, and seal the full filesystem inventory with the OS image, Cursor CLI
+   version, candidate hash, and task-surface hash.
+6. Obtain the full model-visible inventory from a non-model Cursor surface and
+   canonicalize every entry, including unavoidable built-in skills. Seal that
+   inventory separately from any prompt or trace. If the installed Cursor
+   version cannot expose the complete inventory without a model call, mark the
+   Cursor lane unavailable; filesystem isolation alone does not authorize a
+   paid canary.
+7. Immediately before any later model execution, re-collect both inventories
+   and require exact equality with the sealed records. A changed built-in,
+   plugin, description, path, bundle, CLI version, or discovery root invalidates
+   the lane.
+8. Keep raw stream-JSON traces, inventory records, hashes, and the
+   answer-bearing grading key in a
    coordinator-owned directory outside the project and outside Git.
 
-The static preflight proves filesystem isolation, not native discovery. Cursor's
-model must still provide the native-loading evidence.
+The inventory gate proves a stable discovery surface, not native loading.
+Cursor's model must still provide the exact load/non-load evidence after the
+coordinator separately authorizes paid canaries.
 
 ## Future canary gate
 

@@ -146,18 +146,20 @@ class DiscordCoordinationTests(unittest.TestCase):
             state_path = state_directory / "state.json"
             state_path.write_text('{"version": 1, "inboxes": {}}\n', encoding="utf-8")
             state_path.chmod(0o644)
+            store = self.helper.CursorState(state_directory)
 
             with self.assertRaisesRegex(self.helper.CoordinationError, "broader than 0600"):
-                self.helper.CursorState(state_directory).get("epic/759f/role/primary")
+                store.get("epic/759f/role/primary")
 
     def test_cursor_rejects_broad_existing_directory_without_changing_it(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             state_directory = Path(temporary_directory) / "shared"
             state_directory.mkdir()
             state_directory.chmod(0o755)
+            store = self.helper.CursorState(state_directory)
 
             with self.assertRaisesRegex(self.helper.CoordinationError, "broader than 0700"):
-                self.helper.CursorState(state_directory).get("epic/759f/role/primary")
+                store.get("epic/759f/role/primary")
 
             self.assertEqual(stat.S_IMODE(state_directory.stat().st_mode), 0o755)
             self.assertFalse((state_directory / "state.json").exists())

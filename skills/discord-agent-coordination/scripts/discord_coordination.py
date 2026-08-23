@@ -349,48 +349,62 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run(arguments: argparse.Namespace) -> None:
-    if arguments.command == "address":
-        if arguments.runtime_agent and not arguments.role:
-            raise CoordinationError("--runtime-agent requires --role")
-        if arguments.runtime_agent:
-            print(sender_address(arguments.epic, arguments.role, arguments.runtime_agent))
-        elif arguments.role:
-            print(role_address(arguments.epic, arguments.role))
-        else:
-            print(epic_address(arguments.epic))
-    elif arguments.command == "thread-name":
-        print(thread_name(arguments.address, arguments.max_length))
-    elif arguments.command == "render":
-        print(
-            render_envelope(
-                kind=arguments.kind,
-                sender=arguments.sender,
-                target=arguments.target,
-                task=arguments.task,
-                needs=arguments.needs,
-                body=read_body(arguments),
-                message_id=arguments.message_id,
-                in_reply_to=arguments.in_reply_to,
-            )
+def run_address(arguments: argparse.Namespace) -> None:
+    if arguments.runtime_agent and not arguments.role:
+        raise CoordinationError("--runtime-agent requires --role")
+    if arguments.runtime_agent:
+        print(sender_address(arguments.epic, arguments.role, arguments.runtime_agent))
+    elif arguments.role:
+        print(role_address(arguments.epic, arguments.role))
+    else:
+        print(epic_address(arguments.epic))
+
+
+def run_render(arguments: argparse.Namespace) -> None:
+    print(
+        render_envelope(
+            kind=arguments.kind,
+            sender=arguments.sender,
+            target=arguments.target,
+            task=arguments.task,
+            needs=arguments.needs,
+            body=read_body(arguments),
+            message_id=arguments.message_id,
+            in_reply_to=arguments.in_reply_to,
         )
-    elif arguments.command == "validate":
-        try:
-            message = arguments.file.read_text(encoding="utf-8") if arguments.file else sys.stdin.read()
-        except (OSError, UnicodeDecodeError) as exc:
-            raise CoordinationError("could not read envelope") from exc
-        print(json.dumps(parse_envelope(message), sort_keys=True))
-    elif arguments.command == "cursor":
-        store = CursorState(arguments.state_dir)
-        if arguments.action == "get":
-            if arguments.cursor is not None or arguments.thread_id is not None:
-                raise CoordinationError("cursor get does not accept --cursor or --thread-id")
-            print(json.dumps(store.get(arguments.address), sort_keys=True))
-        else:
-            if arguments.cursor is None:
-                raise CoordinationError("cursor advance requires --cursor")
-            updated = store.advance(arguments.address, arguments.cursor, arguments.thread_id)
-            print(json.dumps({"updated": updated, **store.get(arguments.address)}, sort_keys=True))
+    )
+
+
+def run_validate(arguments: argparse.Namespace) -> None:
+    try:
+        message = arguments.file.read_text(encoding="utf-8") if arguments.file else sys.stdin.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise CoordinationError("could not read envelope") from exc
+    print(json.dumps(parse_envelope(message), sort_keys=True))
+
+
+def run_cursor(arguments: argparse.Namespace) -> None:
+    store = CursorState(arguments.state_dir)
+    if arguments.action == "get":
+        if arguments.cursor is not None or arguments.thread_id is not None:
+            raise CoordinationError("cursor get does not accept --cursor or --thread-id")
+        print(json.dumps(store.get(arguments.address), sort_keys=True))
+        return
+    if arguments.cursor is None:
+        raise CoordinationError("cursor advance requires --cursor")
+    updated = store.advance(arguments.address, arguments.cursor, arguments.thread_id)
+    print(json.dumps({"updated": updated, **store.get(arguments.address)}, sort_keys=True))
+
+
+def run(arguments: argparse.Namespace) -> None:
+    handlers = {
+        "address": run_address,
+        "thread-name": lambda options: print(thread_name(options.address, options.max_length)),
+        "render": run_render,
+        "validate": run_validate,
+        "cursor": run_cursor,
+    }
+    handlers[arguments.command](arguments)
 
 
 def main() -> int:

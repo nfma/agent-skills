@@ -12,11 +12,11 @@ import tempfile
 import textwrap
 import time
 import unittest
+import unittest.mock
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any
-from unittest import mock
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIRECTORY = REPOSITORY_ROOT / "skills/discord-agent-coordination/scripts"
@@ -298,7 +298,7 @@ class RelayTestCase(unittest.TestCase):
             now=now,
         )
 
-    def traycer_calls(self) -> list[dict[str, Any]]:
+    def _traycer_calls(self) -> list[dict[str, Any]]:
         if not self.traycer_log.exists():
             return []
         return [json.loads(line) for line in self.traycer_log.read_text(encoding="utf-8").splitlines()]
@@ -320,12 +320,13 @@ class SecureStateTests(RelayTestCase):
                 bot_id=BOT_ID,
                 cursor=INITIAL_CURSOR,
             )
+        over_limit_state = RELAY.RelayState(registrations=registrations, audit=[])
         with self.assertRaisesRegex(RELAY.RelayConfigurationError, "exceeds configured limits"):
-            self.store.save(RELAY.RelayState(registrations=registrations, audit=[]))
+            self.store.save(over_limit_state)
         self.assertFalse(self.store.path.exists())
 
     def test_state_and_lock_use_restrictive_permissions_and_atomic_files(self) -> None:
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
         first_inode = self.store.path.stat().st_ino
         state = self.store.load()
@@ -344,8 +345,9 @@ class SecureStateTests(RelayTestCase):
     def test_state_rejects_broad_directory_file_and_symlink_without_repair(self) -> None:
         broad_directory = self.root / "broad"
         broad_directory.mkdir(mode=0o755)
+        broad_store = RELAY.StateStore(broad_directory)
         with self.assertRaisesRegex(RELAY.RelayConfigurationError, "broader than 0700"):
-            RELAY.StateStore(broad_directory).load()
+            broad_store.load()
         self.assertEqual(stat.S_IMODE(broad_directory.stat().st_mode), 0o755)
 
         secure_directory = self.root / "secure"
@@ -353,8 +355,9 @@ class SecureStateTests(RelayTestCase):
         state_path = secure_directory / "state.json"
         state_path.write_text("{}\n", encoding="utf-8")
         state_path.chmod(0o644)
+        secure_store = RELAY.StateStore(secure_directory)
         with self.assertRaisesRegex(RELAY.RelayConfigurationError, "broader than 0600"):
-            RELAY.StateStore(secure_directory).load()
+            secure_store.load()
         self.assertEqual(stat.S_IMODE(state_path.stat().st_mode), 0o644)
 
         victim = self.root / "victim"
@@ -362,8 +365,9 @@ class SecureStateTests(RelayTestCase):
         symlink_directory = self.root / "symlink-state"
         symlink_directory.mkdir(mode=0o700)
         (symlink_directory / "state.json").symlink_to(victim)
+        symlink_store = RELAY.StateStore(symlink_directory)
         with self.assertRaisesRegex(RELAY.RelayConfigurationError, "symlink"):
-            RELAY.StateStore(symlink_directory).load()
+            symlink_store.load()
         self.assertEqual(victim.read_text(encoding="utf-8"), "unchanged")
 
         for label in ("instance", "state"):
@@ -412,7 +416,11 @@ class SecureStateTests(RelayTestCase):
 class RegistrationTests(RelayTestCase):
     def test_registration_requires_an_eligible_local_self_agent(self) -> None:
         with (
-            mock.patch.dict(os.environ, {**self.environment, "FAKE_TRAYCER_MODE": "ineligible"}, clear=False),
+            unittest.mock.patch.dict(
+                os.environ,
+                {**self.environment, "FAKE_TRAYCER_MODE": "ineligible"},
+                clear=False,
+            ),
             self.assertRaisesRegex(RELAY.RelayConfigurationError, "eligible local self"),
         ):
             self.register()
@@ -420,14 +428,18 @@ class RegistrationTests(RelayTestCase):
 
         started_at = time.monotonic()
         with (
-            mock.patch.dict(os.environ, {**self.environment, "FAKE_TRAYCER_MODE": "list-oversized"}, clear=False),
+            unittest.mock.patch.dict(
+                os.environ,
+                {**self.environment, "FAKE_TRAYCER_MODE": "list-oversized"},
+                clear=False,
+            ),
             self.assertRaisesRegex(RELAY.RelayUnavailableError, "output exceeded"),
         ):
             self.traycer.validate_self(EPIC_ID, AGENT_ID)
         self.assertLess(time.monotonic() - started_at, self.traycer.timeout)
 
     def test_registration_is_strict_non_rebinding_and_non_regressing(self) -> None:
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             registration = self.register()
             self.assertEqual(registration.cursor, INITIAL_CURSOR)
             with self.assertRaisesRegex(RELAY.RelayConfigurationError, "cannot regress"):
@@ -445,7 +457,7 @@ class RegistrationTests(RelayTestCase):
                 )
 
     def test_registration_rejects_address_epic_mismatch_and_short_snowflakes(self) -> None:
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             with self.assertRaisesRegex(RELAY.RelayConfigurationError, "does not belong"):
                 RELAY.register_role(
                     self.store,
@@ -479,7 +491,7 @@ class RelayDeliveryTests(RelayTestCase):
             {"id", "author_id", "author_name", "content", "timestamp", "edited"},
         )
         self.write_messages([valid_message])
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
             summary = self.run_cycle(now, cooldown=0)
             wrong_author = discord_message(MESSAGE_IDS[1], now + 1, author_id="923456789012345678")
@@ -494,7 +506,7 @@ class RelayDeliveryTests(RelayTestCase):
         self.assertEqual(state.registrations[ADDRESS].cursor, MESSAGE_IDS[1])
         self.assertEqual([record["outcome"] for record in state.audit[-2:]], ["delivered", "author-mismatch"])
 
-        calls = self.traycer_calls()
+        calls = self._traycer_calls()
         self.assertEqual(len(calls), 1)
         arguments = calls[0]["args"]
         self.assertIsInstance(arguments, list)
@@ -535,14 +547,14 @@ class RelayDeliveryTests(RelayTestCase):
             ),
         ]
         self.write_messages(list(reversed(messages)))
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
             summary = self.run_cycle(now, max_age=900)
 
         self.assertEqual(summary["wakes"], 0)
         self.assertEqual(summary["rejected"], len(messages))
         self.assertEqual(self.store.load().registrations[ADDRESS].cursor, MESSAGE_IDS[8])
-        self.assertEqual(self.traycer_calls(), [])
+        self.assertEqual(self._traycer_calls(), [])
         outcomes = {record["outcome"] for record in self.store.load().audit}
         self.assertEqual(
             outcomes,
@@ -564,7 +576,7 @@ class RelayDeliveryTests(RelayTestCase):
         eligible = discord_message(MESSAGE_IDS[1], now)
         self.write_messages([eligible, poison])
         self.fail_file.touch()
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
             failed = self.run_cycle(now, cooldown=0)
             self.fail_file.unlink()
@@ -573,7 +585,7 @@ class RelayDeliveryTests(RelayTestCase):
         self.assertEqual(failed["failures"], 1)
         self.assertEqual(retried["wakes"], 1)
         self.assertEqual(self.store.load().registrations[ADDRESS].cursor, MESSAGE_IDS[1])
-        self.assertEqual(len(self.traycer_calls()), 2)
+        self.assertEqual(len(self._traycer_calls()), 2)
         outcomes = [record["outcome"] for record in self.store.load().audit]
         self.assertEqual(outcomes, ["kind-ineligible", "delivered"])
 
@@ -582,7 +594,7 @@ class RelayDeliveryTests(RelayTestCase):
         first = discord_message(MESSAGE_IDS[0], now, content=envelope(task="TASK-72"))
         second = discord_message(MESSAGE_IDS[1], now, content=envelope(task="TASK-73"))
         self.write_messages([second, first])
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
             coalesced = self.run_cycle(now, cooldown=60)
             third = discord_message(MESSAGE_IDS[2], now + 30, content=envelope(task="TASK-74"))
@@ -596,7 +608,7 @@ class RelayDeliveryTests(RelayTestCase):
         self.assertEqual(cooling_down["wakes"], 0)
         self.assertEqual(delivered_later["wakes"], 1)
         self.assertEqual(self.store.load().registrations[ADDRESS].cursor, MESSAGE_IDS[2])
-        calls = self.traycer_calls()
+        calls = self._traycer_calls()
         self.assertEqual(len(calls), 2)
         first_arguments = calls[0]["args"]
         first_prompt = first_arguments[first_arguments.index("--message") + 1]
@@ -605,7 +617,7 @@ class RelayDeliveryTests(RelayTestCase):
 
     def test_mcp_protocol_failure_and_oversized_response_retain_cursor(self) -> None:
         now = 1_800_000_000
-        with mock.patch.dict(os.environ, self.environment, clear=False):
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False):
             self.register()
             self.write_messages([discord_message(MESSAGE_IDS[0], now)], mode="wrong-id")
             wrong_id = self.run_cycle(now)
@@ -618,7 +630,7 @@ class RelayDeliveryTests(RelayTestCase):
         self.assertGreaterEqual(float_id["failures"], 1)
         self.assertGreaterEqual(oversized["failures"], 1)
         self.assertEqual(self.store.load().registrations[ADDRESS].cursor, INITIAL_CURSOR)
-        self.assertEqual(self.traycer_calls(), [])
+        self.assertEqual(self._traycer_calls(), [])
 
     def test_audit_is_metadata_only_and_bounded(self) -> None:
         registration = RELAY.Registration(
@@ -675,7 +687,7 @@ class CommandLineTests(RelayTestCase):
         ]
         once_command = [*base, "once", "--cooldown", "0", "--timeout", "2"]
         # The interpreter and all invoked paths are fixed or temporary test paths.
-        with mock.patch.dict(os.environ, self.environment, clear=False), self.store.instance_lock():
+        with unittest.mock.patch.dict(os.environ, self.environment, clear=False), self.store.instance_lock():
             registered = subprocess.run(  # nosec B603
                 register_command,
                 cwd=REPOSITORY_ROOT,

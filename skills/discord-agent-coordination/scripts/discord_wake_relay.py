@@ -46,6 +46,8 @@ DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_STATE_LOCK_TIMEOUT_SECONDS = 5 * 60.0
 MAX_STATE_LOCK_TIMEOUT_SECONDS = 60 * 60.0
 STATE_LOCK_RETRY_SECONDS = 0.05
+TRAYCER_COMMAND_TIMEOUT_ERROR = "local Traycer command timed out"
+DISCORD_MESSAGE_ID_LABEL = "Discord message ID"
 SNOWFLAKE_PATTERN = re.compile(r"[1-9][0-9]{16,19}")
 TASK_KEY_PATTERN = re.compile(r"TASK-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 AUDIT_OUTCOMES = frozenset(
@@ -441,6 +443,67 @@ class SecureFileLock:
         self.close()
 
 
+def _remaining_command_time(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise RelayUnavailableError(TRAYCER_COMMAND_TIMEOUT_ERROR)
+    return remaining
+
+
+def _read_process_chunk(descriptor: int, output: dict[int, bytearray]) -> bool:
+    current_size = sum(len(buffer) for buffer in output.values())
+    try:
+        chunk = os.read(descriptor, min(65_536, MAX_SUBPROCESS_BYTES + 1 - current_size))
+    except OSError as exc:
+        raise RelayUnavailableError("local Traycer command output could not be read") from exc
+    if not chunk:
+        return False
+    output[descriptor].extend(chunk)
+    if sum(len(buffer) for buffer in output.values()) > MAX_SUBPROCESS_BYTES:
+        raise RelayUnavailableError("local Traycer command output exceeded the size limit")
+    return True
+
+
+def _drain_process_output(
+    stdout: IO[bytes],
+    stderr: IO[bytes],
+    deadline: float,
+) -> tuple[bytes, bytes]:
+    stdout_descriptor = stdout.fileno()
+    stderr_descriptor = stderr.fileno()
+    output = {stdout_descriptor: bytearray(), stderr_descriptor: bytearray()}
+    selector = selectors.DefaultSelector()
+    selector.register(stdout, selectors.EVENT_READ, stdout_descriptor)
+    selector.register(stderr, selectors.EVENT_READ, stderr_descriptor)
+    try:
+        while selector.get_map():
+            try:
+                events = selector.select(_remaining_command_time(deadline))
+            except OSError as exc:
+                raise RelayUnavailableError("local Traycer command output could not be read") from exc
+            if not events:
+                raise RelayUnavailableError(TRAYCER_COMMAND_TIMEOUT_ERROR)
+            for key, _events in events:
+                if not _read_process_chunk(key.data, output):
+                    selector.unregister(key.fileobj)
+    finally:
+        selector.close()
+    return bytes(output[stdout_descriptor]), bytes(output[stderr_descriptor])
+
+
+def _wait_for_process(process: subprocess.Popen[bytes], deadline: float) -> int:
+    try:
+        return process.wait(timeout=_remaining_command_time(deadline))
+    except subprocess.TimeoutExpired as exc:
+        raise RelayUnavailableError(TRAYCER_COMMAND_TIMEOUT_ERROR) from exc
+
+
+def _terminate_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is None:
+        process.kill()
+    process.wait()
+
+
 def _bounded_command(
     command: list[str],
     *,
@@ -460,50 +523,19 @@ def _bounded_command(
     except OSError as exc:
         raise RelayUnavailableError("local Traycer command could not be started") from exc
     if process.stdout is None or process.stderr is None:
-        process.kill()
-        process.wait()
+        _terminate_process(process)
         raise RelayUnavailableError("local Traycer command output pipes are unavailable")
 
     stdout = process.stdout
     stderr = process.stderr
-    stdout_descriptor = stdout.fileno()
-    stderr_descriptor = stderr.fileno()
-    output = {stdout_descriptor: bytearray(), stderr_descriptor: bytearray()}
-    selector = selectors.DefaultSelector()
-    selector.register(stdout, selectors.EVENT_READ, stdout_descriptor)
-    selector.register(stderr, selectors.EVENT_READ, stderr_descriptor)
     deadline = time.monotonic() + timeout
     try:
-        while selector.get_map():
-            remaining = deadline - time.monotonic()
-            events = selector.select(remaining) if remaining > 0 else []
-            if not events:
-                raise RelayUnavailableError("local Traycer command timed out")
-            for key, _events in events:
-                descriptor = key.data
-                current_size = sum(len(buffer) for buffer in output.values())
-                chunk = os.read(descriptor, min(65_536, MAX_SUBPROCESS_BYTES + 1 - current_size))
-                if chunk:
-                    output[descriptor].extend(chunk)
-                    if sum(len(buffer) for buffer in output.values()) > MAX_SUBPROCESS_BYTES:
-                        raise RelayUnavailableError("local Traycer command output exceeded the size limit")
-                else:
-                    selector.unregister(key.fileobj)
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise RelayUnavailableError("local Traycer command timed out")
-        try:
-            return_code = process.wait(timeout=remaining)
-        except subprocess.TimeoutExpired as exc:
-            raise RelayUnavailableError("local Traycer command timed out") from exc
-        return return_code, bytes(output[stdout_descriptor]), bytes(output[stderr_descriptor])
+        stdout_output, stderr_output = _drain_process_output(stdout, stderr, deadline)
+        return _wait_for_process(process, deadline), stdout_output, stderr_output
     except RelayUnavailableError:
-        if process.poll() is None:
-            process.kill()
-        process.wait()
+        _terminate_process(process)
         raise
     finally:
-        selector.close()
         stdout.close()
         stderr.close()
 
@@ -647,7 +679,7 @@ class McpClient:
         try:
             stdin.write(serialized)
             stdin.flush()
-        except (BrokenPipeError, OSError) as exc:
+        except OSError as exc:
             raise RelayUnavailableError("Discord MCP process closed its input") from exc
 
     def _read(self) -> dict[str, Any]:
@@ -782,7 +814,7 @@ class McpClient:
         for message in messages:
             if not isinstance(message, dict):
                 raise RelayUnavailableError("Discord message record is malformed")
-            message_id = require_snowflake(message.get("id"), "Discord message ID")
+            message_id = require_snowflake(message.get("id"), DISCORD_MESSAGE_ID_LABEL)
             if message_id in identifiers:
                 raise RelayUnavailableError("Discord messages_read returned duplicate message IDs")
             identifiers.add(message_id)
@@ -833,7 +865,7 @@ def validate_handoff(
     now: datetime,
     max_age: float,
 ) -> tuple[Handoff | None, str | None]:
-    message_id = require_snowflake(message.get("id"), "Discord message ID")
+    message_id = require_snowflake(message.get("id"), DISCORD_MESSAGE_ID_LABEL)
     if message.get("author_id") != registration.bot_id:
         return None, "author-mismatch"
     timestamp = _parse_timestamp(message.get("timestamp"))
@@ -885,6 +917,84 @@ def wake_prompt(registration: Registration, handoffs: list[Handoff]) -> str:
     )
 
 
+def classify_messages(
+    registration: Registration,
+    messages: list[dict[str, Any]],
+    *,
+    now: datetime,
+    max_age: float,
+) -> tuple[list[Handoff], list[tuple[str, str]], str, str]:
+    eligible: list[Handoff] = []
+    rejected: list[tuple[str, str]] = []
+    safe_cursor = registration.cursor
+    last_cursor = registration.cursor
+    seen_eligible = False
+    for message in messages:
+        message_id = require_snowflake(message.get("id"), DISCORD_MESSAGE_ID_LABEL)
+        if int(message_id) <= int(registration.cursor):
+            continue
+        last_cursor = message_id
+        handoff, reason = validate_handoff(message, registration, now=now, max_age=max_age)
+        if handoff is not None:
+            seen_eligible = True
+            eligible.append(handoff)
+            continue
+        if reason is None:
+            raise RelayConfigurationError("handoff validation returned no outcome")
+        rejected.append((message_id, reason))
+        if not seen_eligible:
+            safe_cursor = message_id
+    return eligible, rejected, safe_cursor, last_cursor
+
+
+def record_rejections(
+    state: RelayState,
+    registration: Registration,
+    rejected: list[tuple[str, str]],
+    now: int,
+) -> None:
+    for message_id, reason in rejected:
+        record_audit(state, registration, message_id, reason, now)
+
+
+def relay_result(
+    eligible: int,
+    rejected: int,
+    *,
+    wakes: int = 0,
+    cooldown: int = 0,
+    failures: int = 0,
+) -> dict[str, int]:
+    return {
+        "eligible": eligible,
+        "rejected": rejected,
+        "wakes": wakes,
+        "cooldown": cooldown,
+        "failures": failures,
+    }
+
+
+def deferred_relay_result(
+    state: RelayState,
+    registration: Registration,
+    eligible: list[Handoff],
+    rejected: list[tuple[str, str]],
+    safe_cursor: str,
+    now: int,
+    *,
+    cooldown: int = 0,
+    failures: int = 0,
+) -> dict[str, int]:
+    registration.cursor = safe_cursor
+    record_rejections(state, registration, rejected, now)
+    return relay_result(
+        len(eligible),
+        len(rejected),
+        cooldown=cooldown,
+        failures=failures,
+    )
+
+
 def process_registration(
     state: RelayState,
     registration: Registration,
@@ -895,75 +1005,51 @@ def process_registration(
     max_age: float,
     cooldown: float,
 ) -> dict[str, int]:
-    eligible: list[Handoff] = []
-    rejected: list[tuple[str, str]] = []
-    safe_cursor = registration.cursor
-    last_cursor = registration.cursor
-    seen_eligible = False
     now_datetime = datetime.fromtimestamp(now, tz=UTC)
-    for message in messages:
-        message_id = require_snowflake(message.get("id"), "Discord message ID")
-        if int(message_id) <= int(registration.cursor):
-            continue
-        last_cursor = message_id
-        handoff, reason = validate_handoff(message, registration, now=now_datetime, max_age=max_age)
-        if handoff is not None:
-            seen_eligible = True
-            eligible.append(handoff)
-        else:
-            if reason is None:
-                raise RelayConfigurationError("handoff validation returned no outcome")
-            rejected.append((message_id, reason))
-            if not seen_eligible:
-                safe_cursor = message_id
+    eligible, rejected, safe_cursor, last_cursor = classify_messages(
+        registration,
+        messages,
+        now=now_datetime,
+        max_age=max_age,
+    )
 
     if not eligible:
         registration.cursor = last_cursor
-        for message_id, reason in rejected:
-            record_audit(state, registration, message_id, reason, now)
-        return {"eligible": 0, "rejected": len(rejected), "wakes": 0, "cooldown": 0, "failures": 0}
+        record_rejections(state, registration, rejected, now)
+        return relay_result(0, len(rejected))
 
     before_eligible = [(message_id, reason) for message_id, reason in rejected if int(message_id) <= int(safe_cursor)]
     cooling_down = cooldown > 0 and registration.last_wake_at is not None and now - registration.last_wake_at < cooldown
     if cooling_down:
-        registration.cursor = safe_cursor
-        for message_id, reason in before_eligible:
-            record_audit(state, registration, message_id, reason, now)
-        return {
-            "eligible": len(eligible),
-            "rejected": len(before_eligible),
-            "wakes": 0,
-            "cooldown": 1,
-            "failures": 0,
-        }
+        return deferred_relay_result(
+            state,
+            registration,
+            eligible,
+            before_eligible,
+            safe_cursor,
+            now,
+            cooldown=1,
+        )
 
     try:
         traycer.send_wake(registration, wake_prompt(registration, eligible))
     except RelayUnavailableError:
-        registration.cursor = safe_cursor
-        for message_id, reason in before_eligible:
-            record_audit(state, registration, message_id, reason, now)
-        return {
-            "eligible": len(eligible),
-            "rejected": len(before_eligible),
-            "wakes": 0,
-            "cooldown": 0,
-            "failures": 1,
-        }
+        return deferred_relay_result(
+            state,
+            registration,
+            eligible,
+            before_eligible,
+            safe_cursor,
+            now,
+            failures=1,
+        )
 
     registration.cursor = last_cursor
     registration.last_wake_at = now
-    for message_id, reason in rejected:
-        record_audit(state, registration, message_id, reason, now)
+    record_rejections(state, registration, rejected, now)
     newest = max(eligible, key=lambda handoff: int(handoff.message_id))
     record_audit(state, registration, newest.message_id, "delivered", now)
-    return {
-        "eligible": len(eligible),
-        "rejected": len(rejected),
-        "wakes": 1,
-        "cooldown": 0,
-        "failures": 0,
-    }
+    return relay_result(len(eligible), len(rejected), wakes=1)
 
 
 def register_role(

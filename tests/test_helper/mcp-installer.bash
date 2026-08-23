@@ -157,6 +157,7 @@ case " $* " in
 esac
 EOF
   chmod +x "$FAKE_BIN/discord-npx"
+  return 0
 }
 
 write_launchctl_mock() {
@@ -240,6 +241,7 @@ case "${1:-}" in
 esac
 EOF
   chmod +x "$FAKE_BIN/launchctl"
+  return 0
 }
 
 write_uname_mock() {
@@ -250,6 +252,7 @@ set -eu
 printf '%s\n' "${MCP_TEST_UNAME:-Darwin}"
 EOF
   chmod +x "$FAKE_BIN/uname"
+  return 0
 }
 
 write_stat_mock() {
@@ -282,6 +285,7 @@ grep -F '<plist version="1.0">' "$2" >/dev/null
 grep -F '</plist>' "$2" >/dev/null
 EOF
   chmod +x "$FAKE_BIN/plutil"
+  return 0
 }
 
 write_wake_relay_check_mock() {
@@ -309,10 +313,11 @@ set -eu
 printf '%s\n' 'traycer test'
 EOF
   chmod +x "$INSTALL_HOME/.local/bin/traycer"
+  return 0
 }
 
 require_macos_launchd_test() {
-  if [ "$(/usr/bin/uname -s)" != Darwin ]; then
+  if [[ "$(/usr/bin/uname -s)" != Darwin ]]; then
     skip 'requires macOS launchd and plutil behavior'
   fi
   return 0

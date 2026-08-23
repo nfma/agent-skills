@@ -21,6 +21,8 @@ THREAD_HASH_LENGTH = 12
 ENVELOPE_MARKER = "[agent-coordination/v1]"
 ENVELOPE_FIELDS = ("id", "kind", "from", "to", "task", "in-reply-to", "needs")
 MESSAGE_KINDS = frozenset({"status", "request", "reply", "blocker", "handoff", "done"})
+FOLLOW_UP_SUPPRESSED_EXIT = 3
+FOLLOW_UP_INBOX_PENDING_EXIT = 4
 COMPONENT_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 TARGET_ADDRESS_PATTERN = re.compile(
     r"epic/(?P<epic>[a-z0-9]+(?:-[a-z0-9]+)*)(?:/role/(?P<role>[a-z0-9]+(?:-[a-z0-9]+)*))?"
@@ -32,6 +34,7 @@ SENDER_ADDRESS_PATTERN = re.compile(
 )
 TASK_PATTERN = re.compile(r"TASK-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 SNOWFLAKE_PATTERN = re.compile(r"[1-9][0-9]{0,19}")
+RESOLUTION_PATTERN = re.compile(r"\b(?:ACCEPT|REJECT)\b")
 
 
 class CoordinationError(ValueError):
@@ -114,6 +117,14 @@ def require_task(value: str) -> str:
         if parsed.scheme != "https" or not parsed.netloc or any(character.isspace() for character in reference):
             raise CoordinationError("task reference must be an HTTPS URL")
     return value
+
+
+def task_key(value: str) -> str:
+    return require_task(value).partition(" ")[0]
+
+
+def sender_role(value: str) -> str:
+    return require_sender_address(value).rsplit("/", 1)[0]
 
 
 def validate_envelope_fields(fields: dict[str, str], body: str) -> None:
@@ -303,6 +314,111 @@ class CursorState:
         return True
 
 
+def evaluate_follow_up_gate(
+    payload: object,
+    *,
+    address: str,
+    expected_from_role: str,
+    task: str,
+    in_reply_to: str,
+    inbox_state: dict[str, str | None],
+) -> dict[str, Any]:
+    require_role_address(address)
+    require_role_address(expected_from_role)
+    expected_task_key = task_key(task)
+    require_uuid(in_reply_to, "in-reply-to")
+    if not isinstance(payload, dict):
+        raise CoordinationError("Discord messages payload must be a JSON object")
+
+    thread_id = inbox_state.get("thread_id")
+    cursor = inbox_state.get("cursor")
+    if not isinstance(thread_id, str) or not isinstance(cursor, str):
+        raise CoordinationError("owned inbox must have a verified thread ID and processing cursor")
+    require_snowflake(thread_id, "owned inbox thread ID")
+    require_snowflake(cursor, "owned inbox processing cursor")
+
+    channel_id = payload.get("channel_id")
+    if not isinstance(channel_id, str) or channel_id != thread_id:
+        raise CoordinationError("Discord messages payload is not from the owned inbox thread")
+    messages = payload.get("messages")
+    count = payload.get("count")
+    if not isinstance(messages, list) or not isinstance(count, int) or isinstance(count, bool):
+        raise CoordinationError("Discord messages payload has malformed messages or count")
+    if count != len(messages):
+        raise CoordinationError("Discord messages payload count does not match messages")
+
+    normalized_messages: list[tuple[str, str]] = []
+    seen_message_ids: set[str] = set()
+    for message in messages:
+        if not isinstance(message, dict):
+            raise CoordinationError("Discord messages payload contains a malformed message")
+        message_id = message.get("id")
+        content = message.get("content")
+        if not isinstance(message_id, str) or not isinstance(content, str):
+            raise CoordinationError("Discord message must contain string id and content fields")
+        require_snowflake(message_id, "Discord message ID")
+        if message_id in seen_message_ids:
+            raise CoordinationError("Discord messages payload contains duplicate message IDs")
+        if int(message_id) <= int(cursor):
+            raise CoordinationError("Discord messages payload is not strictly after the processing cursor")
+        seen_message_ids.add(message_id)
+        normalized_messages.append((message_id, content))
+    normalized_messages.sort(key=lambda item: int(item[0]))
+
+    reply_message_ids: list[str] = []
+    pending: list[dict[str, str]] = []
+    resolutions: set[str] = set()
+    for message_id, content in normalized_messages:
+        try:
+            envelope = parse_envelope(content)
+        except CoordinationError:
+            pending.append({"message_id": message_id, "reason": "malformed-envelope"})
+            continue
+        correlated = (
+            envelope["kind"] == "reply"
+            and envelope["to"] == address
+            and sender_role(envelope["from"]) == expected_from_role
+            and task_key(envelope["task"]) == expected_task_key
+            and envelope["in-reply-to"] == in_reply_to
+        )
+        if not correlated:
+            pending.append({"message_id": message_id, "reason": "unrelated-envelope"})
+            continue
+        explicit_resolutions = set(RESOLUTION_PATTERN.findall(envelope["body"]))
+        if len(explicit_resolutions) != 1:
+            pending.append({"message_id": message_id, "reason": "missing-or-ambiguous-resolution"})
+            continue
+        reply_message_ids.append(message_id)
+        resolutions.update(explicit_resolutions)
+
+    message_ids = [message_id for message_id, _ in normalized_messages]
+    result: dict[str, Any] = {
+        "cursor": cursor,
+        "decision": "send",
+        "message_count": len(normalized_messages),
+        "message_ids": message_ids,
+        "thread_id": thread_id,
+    }
+    if len(resolutions) > 1:
+        result["decision"] = "process-inbox"
+        result["pending"] = [
+            *pending,
+            *({"message_id": message_id, "reason": "conflicting-resolution"} for message_id in reply_message_ids),
+        ]
+        return result
+    if resolutions:
+        result["decision"] = "suppress"
+        result["reply_message_ids"] = reply_message_ids
+        result["resolution"] = next(iter(resolutions))
+        if pending:
+            result["pending"] = pending
+        return result
+    if normalized_messages:
+        result["decision"] = "process-inbox"
+        result["pending"] = pending
+    return result
+
+
 def read_body(arguments: argparse.Namespace) -> str:
     if arguments.body_file is not None:
         try:
@@ -310,6 +426,14 @@ def read_body(arguments: argparse.Namespace) -> str:
         except (OSError, UnicodeDecodeError) as exc:
             raise CoordinationError(f"could not read body file: {arguments.body_file}") from exc
     return arguments.body
+
+
+def read_json_input(path: Path | None) -> object:
+    try:
+        source = path.read_text(encoding="utf-8") if path else sys.stdin.read()
+        return json.loads(source)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CoordinationError("could not read Discord messages JSON") from exc
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -346,6 +470,17 @@ def build_parser() -> argparse.ArgumentParser:
     cursor_parser.add_argument("--cursor")
     cursor_parser.add_argument("--thread-id")
     cursor_parser.add_argument("--state-dir", type=Path)
+
+    follow_up_parser = commands.add_parser(
+        "follow-up-gate",
+        help="Fail closed unless a fresh owned-inbox read permits a follow-up",
+    )
+    follow_up_parser.add_argument("--address", required=True)
+    follow_up_parser.add_argument("--expected-from-role", required=True)
+    follow_up_parser.add_argument("--task", required=True)
+    follow_up_parser.add_argument("--in-reply-to", required=True)
+    follow_up_parser.add_argument("--messages-file", type=Path)
+    follow_up_parser.add_argument("--state-dir", type=Path)
     return parser
 
 
@@ -396,25 +531,44 @@ def run_cursor(arguments: argparse.Namespace) -> None:
     print(json.dumps({"updated": updated, **store.get(arguments.address)}, sort_keys=True))
 
 
-def run(arguments: argparse.Namespace) -> None:
+def run_follow_up_gate(arguments: argparse.Namespace) -> int:
+    store = CursorState(arguments.state_dir)
+    result = evaluate_follow_up_gate(
+        read_json_input(arguments.messages_file),
+        address=arguments.address,
+        expected_from_role=arguments.expected_from_role,
+        task=arguments.task,
+        in_reply_to=arguments.in_reply_to,
+        inbox_state=store.get(arguments.address),
+    )
+    print(json.dumps(result, sort_keys=True))
+    if result["decision"] == "suppress":
+        return FOLLOW_UP_SUPPRESSED_EXIT
+    if result["decision"] == "process-inbox":
+        return FOLLOW_UP_INBOX_PENDING_EXIT
+    return 0
+
+
+def run(arguments: argparse.Namespace) -> int:
     handlers = {
         "address": run_address,
         "thread-name": lambda options: print(thread_name(options.address, options.max_length)),
         "render": run_render,
         "validate": run_validate,
         "cursor": run_cursor,
+        "follow-up-gate": run_follow_up_gate,
     }
-    handlers[arguments.command](arguments)
+    result = handlers[arguments.command](arguments)
+    return result if isinstance(result, int) else 0
 
 
 def main() -> int:
     parser = build_parser()
     try:
-        run(parser.parse_args())
+        return run(parser.parse_args())
     except CoordinationError as exc:
         print(f"discord coordination error: {exc}", file=sys.stderr)
         return 2
-    return 0
 
 
 if __name__ == "__main__":

@@ -343,7 +343,6 @@ def run_antigravity(
     process_cleanup = "clean-exit"
     terminated_after_terminal_result = False
     credential_disposed_after_run = False
-    exit_code = -1
     try:
         shutil.copyfile(credential_file, staged_credential)
         staged_credential.chmod(0o600)
@@ -398,11 +397,11 @@ def run_antigravity(
             while True:
                 now = time.monotonic()
                 if terminal_seen_at is not None and process.poll() is None and now - terminal_seen_at >= 2:
-                    exit_code, stop_method = _stop_process_group(process)
+                    _, stop_method = _stop_process_group(process)
                     process_cleanup = f"{stop_method}-after-terminal-result"
                     terminated_after_terminal_result = True
                 elif terminal_seen_at is None and process.poll() is None and now - started_at >= timeout_seconds:
-                    exit_code, stop_method = _stop_process_group(process)
+                    _, stop_method = _stop_process_group(process)
                     process_cleanup = f"{stop_method}-after-hard-timeout"
                     parse_errors.append("Antigravity process exceeded the hard wall-clock timeout")
 

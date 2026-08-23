@@ -16,6 +16,14 @@
       "reason": "The deployed bundle is bound by production-content evidence at exact commit 8b60878; changing frontmatter would create a different unevaluated bundle. Compatibility metadata is deferred until fresh native and content evaluation can bind it, and the current claim remains content-only-no-native-claim-change."
     },
     {
+      "skill": "hexagonal-architecture",
+      "reason": "Temporary portability step until canonical extended metadata can be down-converted per harness: structural compliance claims conditionally require a repository-appropriate deterministic validator whose runtime requirements vary by chosen tool."
+    },
+    {
+      "skill": "hexagonal-architecture-rust",
+      "reason": "This bridge is instruction-only until structural proof is requested; obtaining the optional validator requires explicit approval, network access, checksum tooling, and GitHub attestation verification."
+    },
+    {
       "skill": "sensitive-system-safety",
       "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },

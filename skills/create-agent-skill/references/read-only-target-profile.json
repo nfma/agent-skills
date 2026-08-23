@@ -1,0 +1,162 @@
+{
+  "schema_version": 2,
+  "tier": "read-only-tools",
+  "suite": "create-agent-skill-read-only-self-evals",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "notice": "Read-only-tools profile after the 2026-08-16 content-only real-trace qualification pass. Every lane remains unavailable because no trace proves the exact typed fixture-tool catalog and complete isolation contract. This profile cannot affect the zero-tools claim.",
+  "lanes": [
+    {
+      "lane_id": "cursor-grok-4.5-high",
+      "host": "Cursor",
+      "model": "cursor-grok-4.5-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Cursor's interactive /skills inventory with complete stream-json traces from fresh sessions.",
+        "positive_signal": "The /skills inventory lists create-agent-skill and the positive stream records a readToolCall for the exact SKILL.md path before task execution.",
+        "negative_signal": "The /skills inventory lists create-agent-skill and the complete near-miss stream reaches success without any readToolCall for that path.",
+        "reliability": "reliable"
+      },
+      "tool_boundary": {
+        "tool_catalog_method": "Capture Cursor's complete tool inventory and stream-json tool-call events before admitting the lane.",
+        "tool_inventory_locator": {
+          "record_match": { "type": "init" },
+          "field": "available_tools"
+        },
+        "host_tool_map": {
+          "fixture-list": ["listDir"],
+          "fixture-stat": ["fileInfo"],
+          "fixture-read": ["readToolCall"],
+          "fixture-search": ["grepSearch"]
+        },
+        "fixture_root_enforcement": "Launch in a coordinator-owned read-only fixture root and reject resolved paths outside it.",
+        "network_isolation": "Disable model-accessible network and reject any exposed network-capable tool.",
+        "writable_workspace_isolation": "Expose no writable model workspace; fixtures are 0444 and directories are 0555.",
+        "trace_method": "Capture and normalize the complete Cursor tool stream, including terminal completion.",
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-qualification-pass-2/cursor-grok-4.5-high-qualification.json",
+        "qualification_evidence_sha256": "35c3542547ca2d8ed5ef4d0bc20f9b593c0cc78114eaad167bb37d65c8d9d780",
+        "qualification_notes": [
+          "Fresh Grok 4.5 high content transcript showed no workspace activity, but the exported trace has no complete tool catalog or fixture-root containment evidence."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "antigravity-gemini-3.7-flash-high",
+      "host": "Antigravity",
+      "model": "gemini-3.7-flash-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Antigravity's structured /skills command_result with complete stream-json traces from fresh sessions.",
+        "positive_signal": "The /skills result lists create-agent-skill as model-invocable and the positive stream records view_file for the exact SKILL.md path before task execution.",
+        "negative_signal": "The /skills result lists create-agent-skill as model-invocable and the complete near-miss stream reaches SUCCESS without any view_file for that path.",
+        "reliability": "reliable"
+      },
+      "tool_boundary": {
+        "tool_catalog_method": "Capture Antigravity's complete advertised tool catalog and relay stream before admitting the lane.",
+        "tool_inventory_locator": {
+          "record_match": { "type": "init" },
+          "field": "tool_catalog"
+        },
+        "host_tool_map": {
+          "fixture-list": ["list_directory"],
+          "fixture-stat": ["get_file_info"],
+          "fixture-read": ["view_file"],
+          "fixture-search": ["grep_search"]
+        },
+        "fixture_root_enforcement": "Launch against a coordinator-owned read-only fixture root and deny normalized paths outside it.",
+        "network_isolation": "Disable model-accessible network, MCP, and browser tools and reject them if exposed.",
+        "writable_workspace_isolation": "Expose no writable model workspace; fixtures are 0444 and directories are 0555.",
+        "trace_method": "Capture and normalize the complete Antigravity relay stream through its SUCCESS sentinel.",
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-qualification-pass-2/antigravity-gemini-3.7-flash-high-qualification.json",
+        "qualification_evidence_sha256": "3fb7d5185c345f2107587c055cdc3ad2d0da866d776f80bac4b41f58df9b896a",
+        "qualification_notes": [
+          "Fresh Gemini 3.7 Flash high init exposed 56 tools, including shell, writes, network, browser, MCP, subagents, and scheduling, under always-proceed permissions."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "codex-gpt-5.6-sol-xhigh",
+      "host": "Codex",
+      "model": "gpt-5.6-sol",
+      "reasoning": "xhigh",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Codex debug prompt-input discovery output with complete codex exec --json traces from fresh sessions.",
+        "positive_signal": "The prompt-input output lists the exact SKILL.md locator and the positive trace records the injected skill before task execution.",
+        "negative_signal": "The prompt-input output lists the exact SKILL.md locator and the complete near-miss trace reaches turn.completed without skill use.",
+        "reliability": "reliable"
+      },
+      "tool_boundary": {
+        "tool_catalog_method": "Capture Codex's complete enabled-tool inventory and JSON event stream before admitting the lane.",
+        "tool_inventory_locator": {
+          "record_match": { "type": "thread.started" },
+          "field": "tools"
+        },
+        "host_tool_map": {
+          "fixture-list": ["list_files"],
+          "fixture-stat": ["stat_file"],
+          "fixture-read": ["read_file"],
+          "fixture-search": ["search_files"]
+        },
+        "fixture_root_enforcement": "Bind only a coordinator-owned read-only fixture root and reject resolved paths outside it.",
+        "network_isolation": "Disable web, network, MCP, and external-service tools and reject them if exposed.",
+        "writable_workspace_isolation": "Expose no writable model workspace; fixtures are 0444 and directories are 0555.",
+        "trace_method": "Capture and normalize the complete Codex JSON stream through turn.completed.",
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-qualification-pass-2/codex-gpt-5.6-sol-xhigh-qualification.json",
+        "qualification_evidence_sha256": "5c16b046e2c9133db06a20f70ededd4acaa763fe6151f002984c058e2e493c97",
+        "qualification_notes": [
+          "Fresh GPT-5.6 Sol xhigh content transcript showed no workspace activity, but the exported trace has no complete tool catalog or typed fixture-only containment evidence."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    },
+    {
+      "lane_id": "claude-opus-1m-xhigh",
+      "host": "Claude",
+      "model": "claude-opus-5[1m]",
+      "reasoning": "xhigh",
+      "availability": "unavailable",
+      "load_state_observation": {
+        "method": "Pair Claude Code's startup debug/init inventory with complete stream-json traces from fresh sessions.",
+        "positive_signal": "Startup debug names the injected skill and the positive stream records use before task execution.",
+        "negative_signal": "Startup debug names the injected skill and the complete near-miss stream reaches result without skill use.",
+        "reliability": "reliable"
+      },
+      "tool_boundary": {
+        "tool_catalog_method": "Capture Claude Code's init tool inventory and complete stream-json tool-use events before admitting the lane.",
+        "tool_inventory_locator": {
+          "record_match": { "type": "system", "subtype": "init" },
+          "field": "tools"
+        },
+        "host_tool_map": {
+          "fixture-list": ["Glob"],
+          "fixture-stat": ["Stat"],
+          "fixture-read": ["Read"],
+          "fixture-search": ["Grep"]
+        },
+        "fixture_root_enforcement": "Launch with only a coordinator-owned read-only fixture root and deny normalized paths outside it.",
+        "network_isolation": "Use an empty MCP configuration, disable model-accessible network, and reject network-capable tools if exposed.",
+        "writable_workspace_isolation": "Expose no writable model workspace; fixtures are 0444 and directories are 0555.",
+        "trace_method": "Capture and normalize the complete Claude stream-json trace through its result event.",
+        "qualification_status": "unavailable",
+        "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-qualification-pass-2/claude-opus-1m-xhigh-qualification.json",
+        "qualification_evidence_sha256": "42befbc4118e7c707617d0aa064587e685fcf7f2634bd20acd39a8096df9d7a6",
+        "qualification_notes": [
+          "Fresh Opus 5 1M xhigh content transcript showed no file, command, network, or delegation action, but has no complete tool catalog, distinct typed stat evidence, or fixture-root containment proof."
+        ],
+        "reliability": "unreliable",
+        "recheck_date": "2026-11-16"
+      }
+    }
+  ]
+}

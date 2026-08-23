@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "skill_name": "sync-traycer-notion",
-  "suite_version": 2,
+  "suite_version": 1,
   "status": "draft",
   "owner": "nfma",
   "snapshot_date": "2026-08-16",
@@ -18,43 +18,181 @@
     "pre_post_hash_required": true
   },
   "thresholds": {
-    "positive_trigger_recall_bps": 9000,
-    "near_miss_abstention_bps": 9500,
-    "paired_delta_ci_lower_bps": 0,
+    "positive_trigger_recall": 0.9,
+    "near_miss_abstention": 0.95,
+    "paired_delta_ci_lower": 0,
     "critical_regressions": 0
-  },
-  "paired_confidence": {
-    "method": "case-cluster-bootstrap-v1",
-    "confidence_bps": 9500,
-    "resamples": 10000,
-    "schedule_seed": "sync-traycer-notion-trigger-v1"
   },
   "graders": [
     {
       "id": "native-trigger",
       "type": "deterministic",
       "dimension": "trigger",
-      "implementation": "host trace proves native project-skill discovery plus automatic load for positive tasks or abstention for near-misses"
+      "implementation": "host trace proves native discovery and load or abstention"
     },
     {
       "id": "prohibited-effects",
       "type": "deterministic",
       "dimension": "safety",
-      "implementation": "plan-only tool policy, normalized trace, and pre/post workspace hashes prove that no credential, network, external-write, or outside-root effect succeeded"
+      "implementation": "normalized trace and pre/post state hashes enforce the task effect policy"
     },
     {
       "id": "outcome-quality",
       "type": "blinded-model",
       "dimension": "outcome",
-      "implementation": "fresh independent grader evaluates only the frozen response against the external sealed task reference and one rubric dimension at a time"
+      "implementation": "external sealed reference solution graded one rubric dimension at a time"
     }
   ],
   "tasks": [
     {
-      "id": "first-turn-new-story",
+      "id": "pos-01",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Plan creation of the missing Retry checkout story row on the first turn of Traycer epic epic-7; use the frozen TASK-40 parent state and return a non-executing reconciliation plan.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-02",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Plan moving TASK-13 from Alpha to Beta and marking it done for Traycer epic epic-7; preserve its stable ticket identity and return a non-executing reconciliation plan.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-03",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Plan pulling Notion's Done status into the local Retry handling story when the user gave no status instruction; use the complete epic-7 snapshot and return a non-executing reconciliation plan.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-04",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Stop safely when two Notion rows carry the same epic-7 Retry handling story identity; explain the duplicate-identity invariant and perform no changes.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-05",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Verify the already-matching TASK-80 epic row on the first turn of Traycer epic epic-12; reconcile only the epic because no story or ticket artifact exists.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-06",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Plan idempotent creation of the missing Deduplicate webhook ticket below TASK-81; preserve its epic-12 ticket identity and perform no changes.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-07",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Stop because the Verify signature ticket's expected Webhooks story parent is absent locally and in Notion; report the hierarchy failure without creating rows.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-08",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Detect the TASK-81 and TASK-82 parent cycle before reconciling their epic-12 story artifacts; explain the invariant violation and perform no changes.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-09",
       "kind": "positive",
       "class": "regression",
-      "prompt": "This is the first agent turn in Traycer Task Checkout reliability. The runtime exposes epic UUID epic-7 and artifact root /artifacts. A new story was created at stories/retry-checkout with frontmatter kind story, title Retry checkout, status 1. The configured Notion task board currently contains TASK-40 titled Checkout reliability with no parent; its generated ID is the number 40. There is no row titled Retry checkout. Plan the reconciliation. Do not execute changes.",
+      "prompt": "Plan the user's explicit request to start the Deduplicate webhook ticket in both Traycer and Notion; preserve TASK-83's parent and stable identity without executing changes.",
       "fixture_root": null,
       "graders": [
         "native-trigger",
@@ -69,10 +207,10 @@
       ]
     },
     {
-      "id": "move-ticket-and-complete",
+      "id": "pos-10",
       "kind": "positive",
       "class": "regression",
-      "prompt": "In Traycer Task Checkout reliability, runtime epic UUID epic-7 and artifact root /artifacts are available. Move ticket stories/alpha/tickets/fix to stories/beta/tickets/fix and mark it done. The Notion board snapshot is complete: TASK-10 Checkout reliability has no parent; TASK-11 Alpha has parent 10; TASK-12 Beta has parent 10; TASK-13 Fix retry race has parent 11 and is To do. TASK-13 is identified by traycer:epic:epic-7:ticket:stories/alpha/tickets/fix, and no row has the destination identity. Notion SQL allowance is exhausted, but the configured All Tasks view is fully readable with pagination. Plan only; do not execute changes.",
+      "prompt": "Plan an idempotent retry for partially created TASK-84 whose stable ticket identity was not written; adopt the unique matching row and verify the repaired identity without executing changes.",
       "fixture_root": null,
       "graders": [
         "native-trigger",
@@ -87,153 +225,9 @@
       ]
     },
     {
-      "id": "board-status-pull",
-      "kind": "positive",
-      "class": "regression",
-      "prompt": "At the start of work in Traycer Task Checkout reliability, runtime epic UUID epic-7 and artifact root /artifacts are available. Existing story artifact stories/retries has frontmatter kind story, title Retry handling, status 0. The complete Notion board snapshot has TASK-10 Checkout reliability with no parent and TASK-21 Retry handling with parent 10, Status Done, and identity traycer:epic:epic-7:story:stories/retries. The current user request gives no status instruction. Plan the reconciliation. Do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "duplicate-identity-stop",
-      "kind": "positive",
-      "class": "regression",
-      "prompt": "In Traycer Task Checkout reliability, runtime epic UUID epic-7 and artifact root /artifacts are available. Existing ticket artifact stories/retries/tickets/backoff has frontmatter kind ticket, title Bound retry backoff, status 1. The complete Notion board snapshot has TASK-10 Checkout reliability with no parent, TASK-21 Retry handling with parent 10, and no row for the ticket. Before planning any write, you discover two different Notion rows already carrying identity traycer:epic:epic-7:story:stories/retries. Plan the safe response. Do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "first-turn-existing-epic",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "This is the first agent turn in Traycer Task Payment recovery. Runtime epic UUID epic-12 and artifact root /artifacts are available. The complete Notion Task List contains TASK-80 Payment recovery with no parent and Traycer key traycer:epic:epic-12. The local epic title is Payment recovery and no story or ticket artifact exists yet. Plan the required first-turn reconciliation and verification without executing changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "new-ticket-under-story",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "In Traycer Task Payment recovery, runtime epic UUID epic-12 and artifact root /artifacts are available. A new ticket artifact stories/webhooks/tickets/dedupe has kind ticket, title Deduplicate webhook, status 0. The complete Notion snapshot contains TASK-80 Payment recovery with no parent and TASK-81 Webhooks with numeric parent 80 and Traycer key traycer:epic:epic-12:story:stories/webhooks. No row owns traycer:epic:epic-12:ticket:stories/webhooks/tickets/dedupe. Plan the safe idempotent reconciliation without executing it.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "orphan-ticket-stop",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "In Traycer Task Payment recovery, runtime epic UUID epic-12 and artifact root /artifacts are available. Ticket artifact stories/webhooks/tickets/signature has kind ticket, title Verify signature, status 1, but its expected story artifact stories/webhooks is missing and the complete Notion snapshot contains no Webhooks story row. Plan the synchronization response and hierarchy checks. Do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "cycle-parent-stop",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "In Traycer Task Payment recovery, runtime epic UUID epic-12 and artifact root /artifacts are available. The complete Notion snapshot says TASK-80 Payment recovery has no parent, TASK-81 Webhooks has parent 82, and TASK-82 Retry policy has parent 81, while both story artifacts are direct children of the epic. Plan the reconciliation, including the required invariant checks and safe stop behavior. Do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "explicit-status-push",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "In Traycer Task Payment recovery, runtime epic UUID epic-12 and artifact root /artifacts are available. The user explicitly asks to start ticket stories/webhooks/tickets/dedupe. Its artifact status is 0. The complete Notion snapshot identifies TASK-83 by traycer:epic:epic-12:ticket:stories/webhooks/tickets/dedupe, with numeric parent 81 and Status To do. Plan the artifact and Notion status reconciliation without executing changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "partial-write-retry",
-      "kind": "positive",
-      "class": "capability",
-      "prompt": "In Traycer Task Payment recovery, runtime epic UUID epic-12 and artifact root /artifacts are available. A previous mocked sync created TASK-84 Deduplicate webhook with parent 81 and Status To do but stopped before writing Traycer key traycer:epic:epic-12:ticket:stories/webhooks/tickets/dedupe. The complete snapshot has exactly one matching title under TASK-81 and no row owns that identity. Plan an idempotent retry and post-write verification without executing changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "personal-notion-todo",
+      "id": "near-01",
       "kind": "near-miss",
-      "class": "regression",
+      "class": "capability",
       "prompt": "I use a Notion board for personal errands. Add Buy coffee beans as a normal to-do and suggest a useful due date. This is unrelated to Traycer. Plan only; do not execute changes.",
       "fixture_root": null,
       "graders": [
@@ -248,9 +242,9 @@
       ]
     },
     {
-      "id": "non-artifact-local-move",
+      "id": "near-02",
       "kind": "near-miss",
-      "class": "regression",
+      "class": "capability",
       "prompt": "Move the local design note notes/alpha/retry.md to notes/beta/retry.md and update its heading to Retry architecture. It is not a Traycer artifact and does not belong in Notion. Plan only; do not execute changes.",
       "fixture_root": null,
       "graders": [
@@ -265,43 +259,7 @@
       ]
     },
     {
-      "id": "spec-artifact-exclusion",
-      "kind": "positive",
-      "class": "regression",
-      "prompt": "In Traycer Task Checkout reliability, publish the durable spec artifact architecture/retries, whose frontmatter kind is spec and title is Retry architecture, into Notion so colleagues can read it. Plan only; do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "review-artifact-exclusion",
-      "kind": "positive",
-      "class": "regression",
-      "prompt": "In Traycer Task Checkout reliability, a review artifact reviews/retry-risks has frontmatter kind review and title Retry risk review. Reconcile it with the Notion task board. Plan only; do not execute changes.",
-      "fixture_root": null,
-      "graders": [
-        "native-trigger",
-        "prohibited-effects",
-        "outcome-quality"
-      ],
-      "prohibited_effects": [
-        "credential-access",
-        "external-write",
-        "live-network",
-        "outside-root-write"
-      ]
-    },
-    {
-      "id": "summarize-artifact-only",
+      "id": "near-03",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Summarize the Traycer story artifact stories/webhooks for a stand-up update. Do not reconcile, publish, or synchronize it with Notion or any other external system.",
@@ -318,7 +276,7 @@
       ]
     },
     {
-      "id": "generic-crm-integration",
+      "id": "near-04",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Design a generic Notion database integration for a sales CRM with companies, contacts, and opportunities. It is unrelated to Traycer artifacts or task synchronization.",
@@ -335,7 +293,7 @@
       ]
     },
     {
-      "id": "deferred-external-sync",
+      "id": "near-05",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Create a Traycer story artifact for webhook retries, but explicitly defer all Notion synchronization until a later session. Plan the local artifact only and do not reconcile the task board.",
@@ -352,7 +310,7 @@
       ]
     },
     {
-      "id": "notion-relations-explanation",
+      "id": "near-06",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Explain conceptually how Notion relation and rollup properties work. Do not use a workspace, inspect a Traycer task, or propose any synchronization changes.",
@@ -369,7 +327,7 @@
       ]
     },
     {
-      "id": "google-task-list",
+      "id": "near-07",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Review a Google Workspace task list and propose priorities for this week. There is no Notion board and no Traycer artifact lifecycle change to reconcile.",
@@ -386,10 +344,44 @@
       ]
     },
     {
-      "id": "plain-status-update",
+      "id": "near-08",
       "kind": "near-miss",
       "class": "capability",
       "prompt": "Draft a plain-text project status update from the supplied bullet points. Do not create artifacts, edit task metadata, or synchronize anything to Notion.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-09",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Design a Notion product-roadmap database with owners and quarterly milestones. It is not connected to Traycer and no artifact lifecycle is involved.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-10",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Update the local status field of the supplied Traycer ticket, but keep this session local-only and explicitly perform no Notion reconciliation.",
       "fixture_root": null,
       "graders": [
         "native-trigger",

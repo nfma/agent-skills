@@ -1,0 +1,80 @@
+{
+  "schema_version": 2,
+  "tier": "zero-tools",
+  "suite": "create-agent-skill-zero-tools-self-evals",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "notice": "Zero-tools profile after load-state qualification and the 2026-08-16 isolation preflight. Re-verify host, model, reasoning controls, discovery, permissions, isolation, and availability immediately before every proof run. An unavailable lane cannot support the zero-tools portability claim.",
+  "lanes": [
+    {
+      "lane_id": "cursor-grok-4.5-high",
+      "host": "Cursor",
+      "model": "cursor-grok-4.5-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "qualification_evidence_path": null,
+      "qualification_evidence_sha256": null,
+      "qualification_notes": [
+        "Cursor print mode exposes write and shell tools and has no observable empty-tool-set control."
+      ],
+      "load_state_observation": {
+        "method": "Pair Cursor's interactive /skills inventory with complete stream-json traces from fresh sessions.",
+        "positive_signal": "The /skills inventory lists create-agent-skill and the positive stream records a readToolCall for the exact SKILL.md path before task execution.",
+        "negative_signal": "The /skills inventory lists create-agent-skill and the complete near-miss stream reaches success without any readToolCall for that path.",
+        "reliability": "reliable"
+      }
+    },
+    {
+      "lane_id": "antigravity-gemini-3.7-flash-high",
+      "host": "Antigravity",
+      "model": "gemini-3.7-flash-high",
+      "reasoning": "high",
+      "availability": "unavailable",
+      "qualification_evidence_path": null,
+      "qualification_evidence_sha256": null,
+      "qualification_notes": [
+        "Antigravity plan mode has no tool-list or empty-tool option."
+      ],
+      "load_state_observation": {
+        "method": "Pair Antigravity's structured /skills command_result with complete stream-json traces from fresh sessions.",
+        "positive_signal": "The /skills result lists create-agent-skill as model-invocable and the positive stream records view_file for the exact SKILL.md path before task execution.",
+        "negative_signal": "The /skills result lists create-agent-skill as model-invocable and the complete near-miss stream reaches SUCCESS without any view_file for that path.",
+        "reliability": "reliable"
+      }
+    },
+    {
+      "lane_id": "codex-gpt-5.6-sol-xhigh",
+      "host": "Codex",
+      "model": "gpt-5.6-sol",
+      "reasoning": "xhigh",
+      "availability": "unavailable",
+      "qualification_evidence_path": null,
+      "qualification_evidence_sha256": null,
+      "qualification_notes": [
+        "Codex read-only sandboxing still permits tool-based reads and has no observable empty-tool-set contract."
+      ],
+      "load_state_observation": {
+        "method": "Pair Codex debug prompt-input discovery output with complete codex exec --json traces from fresh sessions.",
+        "positive_signal": "The prompt-input output lists the exact SKILL.md locator and the positive trace records a command_execution that reads that path before task execution.",
+        "negative_signal": "The prompt-input output lists the exact SKILL.md locator and the complete near-miss trace reaches turn.completed without any command_execution for that path.",
+        "reliability": "reliable"
+      }
+    },
+    {
+      "lane_id": "claude-opus-1m-xhigh",
+      "host": "Claude",
+      "model": "claude-opus-5[1m]",
+      "reasoning": "xhigh",
+      "availability": "verified",
+      "qualification_evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-zero-tools/claude-opus-1m-xhigh.jsonl",
+      "qualification_evidence_sha256": "5b56397856e9ca67001d50d4c82ab0a990a4367fd6acdafe981b05751eeda60e",
+      "qualification_notes": [],
+      "load_state_observation": {
+        "method": "Pair Claude Code's startup debug/init inventory with complete stream-json traces from fresh sessions.",
+        "positive_signal": "Startup debug names the project skill root, init lists create-agent-skill, and the positive stream records Skill(create-agent-skill) with the exact resolved base directory.",
+        "negative_signal": "Startup debug names the project skill root, init lists create-agent-skill, and the complete near-miss stream reaches success without any Skill(create-agent-skill) event.",
+        "reliability": "reliable"
+      }
+    }
+  ]
+}

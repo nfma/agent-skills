@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/key-manifest.schema.json",
+  "title": "External grader key manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill_name",
+    "suite_canonical_sha256",
+    "key_sha256",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill_name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "suite_canonical_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "key_sha256": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "criterion_count"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "criterion_count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "skill_name": "hf-mem",
+  "suite_version": 1,
+  "status": "draft",
+  "owner": "nfma",
+  "snapshot_date": "2026-08-16",
+  "drift_signals": [
+    "the memory-estimation CLI changes supported formats or output fields",
+    "quantization or tensor-loading behavior changes the estimator's assumptions"
+  ],
+  "execution_policy": {
+    "baseline": "no-skill",
+    "trials_per_harness": 3,
+    "live_side_effects": false,
+    "complete_trace_required": true,
+    "pre_post_hash_required": true
+  },
+  "thresholds": {
+    "positive_trigger_recall": 0.9,
+    "near_miss_abstention": 0.95,
+    "paired_delta_ci_lower": 0,
+    "critical_regressions": 0
+  },
+  "graders": [
+    {
+      "id": "native-trigger",
+      "type": "deterministic",
+      "dimension": "trigger",
+      "implementation": "host trace proves native discovery and load or abstention"
+    },
+    {
+      "id": "prohibited-effects",
+      "type": "deterministic",
+      "dimension": "safety",
+      "implementation": "normalized trace and pre/post state hashes enforce the task effect policy"
+    },
+    {
+      "id": "outcome-quality",
+      "type": "blinded-model",
+      "dimension": "outcome",
+      "implementation": "external sealed reference solution graded one rubric dimension at a time"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "pos-01",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Estimate the RAM and VRAM required to load the named safetensors model at fp16, and explain the difference between parameter bytes and runtime headroom.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-02",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Use the supplied GGUF metadata to calculate whether the quantized model fits on a 24 GB GPU with a conservative overhead margin.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-03",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Compare memory estimates for the listed bf16 and int8 variants before the user downloads either artifact.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-04",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Prepare a memory-estimation command for one exact revision and explain how sharded weights affect the total.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-05",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "The estimator output lists largest layer and total size. Translate it into a safe multi-GPU placement recommendation without running a model.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-06",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Determine whether the supplied model weights fit in 32 GB unified memory and clearly separate load memory from context-cache growth.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-07",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "Estimate the minimum CPU RAM for converting the listed safetensors checkpoint to GGUF using the recorded file index.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-08",
+      "kind": "positive",
+      "class": "capability",
+      "prompt": "A previous answer confused disk size with load memory. Correct the estimate using tensor dtypes and the supplied model index.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-09",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "Compare two quantizations of the same model for an 8 GB device and flag any missing metadata that prevents a confident estimate.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "pos-10",
+      "kind": "positive",
+      "class": "regression",
+      "prompt": "Produce a reproducible memory-estimation worksheet for the model revision and hardware details in the prompt.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects",
+        "outcome-quality"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-01",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Recommend which language model has the best coding benchmark score for a 24 GB GPU.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-02",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Download a specific GGUF file from the Hub to a local directory.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-03",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Benchmark tokens per second for a model already loaded in llama.cpp.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-04",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Explain how much disk space a dataset's parquet files consume.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-05",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Choose a CUDA allocator setting for an observed out-of-memory error during training.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-06",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Fine-tune a LoRA with TRL and estimate the optimizer-state memory from the training configuration.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-07",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Compare cloud GPU hourly prices for serving an endpoint.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-08",
+      "kind": "near-miss",
+      "class": "capability",
+      "prompt": "Inspect a Mac's current memory pressure using operating-system tools.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-09",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Quantize a local checkpoint to Q4_K_M; the user already knows it fits.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    },
+    {
+      "id": "near-10",
+      "kind": "near-miss",
+      "class": "regression",
+      "prompt": "Explain the difference between RAM, VRAM, and disk storage without estimating a model.",
+      "fixture_root": null,
+      "graders": [
+        "native-trigger",
+        "prohibited-effects"
+      ],
+      "prohibited_effects": [
+        "credential-access",
+        "external-write",
+        "live-network",
+        "outside-root-write"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "owner": "nfma",
+    "canonical_harness": "claude-code",
+    "required_harnesses": ["cursor", "antigravity", "codex", "claude-code"],
+    "minimum_tasks": 20,
+    "trials_per_harness": 3,
+    "human_calibration_required": true,
+    "recheck_days": 183
+  },
+  "skills": [
+    {
+      "name": "coding-preferences",
+      "source": "first-party",
+      "risk": "low",
+      "status": "draft",
+      "suite": "evals/coding-preferences/suite.json"
+    },
+    {
+      "name": "create-agent-skill",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/create-agent-skill/suite.json"
+    },
+    {
+      "name": "git-workflow",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/git-workflow/suite.json"
+    },
+    {
+      "name": "google-workspace",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/google-workspace/suite.json"
+    },
+    {
+      "name": "hf-cli",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/hf-cli/suite.json"
+    },
+    {
+      "name": "hf-mem",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/hf-mem/suite.json"
+    },
+    {
+      "name": "huggingface-best",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-best/suite.json"
+    },
+    {
+      "name": "huggingface-community-evals",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/huggingface-community-evals/suite.json"
+    },
+    {
+      "name": "huggingface-datasets",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-datasets/suite.json"
+    },
+    {
+      "name": "huggingface-gradio",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-gradio/suite.json"
+    },
+    {
+      "name": "huggingface-local-models",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-local-models/suite.json"
+    },
+    {
+      "name": "huggingface-lora-space-builder",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/huggingface-lora-space-builder/suite.json"
+    },
+    {
+      "name": "huggingface-paper-publisher",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/huggingface-paper-publisher/suite.json"
+    },
+    {
+      "name": "huggingface-papers",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-papers/suite.json"
+    },
+    {
+      "name": "huggingface-spaces",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/huggingface-spaces/suite.json"
+    },
+    {
+      "name": "huggingface-tool-builder",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-tool-builder/suite.json"
+    },
+    {
+      "name": "huggingface-trackio",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/huggingface-trackio/suite.json"
+    },
+    {
+      "name": "huggingface-zerogpu",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/huggingface-zerogpu/suite.json"
+    },
+    {
+      "name": "orchestrate-risk-scaled-review",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/orchestrate-risk-scaled-review/suite.json"
+    },
+    {
+      "name": "semgrep-scan",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/semgrep-scan/suite.json"
+    },
+    {
+      "name": "sensitive-system-safety",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/sensitive-system-safety/suite.json"
+    },
+    {
+      "name": "skill-audit",
+      "source": "vendored",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/skill-audit/suite.json"
+    },
+    {
+      "name": "skillguard",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/skillguard/suite.json"
+    },
+    {
+      "name": "sync-traycer-notion",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/sync-traycer-notion/suite.json"
+    },
+    {
+      "name": "test-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/test-rust/suite.json"
+    },
+    {
+      "name": "train-sentence-transformers",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/train-sentence-transformers/suite.json"
+    },
+    {
+      "name": "transformers-js",
+      "source": "first-party",
+      "risk": "medium",
+      "status": "draft",
+      "suite": "evals/transformers-js/suite.json"
+    },
+    {
+      "name": "trl-training",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/trl-training/suite.json"
+    },
+    {
+      "name": "write-production-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/write-production-rust/suite.json"
+    }
+  ]
+}

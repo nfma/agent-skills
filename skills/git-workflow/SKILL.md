@@ -12,6 +12,24 @@ compatibility: Requires Git and a target Git repository; remote operations addit
 # Git Workflow
 
 - Never push to `main` or `master`.
-- Never force-push.
+- Never force-push directly; the only permitted lease-protected exception is
+  defined below.
 - Never amend a commit unless explicitly asked.
 - Write commit messages in imperative mood with a one-line summary first.
+
+## Stacked pull requests
+
+Permit the official `github/gh-stack` extension to update a tracked stack with
+its built-in per-branch `--force-with-lease` only when every guard below holds:
+
+- Verify `gh extension list` identifies `gh stack` as `github/gh-stack`.
+- Require a clean working tree before updating the stack.
+- Run `gh stack view` and require every branch being updated to be listed in
+  the current stack, use the expected same-repository remote, and exclude the
+  repository's default branch.
+- Allow only `gh stack push` or `gh stack submit` to issue the extension's
+  built-in lease-protected update.
+- Never run `git push --force`, `git push -f`, or direct
+  `git push --force-with-lease`, including for a stack-managed branch.
+- If a lease check rejects an update, stop and inspect the remote state. Never
+  retry with a broader force option or bypass the lease.

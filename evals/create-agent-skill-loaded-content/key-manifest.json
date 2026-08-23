@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "create-agent-skill-loaded-content-self-evals",
+  "case_pack_sha256": "7dac097cdd102303cf2151b1c1b5934414a975fd5a49d3089e5ee4ddecc66f12",
+  "key_sha256": "639cb34c97d263d8178ddf70c5799175c4f6746349ac2157726e9772498381b0",
+  "cases": [
+    { "case_id": "lds-01", "check_count": 3 },
+    { "case_id": "lds-02", "check_count": 3 },
+    { "case_id": "lds-03", "check_count": 3 },
+    { "case_id": "lds-04", "check_count": 4 }
+  ]
+}

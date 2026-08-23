@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/harnesses.schema.json",
+  "title": "Agent Skill harness qualification profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "snapshot_date", "recheck_date", "lanes"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "snapshot_date": { "type": "string", "format": "date" },
+    "recheck_date": { "type": "string", "format": "date" },
+    "lanes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "harness",
+          "model",
+          "reasoning",
+          "status",
+          "runner",
+          "arguments",
+          "native_skill_root",
+          "allowed_tool_classes",
+          "allow_live_side_effects",
+          "qualification_evidence_uri",
+          "qualification_evidence_sha256",
+          "reason"
+        ],
+        "properties": {
+          "harness": {
+            "enum": ["cursor", "antigravity", "codex", "claude-code"]
+          },
+          "model": { "type": "string", "minLength": 1 },
+          "reasoning": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["verified", "unavailable"] },
+          "runner": { "type": ["string", "null"] },
+          "arguments": { "type": "array", "items": { "type": "string" } },
+          "native_skill_root": { "type": "string", "minLength": 1 },
+          "allowed_tool_classes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allow_live_side_effects": { "const": false },
+          "qualification_evidence_uri": { "type": "string", "minLength": 1 },
+          "qualification_evidence_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

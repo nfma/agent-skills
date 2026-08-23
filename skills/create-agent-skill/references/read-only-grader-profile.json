@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "tier": "read-only-tools",
+  "suite": "create-agent-skill-read-only-self-evals",
+  "profile_type": "independent-zero-tools-graders",
+  "snapshot_date": "2026-08-16",
+  "runtime_verification_required": true,
+  "graders": [
+    {
+      "grader_id": "claude-sonnet-5-zero-tools",
+      "host": "Claude Code",
+      "model": "claude-sonnet-5",
+      "api_surface": "Claude Code print mode with stream-json output, safe mode, strict empty MCP configuration, and an explicit empty built-in tool set.",
+      "trace_method": "Capture the complete stream-json trace from system init through the terminal result event; require init tools and MCP servers to be empty and no tool_use content blocks.",
+      "availability": "verified",
+      "execution_tier": "zero-tools",
+      "exposed_tools": [],
+      "explicit_empty_tool_set": true,
+      "model_network_disabled": true,
+      "writable_workspace_absent": true,
+      "complete_trace": true,
+      "verified_at": "2026-08-16T09:33:18.338Z",
+      "evidence_path": "coordinator-evidence://create-agent-skill/2026-08-16-zero-tools/claude-sonnet-xhigh.jsonl",
+      "evidence_sha256": "d95bf79c17cc0b425bb9d66a22a838a4bde6570c3d805439ad4606118c7bd00d",
+      "recheck_date": "2026-11-16",
+      "notes": []
+    }
+  ]
+}

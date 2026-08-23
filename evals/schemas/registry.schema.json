@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/registry.schema.json",
+  "title": "Agent Skills evaluation registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "defaults", "skills"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "canonical_harness",
+        "required_harnesses",
+        "minimum_tasks",
+        "trials_per_harness",
+        "human_calibration_required",
+        "recheck_days"
+      ],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "canonical_harness": {
+          "enum": ["cursor", "antigravity", "codex", "claude-code"]
+        },
+        "required_harnesses": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["cursor", "antigravity", "codex", "claude-code"] }
+        },
+        "minimum_tasks": { "type": "integer", "minimum": 20 },
+        "trials_per_harness": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 100
+        },
+        "human_calibration_required": { "const": true },
+        "recheck_days": { "type": "integer", "minimum": 1, "maximum": 183 }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source", "risk", "status", "suite"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "source": { "enum": ["first-party", "vendored"] },
+          "risk": { "enum": ["low", "medium", "high"] },
+          "status": {
+            "enum": [
+              "draft",
+              "provisional",
+              "production",
+              "stale",
+              "unavailable"
+            ]
+          },
+          "suite": {
+            "type": "string",
+            "pattern": "^evals/[a-z0-9-]+/suite\\.json$"
+          }
+        }
+      }
+    }
+  }
+}

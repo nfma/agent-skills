@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "skill_name": "sync-traycer-notion",
+  "suite_canonical_sha256": "6990b61071c47333d37b8f92cce5bdd5d12b1385aa2a449c49366f76ab658c5f",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "first-turn-new-story",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "move-ticket-and-complete",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "board-status-pull",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "duplicate-identity-stop",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "first-turn-existing-epic",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "new-ticket-under-story",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "orphan-ticket-stop",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "cycle-parent-stop",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "explicit-status-push",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "partial-write-retry",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "spec-artifact-exclusion",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "review-artifact-exclusion",
+      "criterion_count": 3
+    }
+  ]
+}

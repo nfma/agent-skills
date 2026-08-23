@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/calibration-manifest.schema.json",
+  "title": "Human grader calibration manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill_name",
+    "status",
+    "reviewer",
+    "reviewed_at",
+    "expires_at",
+    "sample_size",
+    "clean_case_count",
+    "seeded_case_count",
+    "binary_agreement",
+    "ordinal_weighted_agreement",
+    "critical_failure_recall",
+    "noncritical_failure_agreement",
+    "clean_acceptance_rate",
+    "critical_disagreements",
+    "key_sha256",
+    "calibration_set_sha256",
+    "calibration_report_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill_name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "status": { "enum": ["pending", "passed", "failed"] },
+    "reviewer": { "type": ["string", "null"] },
+    "reviewed_at": { "type": ["string", "null"], "format": "date" },
+    "expires_at": { "type": ["string", "null"], "format": "date" },
+    "sample_size": { "type": "integer", "minimum": 0 },
+    "clean_case_count": { "type": "integer", "minimum": 0 },
+    "seeded_case_count": { "type": "integer", "minimum": 0 },
+    "binary_agreement": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "ordinal_weighted_agreement": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "critical_failure_recall": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "noncritical_failure_agreement": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "clean_acceptance_rate": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "critical_disagreements": { "type": ["integer", "null"], "minimum": 0 },
+    "key_sha256": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+    },
+    "calibration_set_sha256": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+    },
+    "calibration_report_sha256": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+    }
+  }
+}

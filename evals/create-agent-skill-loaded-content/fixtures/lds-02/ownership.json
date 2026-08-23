@@ -1,0 +1,10 @@
+{
+  "existing_skill": "pull-request-review",
+  "owner": "developer-experience",
+  "audience": "engineering-organization",
+  "workflow": "pull-request-review",
+  "requested_change_owner": "developer-experience",
+  "requested_change_audience": "engineering-organization",
+  "requested_change_workflow": "pull-request-review",
+  "review_interval_days": 90
+}

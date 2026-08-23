@@ -19,12 +19,11 @@ import sys
 import re
 import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 try:
     from huggingface_hub import HfApi, hf_hub_download, get_token
-    import yaml
     import requests
     from dotenv import load_dotenv
 except ImportError as e:

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "skill_name": "create-agent-skill",
+  "status": "pending",
+  "suite_canonical_sha256": "6c0520acfd30f94d09b9c40911e37784f0aec2c62664f50b0a06c4ef0324e966",
+  "harness_profile_canonical_sha256": "fbd2f7434a560213da902393c4f430a9164f714c085fa51e175af9b019a97509",
+  "aggregate_report_sha256": "PENDING-COORDINATOR-SEAL",
+  "evaluated_at": null,
+  "expires_at": null,
+  "harnesses": [
+    {
+      "harness": "cursor",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "antigravity",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "codex",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    },
+    {
+      "harness": "claude-code",
+      "status": "pending",
+      "evidence_sha256": "PENDING-COORDINATOR-SEAL",
+      "reason": null
+    }
+  ]
+}

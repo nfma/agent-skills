@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "tier": "read-only-tools",
+  "suite": "create-agent-skill-read-only-self-evals",
+  "case_pack_sha256": "dd2d5d591f2dec0ac2de9e711457293640eff80dc4c1feba7e410f2ca7c1dfdf",
+  "key_sha256": "9b4b3e81ae2bb8113c511237fe454bae64859bf149bfb3263cf741abcc669c76",
+  "cases": [
+    { "case_id": "rdo-01", "check_count": 3 },
+    { "case_id": "rdo-02", "check_count": 3 },
+    { "case_id": "rdo-03", "check_count": 3 },
+    { "case_id": "rdo-04", "check_count": 4 }
+  ]
+}

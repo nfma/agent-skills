@@ -1,7 +1,9 @@
 interface:
   display_name: "Discord Agent Coordination"
   short_description: "Coordinate agents through Discord role inboxes"
-  default_prompt: "Use $discord-agent-coordination for Discord inboxes, Notion sync, and optional relay wakes."
+  default_prompt: >-
+    Use $discord-agent-coordination for Discord inboxes, Notion sync, optional relay wakes, and fail-closed sends
+    using only validated message text after a zero exit code.
 dependencies:
   tools:
     - type: "mcp"

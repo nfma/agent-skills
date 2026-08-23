@@ -33,6 +33,11 @@ Sync the transition to Notion before describing it as current in Discord. If syn
 
 ## Coordinate
 
+Before any Discord operation that creates a message, including `messages_send` and `channels_forum_create_thread`,
+follow the protocol's fail-closed send boundary. Publish only the renderer's validated message text after a zero exit
+code; never publish stderr or a combined command-output field. This applies to thread bootstrap, status and handoff
+messages, and completion notifications.
+
 1. Resolve the epic ID, `TASK-*` key and Notion URL when available, claimed role, harness, and runtime agent ID.
 2. Build the epic activity address and owned role inbox address with the helper. The primary agent owns
    `role/primary`.

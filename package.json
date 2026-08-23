@@ -34,7 +34,7 @@
     "fast-check": "4.9.0",
     "globals": "17.11.0",
     "prettier": "3.9.6",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "typescript-7": "npm:typescript@7.0.2",
     "typescript-eslint": "8.67.0"
   }

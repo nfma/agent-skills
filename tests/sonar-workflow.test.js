@@ -279,6 +279,89 @@ test("rejects a second npm block without the reviewed ignore policy", () => {
   );
 });
 
+test("rejects missing required Dependabot ecosystems", () => {
+  for (const ecosystem of ["npm", "uv", "github-actions"]) {
+    const mutated = mutateDependabotConfig((updates) => {
+      const retained = updates.filter(
+        (update) => update["package-ecosystem"] !== ecosystem,
+      );
+      updates.splice(0, updates.length, ...retained);
+    });
+
+    assert.throws(
+      () => assertTypeScriptDependabotPolicy(mutated),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.ok(
+          error.message.includes(
+            `missing Dependabot update block: ${ecosystem}`,
+          ),
+        );
+        return true;
+      },
+    );
+  }
+});
+
+test("rejects TypeScript ignores outside npm updates", () => {
+  for (const ecosystem of ["uv", "github-actions"]) {
+    const mutated = mutateDependabotConfig((updates) => {
+      const update = updates.find(
+        (candidate) => candidate["package-ecosystem"] === ecosystem,
+      );
+      assert.ok(update, `fixture must contain a ${ecosystem} update block`);
+      update.ignore = [{ "dependency-name": "typescript", versions: ["7.x"] }];
+    });
+
+    assert.throws(
+      () => assertTypeScriptDependabotPolicy(mutated),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.ok(
+          error.message.includes(
+            `${ecosystem} updates must not ignore TypeScript`,
+          ),
+        );
+        return true;
+      },
+    );
+  }
+});
+
+test("fails closed on malformed, duplicate-key, and merge-key YAML", () => {
+  const duplicateKey = dependabotConfig.replace(
+    '  - package-ecosystem: "npm"',
+    '  - package-ecosystem: "npm"\n    package-ecosystem: "uv"',
+  );
+  const mergeKey = dependabotConfig.replace(
+    '  - package-ecosystem: "npm"',
+    '  - <<: { package-ecosystem: "npm" }',
+  );
+
+  assert.throws(
+    () => assertTypeScriptDependabotPolicy("version: [\n"),
+    /Flow sequence in block collection/,
+  );
+  assert.throws(
+    () => assertTypeScriptDependabotPolicy(duplicateKey),
+    /Map keys must be unique/,
+  );
+  assert.throws(
+    () => assertTypeScriptDependabotPolicy(mergeKey),
+    /each Dependabot update must name a package ecosystem/,
+  );
+});
+
+test("accepts an alias-backed exact npm ignore policy", () => {
+  const anchored = dependabotConfig.replace(
+    "    ignore:\n      # Keep the primary compiler",
+    "    ignore: &typescript-ignore\n      # Keep the primary compiler",
+  );
+  const aliased = `${anchored}\n  - package-ecosystem: "npm"\n    directory: "/packages/example"\n    schedule:\n      interval: "weekly"\n    ignore: *typescript-ignore\n`;
+
+  assert.doesNotThrow(() => assertTypeScriptDependabotPolicy(aliased));
+});
+
 test("accepts equivalent Dependabot YAML ordering and adjacent keys", () => {
   const reordered = mutateDependabotConfig((updates) => {
     for (const update of updates) {

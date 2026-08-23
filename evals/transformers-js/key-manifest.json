@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill_name": "transformers-js",
+  "suite_canonical_sha256": "66bb4e7aa502d4ce9e7227b61d5d9a5fe3c0a9dd625a046e5fa3b37d67bcd470",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "pos-01",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-02",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-03",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-04",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-05",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-06",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-07",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-08",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-09",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-10",
+      "criterion_count": 3
+    }
+  ]
+}

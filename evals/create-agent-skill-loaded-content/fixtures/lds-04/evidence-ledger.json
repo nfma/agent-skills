@@ -1,0 +1,10 @@
+{
+  "review_period": "quarterly",
+  "years_in_operation": 3,
+  "expected_end_date": null,
+  "records": [
+    { "system": "production-console", "evidence_type": "owner-attestation" },
+    { "system": "deployment-service", "evidence_type": "access-export" }
+  ],
+  "human_approval_required_for_changes": true
+}

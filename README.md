@@ -15,6 +15,8 @@ Cursor, and Antigravity.
   that can safely be linked into those harnesses.
 - `mcp/bin/` contains portable launchers that resolve credentials from local
   Keychain-backed stores at runtime.
+- `services/` contains optional per-user service runtimes and their operations
+  documentation.
 - `.skill-audit-release.json` pins the attested immutable `nfma/skill-audit`
   release descriptor byte-for-byte.
 - `skills/skill-audit` contains the descriptor-verified installable
@@ -125,6 +127,12 @@ npm ci --ignore-scripts
 uv sync --frozen
 npm test
 ```
+
+## Optional services
+
+The [Traycer quota supervisor](services/traycer-quota-supervisor/README.md) is
+installed separately from the MCP baseline. Its dedicated manager supports
+setup, sanitized status, dry runs, and state-preserving uninstall.
 
 ## Automated skill auditing
 

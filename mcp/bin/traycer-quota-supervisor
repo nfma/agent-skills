@@ -1,0 +1,105 @@
+#!/bin/bash
+
+set -euo pipefail
+
+PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+export PATH
+
+die() {
+  printf 'traycer-quota-supervisor: %s\n' "$*" >&2
+  exit 1
+}
+
+if [ "$#" -lt 1 ]; then
+  die 'expected an action: check, run, or status'
+fi
+action=$1
+shift
+case "$action" in
+  check | run | status) ;;
+  *) die 'expected an action: check, run, or status' ;;
+esac
+if { [ "$action" = check ] || [ "$action" = run ]; } && [ "$#" -ne 0 ]; then
+  die "$action does not accept arguments"
+fi
+
+launcher_source=$0
+link_count=0
+while [ -L "$launcher_source" ]; do
+  link_count=$((link_count + 1))
+  [ "$link_count" -le 16 ] || die 'launcher symlink chain is too deep'
+  link_target=$(readlink "$launcher_source") \
+    || die 'cannot resolve the launcher symlink'
+  case "$link_target" in
+    /*) launcher_source=$link_target ;;
+    *) launcher_source=$(dirname -- "$launcher_source")/$link_target ;;
+  esac
+done
+
+# Assigning CDPATH only for cd prevents inherited values from changing output.
+# shellcheck disable=SC1007
+launcher_dir=$(CDPATH= cd -- "$(dirname -- "$launcher_source")" && pwd -P) \
+  || die 'cannot resolve the tracked launcher directory'
+# shellcheck disable=SC1007
+repo_root=$(CDPATH= cd -- "$launcher_dir/../.." && pwd -P) \
+  || die 'cannot resolve the tracked repository'
+
+install_home=${HOME:-}
+case "$install_home" in
+  /*) [ "$install_home" != / ] || die 'HOME must not be /' ;;
+  *) die 'HOME must be an absolute path' ;;
+esac
+
+python_bin=${TRAYCER_QUOTA_SUPERVISOR_PYTHON_BIN:-/opt/homebrew/bin/python3}
+id_bin=${TRAYCER_QUOTA_SUPERVISOR_ID_BIN:-/usr/bin/id}
+stat_bin=${TRAYCER_QUOTA_SUPERVISOR_STAT_BIN:-/usr/bin/stat}
+runtime="$repo_root/services/traycer-quota-supervisor/traycer_quota_supervisor.py"
+
+validate_path() {
+  local candidate=$1
+  local label=$2
+  local access_mode=$3
+  local current_uid
+  local owner
+  local mode
+
+  [ -f "$candidate" ] || die "$label is unavailable at $candidate"
+  case "$access_mode" in
+    executable) [ -x "$candidate" ] || die "$label is not executable: $candidate" ;;
+    readable) [ -r "$candidate" ] || die "$label is not readable: $candidate" ;;
+    *) die "unsupported $label access validation: $access_mode" ;;
+  esac
+  current_uid=$("$id_bin" -u) || die 'cannot determine the current user ID'
+  owner=$("$stat_bin" -L -f %u "$candidate") \
+    || die "cannot inspect $label ownership"
+  [ "$owner" = 0 ] || [ "$owner" = "$current_uid" ] \
+    || die "$label is not owned by the current user or root"
+  mode=$("$stat_bin" -L -f %Lp "$candidate") \
+    || die "cannot inspect $label permissions"
+  (((8#$mode & 0022) == 0)) \
+    || die "$label is group- or other-writable"
+}
+
+validate_path "$python_bin" Python executable
+[ ! -L "$runtime" ] || die 'tracked supervisor runtime must not be a symlink'
+validate_path "$runtime" 'tracked supervisor runtime' readable
+python_version=$(
+  "$python_bin" -c \
+    'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'
+) || die 'cannot inspect the Homebrew Python version'
+if [[ ! "$python_version" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+  die "cannot parse the Homebrew Python version: $python_version"
+fi
+if [ "${BASH_REMATCH[1]}" -lt 3 ] \
+  || { [ "${BASH_REMATCH[1]}" -eq 3 ] && [ "${BASH_REMATCH[2]}" -lt 11 ]; }; then
+  die "Python 3.11 or newer is required; $python_bin reports $python_version"
+fi
+
+if [ "$action" = check ]; then
+  "$python_bin" "$runtime" --help >/dev/null \
+    || die 'tracked supervisor runtime validation failed'
+  printf '%s\n' 'Traycer quota supervisor launcher is ready.'
+  exit 0
+fi
+
+exec "$python_bin" "$runtime" "$action" "$@"

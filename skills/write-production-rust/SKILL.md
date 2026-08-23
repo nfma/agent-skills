@@ -1,6 +1,7 @@
 ---
 name: write-production-rust
-description: Write, refactor, debug, or review idiomatic production Rust in `.rs` files under a `src/` directory, favoring functional composition, explicit effects, strong type modeling, and robust async design. Use for Rust library and binary modules below `src/`, including mixed source-and-test requests when any requested Rust production file is under `src/`; handle only the `src/` portion. Especially relevant to ownership, errors, iterators, traits, public APIs, unsafe boundaries, futures, streams, cancellation, backpressure, or task orchestration. Do not use for requests limited to `tests/`, inline test modules, benches, examples, build scripts, manifests, generated code, or Rust files outside `src/`; use a testing skill for test code.
+description: Write, refactor, debug, or review idiomatic production Rust in `.rs` files under a `src/` directory, favoring functional composition, explicit effects, strong type modeling, and robust async design. Use for Rust library and binary modules below `src/`, including mixed source-and-test requests when any requested Rust production file is under `src/`; handle only the `src/` portion. Especially relevant to ownership, errors, iterators, traits, public APIs, unsafe boundaries, futures, streams, cancellation, backpressure, or task orchestration. Do not use for requests limited to `tests/`, inline test modules, benches, examples, build scripts, manifests, generated code, or Rust files outside `src/`; use `test-rust` for test code.
+compatibility: Requires Python 3.9+, Cargo, rustfmt, and Clippy for full validation of a Rust repository. The repository's async runtime, MSRV and feature tooling, and target toolchains are required only when the selected production change uses them.
 ---
 
 # Write Production Rust
@@ -17,7 +18,7 @@ Resolve every requested or changed path before editing.
 - Operate only on Rust files whose normalized path contains a `src` component.
 - Reject files below a `tests` component, including a `src/tests` subtree.
 - For a mixed request, handle only the `src/**/*.rs` portion. Leave test work to
-  the Rust testing skill.
+  `test-rust`.
 - Do not create, inspect for implementation guidance, or modify test code while
   applying this skill. Tests consume the crate's production API; production
   code never consumes tests.
@@ -67,6 +68,9 @@ implementation or refactor.
 - Use `Option`, `Result`, `?`, and fallible iterator operations for expected
   absence and failure. Use `match` when branches recover differently or carry
   distinct effects.
+- For record-oriented input, keep decoding and validating one record in a
+  named fallible function, `FromStr`, or `TryFrom` implementation. Let the outer
+  iterator or loop supply location context and aggregate results.
 - Use a `for` or `while` loop when the work is primarily side effects, needs
   complex early exits, mutates several coupled values, or is clearer that way.
 - Never use `map` only for side effects or make a long combinator chain the goal.
@@ -96,7 +100,9 @@ interior mutability, macros, unsafe code, FFI, feature gates, or `no_std`.
 - Keep unsafe operations minimal and private. State each safety invariant next
   to the unsafe boundary and expose a sound safe abstraction.
 - Document public behavior, errors, panics, cancellation behavior, and safety
-  contracts without restating type signatures.
+  contracts without restating type signatures. Each public fallible function
+  should name its error conditions in its own rustdoc; documenting only the
+  error type does not describe when that function returns each failure.
 
 ## 5. Design async code explicitly
 
@@ -105,6 +111,9 @@ an async function, future, stream, channel, task, lock, or runtime boundary.
 
 - Treat every `.await` as a possible cancellation point. Never leave shared or
   durable state half-committed across an await.
+- Distinguish caller cancellation from an internal early error. State which
+  local futures and partial results are dropped in each path, and never imply
+  that dropping a future reverses external effects it already initiated.
 - Prefer composing and awaiting futures in the current task. Spawn only when
   independent task ownership, parallelism, isolation, or a longer lifetime is
   intentional.
@@ -121,6 +130,8 @@ an async function, future, stream, channel, task, lock, or runtime boundary.
 - Audit `select` or race branches for cancellation safety and fairness.
 - Implement shutdown as signal, stop intake, drain or cancel, clean up, and
   join. Do not depend on asynchronous work in `Drop`.
+- Put ordering, concurrency bounds, error disposal, and caller-cancellation
+  behavior in the rustdoc of each public async orchestration API.
 - Keep library cores runtime-neutral when practical. Put runtime-specific
   spawning, timers, signals, and adapters behind explicit boundaries.
 
@@ -151,7 +162,7 @@ python3 /path/to/write-production-rust/scripts/check_src_boundaries.py .
 
 Also check declared feature combinations and MSRV when the change can affect
 them. Do not run, create, or modify tests under this skill; hand that work to the
-testing skill.
+`test-rust` skill.
 
 Report:
 

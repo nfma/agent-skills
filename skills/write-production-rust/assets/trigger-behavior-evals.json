@@ -2,6 +2,13 @@
   "schema_version": 1,
   "suite": "write-production-rust-trigger-behavior",
   "skill_name": "write-production-rust",
+  "guidance_bundle": [
+    "SKILL.md",
+    "references/async-rust.md",
+    "references/functional-rust.md",
+    "references/idiomatic-rust.md",
+    "references/source-boundary.md"
+  ],
   "trigger_cases": [
     {
       "id": "async-src-refactor",

@@ -4,11 +4,12 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = REPOSITORY_ROOT / "skills"
+SERVICES_ROOT = REPOSITORY_ROOT / "services"
 
 
 class PythonScriptTests(unittest.TestCase):
     def test_every_python_script_compiles(self) -> None:
-        scripts = sorted(SKILLS_ROOT.rglob("*.py"))
+        scripts = sorted([*SERVICES_ROOT.rglob("*.py"), *SKILLS_ROOT.rglob("*.py")])
         self.assertGreater(len(scripts), 0, "expected Python scripts under skills/")
 
         for script in scripts:

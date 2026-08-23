@@ -104,3 +104,26 @@ test("stops before extraction when any verification command fails", () => {
   assert.doesNotMatch(verificationBlock, /\|\|\s*(?:true|:)/);
   assert.doesNotMatch(verificationBlock, /set\s+\+e/);
 });
+
+test("retains the verified binary after successful verification", () => {
+  const executionIndex = verificationBlock.indexOf("./hav --version");
+  const archiveRemovalIndex = verificationBlock.indexOf('rm -f "$artifact"');
+  const retainedPathIndex = verificationBlock.indexOf(
+    "printf 'Verified binary retained at %s/hav\\n' \"$work_dir\"",
+  );
+  const disableCleanupIndex = verificationBlock.indexOf("trap - EXIT");
+
+  assert.ok(executionIndex >= 0, "verified binary execution must exist");
+  assert.ok(
+    executionIndex < archiveRemovalIndex,
+    "archive removal must follow successful binary execution",
+  );
+  assert.ok(
+    archiveRemovalIndex < retainedPathIndex,
+    "retained binary path must be printed after archive removal",
+  );
+  assert.ok(
+    retainedPathIndex < disableCleanupIndex,
+    "successful verification must disable cleanup only after reporting the path",
+  );
+});

@@ -78,11 +78,16 @@ gh attestation verify "$artifact" \
   --deny-self-hosted-runners
 tar -xzf "$artifact"
 ./hav --version
+rm -f "$artifact"
+printf 'Verified binary retained at %s/hav\n' "$work_dir"
+trap - EXIT
 ```
 
-The command rejects unsupported platforms and uses a temporary directory. Move
-the verified binary into a project-owned tool directory only when the task
-requires repeated use; do not install it globally by default.
+The command rejects unsupported platforms and cleans its temporary directory on
+failure. After successful verification it removes the archive, prints the
+retained binary path, and leaves that binary available to run or move into a
+project-owned tool directory. Remove the temporary directory when finished; do
+not install the binary globally by default.
 
 ## Configure and run
 

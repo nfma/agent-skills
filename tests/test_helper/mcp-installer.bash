@@ -7,6 +7,8 @@ setup_installer_test() {
   INSTALLER="$REPO_ROOT/scripts/install-mcps.sh"
   WRAPPER="$REPO_ROOT/mcp/bin/github-mcp-keychain"
   VIVALDI_WRAPPER="$REPO_ROOT/mcp/bin/chrome-devtools-vivaldi"
+  DISCORD_WRAPPER="$REPO_ROOT/mcp/bin/discord-mcp-keychain"
+  WAKE_RELAY_LAUNCHER="$REPO_ROOT/mcp/bin/discord-wake-relay"
   TEST_ROOT="$BATS_TEST_TMPDIR/sandbox"
   FAKE_BIN="$TEST_ROOT/bin"
   INSTALL_HOME="$TEST_ROOT/home"
@@ -24,6 +26,10 @@ setup_installer_test() {
   write_node_check
   write_security_mock
   write_github_server_mock
+  write_discord_launcher_mock
+  write_launchctl_mock
+  write_uname_mock
+  write_plutil_mock
   write_codex_mock
   write_claude_mock
   write_serena_mock
@@ -32,7 +38,18 @@ setup_installer_test() {
   export MCP_INSTALL_HOME="$INSTALL_HOME"
   export MCP_SECURITY_BIN="$FAKE_BIN/security"
   export MCP_NODE_CHECK_BIN="$FAKE_BIN/node-check"
+  export DISCORD_MCP_SECURITY_BIN="$FAKE_BIN/security"
+  export DISCORD_MCP_NPX_BIN="$FAKE_BIN/discord-npx"
+  export MCP_DISCORD_PROFILE_BIN="$FAKE_BIN/discord-npx"
+  export MCP_LAUNCHCTL_BIN="$FAKE_BIN/launchctl"
+  export MCP_UNAME_BIN="$FAKE_BIN/uname"
+  export MCP_PLUTIL_BIN="$FAKE_BIN/plutil"
   export MCP_TEST_STATE
+
+  WAKE_RELAY_PLIST="$INSTALL_HOME/Library/LaunchAgents/com.nfma.discord-wake-relay.plist"
+  WAKE_RELAY_LOG_DIR="$INSTALL_HOME/Library/Logs/discord-wake-relay"
+  WAKE_RELAY_STATE_DIR="$INSTALL_HOME/.local/state/discord-agent-coordination/wake-relay"
+  WAKE_RELAY_LOADED_PLIST="$MCP_TEST_STATE/wake-relay-definition.plist"
 
   unset MCP_CODEX_FRAGMENT
   unset MCP_CLAUDE_FRAGMENT
@@ -41,8 +58,14 @@ setup_installer_test() {
   unset MCP_TEST_CODEX_MARKETPLACE
   unset MCP_TEST_CODEX_PLUGIN_MODE
   unset MCP_TEST_CODEX_ADD_NOOP
+  unset MCP_TEST_DISCORD_PROFILE_MISSING
+  unset MCP_TEST_DISCORD_SETUP_FAILURE
+  unset MCP_TEST_LAUNCHCTL_FAILURE
   unset MCP_TEST_NODE_FAILURE
+  unset MCP_TEST_NODE_VERSION
   unset MCP_TEST_SECURITY_FAILURE
+  unset MCP_TEST_TRAYCER_FAILURE
+  unset MCP_TEST_UNAME
 }
 
 write_success_command() {
@@ -57,7 +80,7 @@ write_node_check() {
 set -eu
 [ "${MCP_TEST_NODE_FAILURE:-0}" != 1 ]
 if [ "$1 $2" = 'node --version' ]; then
-  printf 'v24.0.0\n'
+  printf '%s\n' "${MCP_TEST_NODE_VERSION:-v24.0.0}"
   exit 0
 fi
 
@@ -83,6 +106,9 @@ case " $* " in
   *' -s HF_TOKEN '*)
     [ "${MCP_TEST_SECURITY_FAILURE:-}" != hf ] || exit 1
     ;;
+  *' -s DISCORD_MCP_TOKEN '*)
+    [ "${MCP_TEST_SECURITY_FAILURE:-}" != discord ] || exit 1
+    ;;
   *' -l GITHUB_MCP_PAT '*)
     [ "${MCP_TEST_SECURITY_FAILURE:-}" != github ] || exit 1
     ;;
@@ -93,6 +119,159 @@ esac
 printf 'test-credential\n'
 EOF
   chmod +x "$FAKE_BIN/security"
+}
+
+write_discord_launcher_mock() {
+  cat >"$FAKE_BIN/discord-npx" <<'EOF'
+#!/bin/sh
+set -eu
+
+[ "${DISCORD_TOKEN:-}" = test-credential ]
+[ "${MCP_CATEGORIES:-}" = messages,threads,channels ]
+[ "${MCP_TOOL_SURFACE:-}" = progressive ]
+
+printf '%s\n' "$*" >>"$MCP_TEST_STATE/discord-npx-calls.log"
+
+case " $* " in
+  *' profile show agent-coordination --json '*)
+    if [ -e "$MCP_TEST_STATE/discord-profile-ready" ]; then
+      exit 0
+    fi
+    [ "${MCP_TEST_DISCORD_PROFILE_MISSING:-0}" != 1 ]
+    ;;
+  *' setup --profile agent-coordination --client generic --tool-surface progressive '*)
+    [ "${MCP_TEST_DISCORD_SETUP_FAILURE:-0}" != 1 ]
+    : >"$MCP_TEST_STATE/discord-profile-ready"
+    printf '%s\n' "$*"
+    ;;
+  *' serve --profile agent-coordination '*)
+    printf '%s\n' "$*"
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/discord-npx"
+}
+
+write_launchctl_mock() {
+  cat >"$FAKE_BIN/launchctl" <<'EOF'
+#!/bin/sh
+set -eu
+
+case " $* " in
+  *test-credential*) exit 65 ;;
+esac
+printf '%s\n' "$*" >>"$MCP_TEST_STATE/launchctl-calls.log"
+
+state_file_for_label() {
+  case "$1" in
+    com.nfma.discord-wake-relay)
+      printf '%s\n' "$MCP_TEST_STATE/wake-relay-loaded"
+      ;;
+    *) exit 64 ;;
+  esac
+}
+
+definition_file_for_label() {
+  case "$1" in
+    com.nfma.discord-wake-relay)
+      printf '%s\n' "$MCP_TEST_STATE/wake-relay-definition.plist"
+      ;;
+    *) exit 64 ;;
+  esac
+}
+
+definition_path_file_for_label() {
+  case "$1" in
+    com.nfma.discord-wake-relay)
+      printf '%s\n' "$MCP_TEST_STATE/wake-relay-definition-path"
+      ;;
+    *) exit 64 ;;
+  esac
+}
+
+case "${1:-}" in
+  print)
+    label=${2##*/}
+    state_file=$(state_file_for_label "$label")
+    [ -e "$state_file" ]
+    definition_file=$(definition_file_for_label "$label")
+    definition_path_file=$(definition_path_file_for_label "$label")
+    program=$(/usr/bin/plutil -extract ProgramArguments.0 raw -o - "$definition_file")
+    stdout_path=$(/usr/bin/plutil -extract StandardOutPath raw -o - "$definition_file")
+    stderr_path=$(/usr/bin/plutil -extract StandardErrorPath raw -o - "$definition_file")
+    printf 'path = %s\n' "$(cat "$definition_path_file")"
+    printf 'program = %s\n' "$program"
+    printf 'stdout path = %s\n' "$stdout_path"
+    printf 'stderr path = %s\n' "$stderr_path"
+    ;;
+  bootstrap)
+    [ "${MCP_TEST_LAUNCHCTL_FAILURE:-}" != bootstrap ]
+    plist=${3:-}
+    label=$(basename "$plist" .plist)
+    state_file=$(state_file_for_label "$label")
+    definition_file=$(definition_file_for_label "$label")
+    definition_path_file=$(definition_path_file_for_label "$label")
+    cp "$plist" "$definition_file"
+    printf '%s\n' "$plist" >"$definition_path_file"
+    : >"$state_file"
+    ;;
+  bootout)
+    [ "${MCP_TEST_LAUNCHCTL_FAILURE:-}" != bootout ]
+    label=${2##*/}
+    state_file=$(state_file_for_label "$label")
+    definition_file=$(definition_file_for_label "$label")
+    definition_path_file=$(definition_path_file_for_label "$label")
+    rm -f "$state_file" "$definition_file" "$definition_path_file"
+    ;;
+  kickstart)
+    [ "${MCP_TEST_LAUNCHCTL_FAILURE:-}" != kickstart ]
+    label=${3##*/}
+    state_file=$(state_file_for_label "$label")
+    [ -e "$state_file" ]
+    ;;
+  *) exit 64 ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/launchctl"
+}
+
+write_uname_mock() {
+  cat >"$FAKE_BIN/uname" <<'EOF'
+#!/bin/sh
+set -eu
+[ "${1:-}" = -s ]
+printf '%s\n' "${MCP_TEST_UNAME:-Darwin}"
+EOF
+  chmod +x "$FAKE_BIN/uname"
+}
+
+write_plutil_mock() {
+  cat >"$FAKE_BIN/plutil" <<'EOF'
+#!/bin/sh
+set -eu
+[ "${1:-}" = -lint ]
+[ -r "${2:-}" ]
+grep -F '<plist version="1.0">' "$2" >/dev/null
+grep -F '</plist>' "$2" >/dev/null
+EOF
+  chmod +x "$FAKE_BIN/plutil"
+}
+
+prepare_wake_relay_preflight() {
+  mkdir -p "$INSTALL_HOME/.local/bin"
+  ln -s "$REPO_ROOT/mcp/bin/discord-mcp-keychain" \
+    "$INSTALL_HOME/.local/bin/discord-mcp-keychain"
+  cat >"$INSTALL_HOME/.local/bin/traycer" <<'EOF'
+#!/bin/sh
+set -eu
+[ "${1:-}" = --version ]
+[ "${MCP_TEST_TRAYCER_FAILURE:-0}" != 1 ]
+printf '%s\n' 'traycer test'
+EOF
+  chmod +x "$INSTALL_HOME/.local/bin/traycer"
 }
 
 write_github_server_mock() {

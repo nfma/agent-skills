@@ -5,6 +5,7 @@
     "browser-tools",
     "chrome-devtools",
     "context7",
+    "discord",
     "excalidraw",
     "github",
     "guardian",
@@ -18,11 +19,18 @@
     "browser-tools": "@agentdeskai/browser-tools-mcp@1.2.0",
     "chrome-devtools": "chrome-devtools-mcp@1.7.0",
     "context7": "@upstash/context7-mcp@4.0.2",
+    "discord": "@discord-mcp/cli@0.23.0",
     "excalidraw": "mcp-excalidraw-server@1.1.0",
     "hf-bridge": "mcp-remote@0.1.38",
     "playwright": "@playwright/mcp@0.0.79"
   },
   "credentials": {
+    "discord": {
+      "source": "macos-keychain",
+      "service": "DISCORD_MCP_TOKEN",
+      "account": "current-user",
+      "environmentVariable": "DISCORD_TOKEN"
+    },
     "github": {
       "source": "macos-keychain",
       "label": "GITHUB_MCP_PAT",

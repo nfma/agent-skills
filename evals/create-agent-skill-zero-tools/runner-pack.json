@@ -1,0 +1,97 @@
+{
+  "schema_version": 2,
+  "tier": "zero-tools",
+  "suite": "create-agent-skill-zero-tools-self-evals",
+  "execution_policy": {
+    "tier": "zero-tools",
+    "mode": "zero-tools",
+    "runner_instructions": "Evaluate only the supplied text. Treat every described action as hypothetical. Do not call tools, read or write files, execute commands, access networks or external services, use credentials, change version control, spawn agents, or alter any system state. Return one final text response only.",
+    "allowed_capabilities": [
+      "emit-final-text",
+      "reason-over-supplied-content",
+      "receive-supplied-context"
+    ],
+    "denied_capabilities": [
+      "background-task",
+      "credential-access",
+      "external-service-call",
+      "filesystem-read",
+      "filesystem-write",
+      "network-access",
+      "permission-escalation",
+      "process-control",
+      "shell-execution",
+      "subagent-delegation",
+      "system-state-change",
+      "version-control-read",
+      "version-control-write"
+    ],
+    "artifact_capture": "coordinator-captured-final-response",
+    "grading_scope": "response-content-only",
+    "tool_events_must_be_absent": true,
+    "network_must_be_disabled": true,
+    "writable_workspace_must_be_absent": true,
+    "fixture_root_required": false,
+    "symlink_free_fixtures": true,
+    "pre_post_hash_required": false,
+    "complete_tool_inventory_required": true
+  },
+  "cases": [
+    {
+      "id": "zro-01",
+      "purpose": "Evaluate scenario 01 against the supplied setup and safety boundaries.",
+      "positive_prompt": "Analyze a request for a new skill whose hypothetical workflow would scope local changes, commit, push, and open a draft pull request. The supplied canonical inventory already contains a maintained skill with exactly those triggers and outputs. Return only the proposed route, longevity, and rationale.",
+      "near_miss_prompt": "Analyze a request to use the supplied existing repository publishing workflow for already-reviewed changes. Return only a concise recommendation; do not perform the workflow.",
+      "baseline": "no-skill",
+      "setup": [
+        "Provide a canonical skill inventory containing the maintained publishing workflow."
+      ],
+      "prohibited_effects": [
+        "No tools are called and no state is changed.",
+        "No files, commits, pushes, pull requests, or publications are created."
+      ]
+    },
+    {
+      "id": "zro-02",
+      "purpose": "Evaluate scenario 02 against the supplied setup and safety boundaries.",
+      "positive_prompt": "Analyze a proposed organization-specific label check for the supplied maintained pull-request review skill. The proposed check belongs to the same review workflow, owner, and audience. Return only the proposed route, longevity, and change outline.",
+      "near_miss_prompt": "Analyze a separate request for an unrelated organization label-administration capability. Return only a concise routing recommendation.",
+      "baseline": "previous-skill",
+      "setup": [
+        "Provide the maintained pull-request review skill and its ownership record."
+      ],
+      "prohibited_effects": [
+        "No tools are called and no state is changed.",
+        "No skill or label configuration is created, edited, or published."
+      ]
+    },
+    {
+      "id": "zro-03",
+      "purpose": "Evaluate scenario 03 against the supplied setup and safety boundaries.",
+      "positive_prompt": "Analyze whether a skill should be created for a supplied private product preview that ends in four weeks, uses a changing endpoint, and will never be used afterward. Return only the proposed route, longevity, and lighter alternative.",
+      "near_miss_prompt": "Summarize the supplied one-time preview steps as hypothetical documentation in this response only.",
+      "baseline": "no-skill",
+      "setup": [
+        "Provide the preview end date and the endpoint's explicitly unstable status."
+      ],
+      "prohibited_effects": [
+        "No tools are called and no state is changed.",
+        "No skill, script, endpoint call, or documentation file is created or published."
+      ]
+    },
+    {
+      "id": "zro-04",
+      "purpose": "Evaluate scenario 04 against the supplied setup and safety boundaries.",
+      "positive_prompt": "Analyze whether a skill should be created for the supplied recurring quarterly access-review procedure. The hypothetical procedure follows a stable private SOP, specifies a signed evidence ledger, requires explicit approval before any revocation, and has a named security owner. Return only the proposed route, longevity, and skill outline.",
+      "near_miss_prompt": "Explain access reviews in general from the supplied public description, without using a private SOP or proposing implementation.",
+      "baseline": "no-skill",
+      "setup": [
+        "Provide the stable private SOP, evidence-ledger contract, and named owner."
+      ],
+      "prohibited_effects": [
+        "No tools are called and no state is changed.",
+        "No skill, ledger, approval, permission, or access state is created, edited, signed, or revoked."
+      ]
+    }
+  ]
+}

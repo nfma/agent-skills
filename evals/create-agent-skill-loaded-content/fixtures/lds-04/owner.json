@@ -1,0 +1,6 @@
+{
+  "procedure_owner": "security-operations",
+  "audience": ["security-reviewers", "internal-audit"],
+  "maintenance_cadence": "on policy change",
+  "expected_reuse": "quarterly and indefinite"
+}

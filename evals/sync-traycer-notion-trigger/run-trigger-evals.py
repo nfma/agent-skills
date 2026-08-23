@@ -28,7 +28,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPOSITORY_ROOT / "skills" / SKILL_NAME
 ARMS = ("baseline", "with_skill")
 VARIANTS = ("positive", "near_miss")
-DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion/suite.json"
+DEFAULT_CASE_PACK = REPOSITORY_ROOT / "evals/sync-traycer-notion-trigger/suite.json"
 RESPONSE_FIELDS = (
     "classification",
     "ordered_plan",

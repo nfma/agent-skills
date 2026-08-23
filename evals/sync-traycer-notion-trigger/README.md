@@ -2,7 +2,7 @@
 
 This runner executes the Claude Code lane in the repository production-eval
 framework. It reads the 20-task production suite from
-`evals/sync-traycer-notion/suite.json`, runs three fresh trials per task, and
+`evals/sync-traycer-notion-trigger/suite.json`, runs three fresh trials per task, and
 compares each of 12 positive treatment responses with a no-skill baseline.
 Eight near-miss tasks run only with the project skill installed, for 96 total
 sessions.

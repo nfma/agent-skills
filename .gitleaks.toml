@@ -56,3 +56,14 @@ id = "generic-api-key"
   regexes = [
     '''^\s*"key(_manifest)?_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
   ]
+
+  [[rules.allowlists]]
+  description = "Ignore generated SHA-256 evidence fields in create-agent-skill evals"
+  condition = "AND"
+  regexTarget = "line"
+  paths = [
+    '''^evals/create-agent-skill-(read-only|loaded-content|zero-tools)/key-manifest\.json$''',
+  ]
+  regexes = [
+    '''^\s*"key_sha256":\s*"[a-f0-9]{64}"[,]?\s*$''',
+  ]

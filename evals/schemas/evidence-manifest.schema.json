@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/evidence-manifest.schema.json",
+  "title": "Agent Skill aggregate evidence manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill_name",
+    "status",
+    "suite_canonical_sha256",
+    "harness_profile_canonical_sha256",
+    "aggregate_report_sha256",
+    "evaluated_at",
+    "expires_at",
+    "harnesses"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill_name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "status": {
+      "enum": ["pending", "passed", "failed", "not-proven", "unavailable"]
+    },
+    "suite_canonical_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "harness_profile_canonical_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "aggregate_report_sha256": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+    },
+    "evaluated_at": { "type": ["string", "null"], "format": "date" },
+    "expires_at": { "type": ["string", "null"], "format": "date" },
+    "harnesses": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["harness", "status", "evidence_sha256", "reason"],
+        "properties": {
+          "harness": {
+            "enum": ["cursor", "antigravity", "codex", "claude-code"]
+          },
+          "status": { "enum": ["pending", "passed", "failed", "unavailable"] },
+          "evidence_sha256": {
+            "type": "string",
+            "pattern": "^(?:[0-9a-f]{64}|PENDING-COORDINATOR-SEAL)$"
+          },
+          "reason": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+interface:
+  display_name: "Discord Agent Coordination"
+  short_description: "Coordinate agents through Discord role inboxes"
+  default_prompt: "Use $discord-agent-coordination for Discord inboxes, Notion sync, and optional relay wakes."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "discord"
+      description: "Discord MCP server for agent coordination"
+      transport: "stdio"
+    - type: "mcp"
+      value: "notion"
+      description: "Notion MCP server used by the required lifecycle sync"
+      transport: "streamable_http"
+      url: "https://mcp.notion.com/mcp"
+policy:
+  allow_implicit_invocation: true

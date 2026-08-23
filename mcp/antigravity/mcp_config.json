@@ -16,6 +16,10 @@
       "command": "/bin/sh",
       "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y @upstash/context7-mcp@4.0.2"]
     },
+    "discord": {
+      "command": "/bin/sh",
+      "args": ["-c", "exec \"$HOME/.local/bin/discord-mcp-keychain\""]
+    },
     "excalidraw": {
       "command": "/bin/sh",
       "args": ["-c", "exec \"$HOME/.local/bin/npx\" -y mcp-excalidraw-server@1.1.0"]

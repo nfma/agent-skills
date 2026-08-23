@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const test = require("node:test");
+const { parse, stringify } = require("yaml");
 
 const workflow = readFileSync(
   join(__dirname, "..", ".github", "workflows", "sonar.yml"),
@@ -38,18 +39,84 @@ function workflowStep(name) {
 }
 
 /**
- * @param {string} ecosystem
+ * @param {string} contents
+ * @returns {Record<string, unknown>[]}
+ */
+function parseDependabotUpdates(contents) {
+  const config = parse(contents);
+  assert.ok(
+    config && typeof config === "object" && !Array.isArray(config),
+    "Dependabot config must be a mapping",
+  );
+  assert.ok(Array.isArray(config.updates), "Dependabot updates must be a list");
+  for (const update of config.updates) {
+    assert.ok(
+      update && typeof update === "object" && !Array.isArray(update),
+      "each Dependabot update must be a mapping",
+    );
+    assert.equal(
+      typeof update["package-ecosystem"],
+      "string",
+      "each Dependabot update must name a package ecosystem",
+    );
+  }
+  return config.updates;
+}
+
+/**
+ * @param {string} contents
+ */
+function assertTypeScriptDependabotPolicy(contents) {
+  const updates = parseDependabotUpdates(contents);
+  const npmUpdates = updates.filter(
+    (update) => update["package-ecosystem"] === "npm",
+  );
+  assert.ok(npmUpdates.length > 0, "missing Dependabot update block: npm");
+
+  for (const [index, update] of npmUpdates.entries()) {
+    assert.deepEqual(
+      update.ignore,
+      [{ "dependency-name": "typescript", versions: ["7.x"] }],
+      `npm update block ${index + 1} must contain exactly the reviewed TypeScript ignore rule`,
+    );
+  }
+
+  for (const ecosystem of ["uv", "github-actions"]) {
+    const ecosystemUpdates = updates.filter(
+      (update) => update["package-ecosystem"] === ecosystem,
+    );
+    assert.ok(
+      ecosystemUpdates.length > 0,
+      `missing Dependabot update block: ${ecosystem}`,
+    );
+    for (const update of ecosystemUpdates) {
+      const ignore = update.ignore ?? [];
+      assert.ok(
+        Array.isArray(ignore),
+        `${ecosystem} ignore policy must be a list`,
+      );
+      assert.equal(
+        ignore.some(
+          (rule) =>
+            rule &&
+            typeof rule === "object" &&
+            rule["dependency-name"] === "typescript",
+        ),
+        false,
+        `${ecosystem} updates must not ignore TypeScript`,
+      );
+    }
+  }
+}
+
+/**
+ * @param {(updates: Record<string, unknown>[]) => void} mutate
  * @returns {string}
  */
-function dependabotUpdate(ecosystem) {
-  const header = `  - package-ecosystem: "${ecosystem}"`;
-  const start = dependabotConfig.indexOf(header);
-  assert.notEqual(start, -1, `missing Dependabot update block: ${ecosystem}`);
-  const next = dependabotConfig.indexOf(
-    "\n  - package-ecosystem:",
-    start + header.length,
-  );
-  return dependabotConfig.slice(start, next === -1 ? undefined : next);
+function mutateDependabotConfig(mutate) {
+  const config = parse(dependabotConfig);
+  mutate(config.updates);
+  return stringify(config);
 }
 
 test("classifies pull-request trust before checkout without loading secrets", () => {
@@ -169,28 +236,58 @@ test("auto-merges only patch and minor source-dependency updates", () => {
   assert.doesNotMatch(manual, /gh pr merge/);
 });
 
-test("holds the primary TypeScript compiler below version 7", () => {
-  const npm = dependabotUpdate("npm");
-  const ignoreStart = npm.indexOf("\n    ignore:\n");
-  const groupsStart = npm.indexOf("\n    groups:\n", ignoreStart);
-  assert.notEqual(ignoreStart, -1, "npm updates must define an ignore policy");
-  assert.notEqual(groupsStart, -1, "npm ignore policy must precede groups");
-  const ignore = npm.slice(ignoreStart, groupsStart);
-  const lines = ignore.split("\n").map((line) => line.trim());
-  const dependency = lines.indexOf('- dependency-name: "typescript"');
-  const nextDependency = lines.findIndex(
-    (line, index) =>
-      index > dependency && line.startsWith("- dependency-name:"),
-  );
+test("validates the TypeScript ignore policy across every npm block", () => {
+  assert.doesNotThrow(() => assertTypeScriptDependabotPolicy(dependabotConfig));
+});
 
-  assert.notEqual(dependency, -1, "TypeScript ignore rule must exist");
-  assert.deepEqual(
-    lines.slice(dependency, nextDependency === -1 ? undefined : nextDependency),
-    ['- dependency-name: "typescript"', "versions:", '- "7.x"'],
+test("rejects additional npm ignore entries", () => {
+  for (const extraRule of [
+    { "dependency-name": "*", versions: [">=0"] },
+    { "dependency-name": "typescript" },
+  ]) {
+    const mutated = mutateDependabotConfig((updates) => {
+      const npm = updates.find(
+        (update) => update["package-ecosystem"] === "npm",
+      );
+      assert.ok(npm, "fixture must contain an npm update block");
+      assert.ok(
+        Array.isArray(npm.ignore),
+        "fixture ignore policy must be a list",
+      );
+      npm.ignore.push(extraRule);
+    });
+
+    assert.throws(
+      () => assertTypeScriptDependabotPolicy(mutated),
+      /must contain exactly the reviewed TypeScript ignore rule/,
+    );
+  }
+});
+
+test("rejects a second npm block without the reviewed ignore policy", () => {
+  const mutated = mutateDependabotConfig((updates) => {
+    updates.push({
+      "package-ecosystem": "npm",
+      directory: "/packages/example",
+      schedule: { interval: "weekly" },
+    });
+  });
+
+  assert.throws(
+    () => assertTypeScriptDependabotPolicy(mutated),
+    /npm update block 2 must contain exactly the reviewed TypeScript ignore rule/,
   );
-  assert.doesNotMatch(dependabotUpdate("uv"), /dependency-name: "typescript"/);
-  assert.doesNotMatch(
-    dependabotUpdate("github-actions"),
-    /dependency-name: "typescript"/,
-  );
+});
+
+test("accepts equivalent Dependabot YAML ordering and adjacent keys", () => {
+  const reordered = mutateDependabotConfig((updates) => {
+    for (const update of updates) {
+      const ecosystem = update["package-ecosystem"];
+      delete update["package-ecosystem"];
+      update.labels = ["dependencies"];
+      update["package-ecosystem"] = ecosystem;
+    }
+  });
+
+  assert.doesNotThrow(() => assertTypeScriptDependabotPolicy(reordered));
 });

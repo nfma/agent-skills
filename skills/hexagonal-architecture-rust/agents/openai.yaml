@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hexagonal Architecture for Rust"
+  short_description: "Apply Rust boundaries with the hav validator"
+  default_prompt: "Apply hexagonal architecture to this Rust task and, when a structural claim requires it, validate the boundaries with the pinned hav profile."

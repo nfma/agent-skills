@@ -598,7 +598,9 @@ class SkillBundleTests(unittest.TestCase):
             (target / "SKILL.md").write_text(
                 (target / "SKILL.md").read_text() + f"\n{fake_access_key}\n", encoding="utf-8"
             )
-            self.assertTrue(any("secret-shaped" in error for error in skill_bundle.validate_skill(target)))
+            errors = skill_bundle.validate_skill(target)
+            self.assertTrue(any("secret-shaped" in error for error in errors))
+            self.assertNotIn(fake_access_key, "\n".join(errors))
 
 
 class ProofProtocolTests(unittest.TestCase):

@@ -1,0 +1,92 @@
+#!/bin/bash
+
+set -euo pipefail
+
+PATH=/usr/bin:/bin
+export PATH
+
+die() {
+  printf 'discord-wake-relay: %s\n' "$*" >&2
+  exit 1
+}
+
+if [ "$#" -ne 1 ]; then
+  die 'expected exactly one action: check or run'
+fi
+case "$1" in
+  check | run) action=$1 ;;
+  *) die 'expected exactly one action: check or run' ;;
+esac
+
+launcher_source=$0
+link_count=0
+while [ -L "$launcher_source" ]; do
+  link_count=$((link_count + 1))
+  [ "$link_count" -le 16 ] || die 'launcher symlink chain is too deep'
+  link_target=$(readlink "$launcher_source") \
+    || die 'cannot resolve the launcher symlink'
+  case "$link_target" in
+    /*) launcher_source=$link_target ;;
+    *) launcher_source=$(dirname -- "$launcher_source")/$link_target ;;
+  esac
+done
+
+# Assigning CDPATH only for cd prevents inherited values from changing output.
+# shellcheck disable=SC1007
+launcher_dir=$(CDPATH= cd -- "$(dirname -- "$launcher_source")" && pwd -P) \
+  || die 'cannot resolve the tracked launcher directory'
+# shellcheck disable=SC1007
+repo_root=$(CDPATH= cd -- "$launcher_dir/../.." && pwd -P) \
+  || die 'cannot resolve the tracked repository'
+
+install_home=${HOME:-}
+case "$install_home" in
+  /*) [ "$install_home" != / ] || die 'HOME must not be /' ;;
+  *) die 'HOME must be an absolute path' ;;
+esac
+
+python_bin=/opt/homebrew/bin/python3
+runtime="$repo_root/skills/discord-agent-coordination/scripts/discord_wake_relay.py"
+traycer_bin="$install_home/.local/bin/traycer"
+mcp_wrapper="$install_home/.local/bin/discord-mcp-keychain"
+state_dir="$install_home/.local/state/discord-agent-coordination/wake-relay"
+
+validate_executable() {
+  local executable=$1
+  local label=$2
+  local current_uid
+  local owner
+  local mode
+
+  [ -f "$executable" ] && [ -x "$executable" ] \
+    || die "$label is unavailable at $executable"
+  current_uid=$(/usr/bin/id -u) || die 'cannot determine the current user ID'
+  owner=$(/usr/bin/stat -L -f %u "$executable") \
+    || die "cannot inspect $label ownership"
+  [ "$owner" = 0 ] || [ "$owner" = "$current_uid" ] \
+    || die "$label is not owned by the current user or root"
+  mode=$(/usr/bin/stat -L -f %Lp "$executable") \
+    || die "cannot inspect $label permissions"
+  (((8#$mode & 0022) == 0)) \
+    || die "$label is group- or other-writable"
+}
+
+validate_executable "$python_bin" Python
+validate_executable "$runtime" 'tracked relay runtime'
+validate_executable "$traycer_bin" 'Traycer CLI'
+validate_executable "$mcp_wrapper" 'Discord MCP wrapper'
+
+if [ "$action" = check ]; then
+  "$traycer_bin" --version >/dev/null 2>&1 \
+    || die 'Traycer CLI validation failed'
+  "$python_bin" "$runtime" --help >/dev/null \
+    || die 'tracked relay runtime validation failed'
+  printf '%s\n' 'Discord wake relay launcher is ready.'
+  exit 0
+fi
+
+exec "$python_bin" "$runtime" \
+  --state-dir "$state_dir" \
+  --traycer "$traycer_bin" \
+  --mcp-wrapper "$mcp_wrapper" \
+  run

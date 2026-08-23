@@ -18,6 +18,13 @@
       "suite": "evals/coding-preferences/suite.json"
     },
     {
+      "name": "discord-agent-coordination",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/discord-agent-coordination/suite.json"
+    },
+    {
       "name": "create-agent-skill",
       "source": "first-party",
       "risk": "high",
@@ -37,6 +44,20 @@
       "risk": "high",
       "status": "draft",
       "suite": "evals/google-workspace/suite.json"
+    },
+    {
+      "name": "hexagonal-architecture",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/hexagonal-architecture/suite.json"
+    },
+    {
+      "name": "hexagonal-architecture-rust",
+      "source": "first-party",
+      "risk": "high",
+      "status": "draft",
+      "suite": "evals/hexagonal-architecture-rust/suite.json"
     },
     {
       "name": "hf-cli",

@@ -198,7 +198,7 @@ class StateStore:
             )  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             created = True
         except FileExistsError:
-            pass
+            created = False
         try:
             descriptor = os.open(self.directory, _directory_flags())
         except OSError as exc:

@@ -205,7 +205,7 @@ class CursorState:
             self.directory.mkdir(mode=0o700, parents=True)
             created = True
         except FileExistsError:
-            pass
+            created = False
         directory_stat = self.directory.lstat()
         if stat.S_ISLNK(directory_stat.st_mode) or not stat.S_ISDIR(directory_stat.st_mode):
             raise CoordinationError(f"state directory is not a real directory: {self.directory}")

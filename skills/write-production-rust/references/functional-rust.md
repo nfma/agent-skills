@@ -77,6 +77,13 @@ fields into an intermediate `Vec` solely to check arity or destructure them;
 detect missing and extra fields without allocation, and return structured
 errors instead of indexing.
 
+Keep decoding one record distinct from traversing the input collection. Put
+field extraction, validation, and domain construction in a named fallible
+function or a standard conversion implementation; let the outer iterator or
+loop attach record location and collect the results. This separation still
+permits a direct loop inside either layer when it makes ownership and early
+returns clearer.
+
 Name a closure or extract a function when a stage contains branching, logging,
 multiple effects, or enough logic that the pipeline no longer reads linearly.
 Do not use `inspect` for business effects; reserve it for observation such as
@@ -163,6 +170,7 @@ or increase compile time.
 - Is `map` free of business side effects?
 - Are mutations narrow, named by purpose, and valid across early exits?
 - Are clones, allocations, boxes, and shared ownership deliberate?
+- Is one-record decoding separated from collection traversal and aggregation?
 - Would a loop or match be easier to review than the current combinators?
 
 ## 9. Sources

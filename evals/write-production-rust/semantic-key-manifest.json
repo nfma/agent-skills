@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "suite": "write-production-rust-trigger-behavior",
-  "case_pack_sha256": "8b3cf2660cf07f16792f4aa90d2136d62032c197963f4493c9c18a5b0bc23f0d",
-  "key_sha256": "936addc0281565c75d02141f00c94d590c5c2c9b3fae0b5d6ccc366de27d6692",
+  "case_pack_sha256": "e19902442cebc3eb8924ae3031b032da241c87e3fe2eb00b5d1695281da20198",
+  "key_sha256": "44d586e3b6520d269f25bca34725bd8ed8360808e9400b0405dfef38008bfbe4",
   "case_ids": [
     "bounded-async-pipeline",
     "strict-source-boundary",
@@ -11,6 +11,6 @@
   "criterion_counts": {
     "bounded-async-pipeline": 6,
     "strict-source-boundary": 6,
-    "typed-functional-core": 6
+    "typed-functional-core": 8
   }
 }

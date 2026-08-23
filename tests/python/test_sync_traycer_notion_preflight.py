@@ -219,9 +219,10 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
     def test_prompt_parser_rejects_absolute_locator_not_named_skill_md(self) -> None:
         locator = "/plugins/other-skill/README.md"
         line = f"- other-skill: Other skill (file: {locator})"
+        raw = prompt_input(available_skill_lines=(line,), use_aliases=False)
 
         with self.assertRaisesRegex(self.preflight.PreflightError, "must name SKILL.md"):
-            self.preflight.parse_diagnostic(prompt_input(available_skill_lines=(line,), use_aliases=False))
+            self.preflight.parse_diagnostic(raw)
 
     def test_prompt_parser_rejects_alias_locator_escaping_through_symlink(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -243,9 +244,10 @@ class CodexSingleCandidatePreflightTests(unittest.TestCase):
                 "### Skill roots",
                 f"### Skill roots\n- `r0` = `{root}`",
             )
+            encoded_payload = json.dumps(payload).encode()
 
             with self.assertRaisesRegex(self.preflight.PreflightError, "escapes declared root"):
-                self.preflight.parse_diagnostic(json.dumps(payload).encode())
+                self.preflight.parse_diagnostic(encoded_payload)
 
     def test_prompt_parser_rejects_every_nonempty_malformed_inventory_line(self) -> None:
         candidate = Path("/workspace/project/.agents/skills/sync-traycer-notion/SKILL.md")

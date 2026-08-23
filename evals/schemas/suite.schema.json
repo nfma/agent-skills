@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nfma.dev/agent-skills/evals/suite.schema.json",
+  "title": "Agent Skill production evaluation suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill_name",
+    "suite_version",
+    "status",
+    "owner",
+    "snapshot_date",
+    "drift_signals",
+    "execution_policy",
+    "thresholds",
+    "graders",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill_name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "suite_version": { "type": "integer", "minimum": 1 },
+    "status": {
+      "enum": ["draft", "provisional", "production", "stale", "unavailable"]
+    },
+    "owner": { "type": "string", "minLength": 1 },
+    "snapshot_date": { "type": "string", "format": "date" },
+    "drift_signals": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "execution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "trials_per_harness",
+        "live_side_effects",
+        "complete_trace_required",
+        "pre_post_hash_required"
+      ],
+      "properties": {
+        "baseline": { "enum": ["no-skill", "previous-skill"] },
+        "trials_per_harness": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 100
+        },
+        "live_side_effects": { "const": false },
+        "complete_trace_required": { "const": true },
+        "pre_post_hash_required": { "const": true }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "positive_trigger_recall",
+        "near_miss_abstention",
+        "paired_delta_ci_lower",
+        "critical_regressions"
+      ],
+      "properties": {
+        "positive_trigger_recall": {
+          "type": "number",
+          "minimum": 0.9,
+          "maximum": 1
+        },
+        "near_miss_abstention": {
+          "type": "number",
+          "minimum": 0.95,
+          "maximum": 1
+        },
+        "paired_delta_ci_lower": { "type": "number", "minimum": 0 },
+        "critical_regressions": { "const": 0 }
+      }
+    },
+    "graders": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "dimension", "implementation"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "type": { "enum": ["deterministic", "blinded-model"] },
+          "dimension": { "enum": ["trigger", "safety", "outcome"] },
+          "implementation": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "class",
+          "prompt",
+          "fixture_root",
+          "graders",
+          "prohibited_effects"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "kind": { "enum": ["positive", "near-miss"] },
+          "class": { "enum": ["capability", "regression"] },
+          "prompt": { "type": "string", "minLength": 20 },
+          "fixture_root": { "type": ["string", "null"] },
+          "graders": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "prohibited_effects": {
+            "type": "array",
+            "minItems": 4,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill_name": "create-agent-skill",
+  "suite_canonical_sha256": "6c0520acfd30f94d09b9c40911e37784f0aec2c62664f50b0a06c4ef0324e966",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "pos-01",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-02",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-03",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-04",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-05",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-06",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-07",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-08",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-09",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-10",
+      "criterion_count": 3
+    }
+  ]
+}

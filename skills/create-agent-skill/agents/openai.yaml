@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Agent Skill"
+  short_description: "Research, build, and prove portable skills"
+  default_prompt: "Use $create-agent-skill to research, create, and validate a durable cross-harness agent skill."

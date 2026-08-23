@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "tier": "loaded-content-safe",
+  "suite": "create-agent-skill-loaded-content-self-evals",
+  "execution_policy": {
+    "tier": "loaded-content-safe",
+    "mode": "loaded-content-safe",
+    "runner_instructions": "Evaluate the supplied scenario in the harness's strongest current non-effectful mode. Allow native discovery and loading of the installed skill plus reads of the immutable skill bundle and fixture root. Do not create, edit, delete, publish, call external services, access credentials, mutate version control, change permissions, spawn agents, or start background work. Treat every described real-world action as hypothetical and return one final text response only.",
+    "allowed_capabilities": [
+      "emit-final-text",
+      "fixture-list",
+      "fixture-read",
+      "fixture-search",
+      "fixture-stat",
+      "native-skill-discovery",
+      "native-skill-load",
+      "read-only-shell",
+      "reason-over-supplied-content",
+      "receive-supplied-context"
+    ],
+    "denied_capabilities": [
+      "background-task",
+      "browser-access",
+      "credential-access",
+      "external-service-call",
+      "filesystem-read-outside-approved-roots",
+      "filesystem-write",
+      "mcp-access",
+      "mutating-shell-execution",
+      "network-access",
+      "permission-escalation",
+      "subagent-delegation",
+      "system-state-change",
+      "version-control-write"
+    ],
+    "artifact_capture": "coordinator-captured-final-response",
+    "grading_scope": "response-content-only",
+    "tool_events_must_be_absent": false,
+    "network_must_be_disabled": false,
+    "writable_workspace_must_be_absent": false,
+    "fixture_root_required": true,
+    "symlink_free_fixtures": true,
+    "pre_post_hash_required": true,
+    "complete_tool_inventory_required": false
+  },
+  "cases": [
+    {
+      "id": "lds-01",
+      "purpose": "Evaluate scenario 01 against an immutable canonical skill inventory.",
+      "positive_prompt": "Decide whether to create a skill for a workflow that scopes local changes, commits, pushes, and opens a draft pull request. The immutable evaluation fixture contains the canonical skill inventory. Return only the route, longevity verdict, and rationale. Do not create or change anything.",
+      "near_miss_prompt": "Summarize the review status of already-approved repository changes in one concise paragraph.",
+      "baseline": "no-skill",
+      "setup": [
+        "Expose a symlink-free immutable fixture containing skills-inventory.json and publishing-workflow.md."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No files, commits, pushes, pull requests, or publications are created."
+      ]
+    },
+    {
+      "id": "lds-02",
+      "purpose": "Evaluate scenario 02 against immutable existing-skill and ownership fixtures.",
+      "positive_prompt": "Decide how to handle an organization-specific label check that belongs to the same workflow, owner, and audience as the maintained pull-request review skill in the immutable evaluation fixture. Return only the route, longevity verdict, and change outline. Do not edit anything.",
+      "near_miss_prompt": "List the current labels from the supplied unrelated label-administration summary in one concise paragraph.",
+      "baseline": "previous-skill",
+      "setup": [
+        "Expose a symlink-free immutable fixture containing review-skill.md, ownership.json, and unrelated-label-admin.md."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No skill or label configuration is created, edited, or published."
+      ]
+    },
+    {
+      "id": "lds-03",
+      "purpose": "Evaluate scenario 03 against immutable preview-lifecycle fixtures.",
+      "positive_prompt": "Decide whether to create a skill for a private product preview that ends in four weeks, uses a changing endpoint, and will never be used afterward. Supporting facts are in the immutable evaluation fixture. Return only the route, longevity verdict, and lighter alternative. Do not create anything.",
+      "near_miss_prompt": "Summarize the preview dates and endpoint note in one concise paragraph.",
+      "baseline": "no-skill",
+      "setup": [
+        "Expose a symlink-free immutable fixture containing preview-facts.json and one-time-steps.md."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No skill, script, endpoint call, or documentation file is created or published."
+      ]
+    },
+    {
+      "id": "lds-04",
+      "purpose": "Evaluate scenario 04 against immutable private-procedure fixtures.",
+      "positive_prompt": "Decide whether to create a durable skill for the recurring quarterly access-review procedure described in the immutable evaluation fixture. Return only the route, longevity verdict, and skill outline. Do not create, approve, sign, or revoke anything.",
+      "near_miss_prompt": "Explain access reviews in general from public information without proposing implementation or using a private procedure.",
+      "baseline": "no-skill",
+      "setup": [
+        "Expose a symlink-free immutable fixture containing access-review-sop.md, evidence-ledger.json, owner.json, and public-overview.md."
+      ],
+      "prohibited_effects": [
+        "Only native skill loading and approved reads occur; no task-surface or external state is changed.",
+        "No skill, ledger, approval, permission, or access state is created, edited, signed, or revoked."
+      ]
+    }
+  ]
+}

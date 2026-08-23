@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill_name": "train-sentence-transformers",
+  "suite_canonical_sha256": "d77d7b0f0c2af2a4bac575285f51fc789025512de2f691b4811ef21505bf6d6d",
+  "key_sha256": "PENDING-COORDINATOR-SEAL",
+  "cases": [
+    {
+      "task_id": "pos-01",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-02",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-03",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-04",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-05",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-06",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-07",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-08",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-09",
+      "criterion_count": 3
+    },
+    {
+      "task_id": "pos-10",
+      "criterion_count": 3
+    }
+  ]
+}

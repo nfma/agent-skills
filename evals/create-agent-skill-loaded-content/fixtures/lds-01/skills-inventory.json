@@ -1,0 +1,17 @@
+{
+  "snapshot_date": "2026-08-16",
+  "skills": [
+    {
+      "name": "github:yeet",
+      "description": "Publish local changes to GitHub by confirming scope, committing intentionally, pushing the branch, and opening a draft pull request.",
+      "owner": "developer-productivity",
+      "status": "maintained"
+    },
+    {
+      "name": "git-workflow",
+      "description": "Apply repository safeguards for Git operations such as staging, committing, branching, merging, rebasing, and worktree management.",
+      "owner": "developer-productivity",
+      "status": "maintained"
+    }
+  ]
+}

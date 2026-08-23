@@ -12,6 +12,10 @@
       "reason": "Instruction-only conventions with no additional runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },
     {
+      "skill": "create-agent-skill",
+      "reason": "The deployed bundle is bound by production-content evidence at exact commit 8b60878; changing frontmatter would create a different unevaluated bundle. Compatibility metadata is deferred until fresh native and content evaluation can bind it, and the current claim remains content-only-no-native-claim-change."
+    },
+    {
       "skill": "sensitive-system-safety",
       "reason": "Instruction-only safety policy that constrains already-authorized work without adding a runtime, CLI, network, authentication, platform, hardware, or account requirement."
     },

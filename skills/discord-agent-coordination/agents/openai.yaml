@@ -3,7 +3,8 @@ interface:
   short_description: "Coordinate agents through Discord role inboxes"
   default_prompt: >-
     Use $discord-agent-coordination for Discord inboxes, Notion sync, optional relay wakes, and fail-closed sends
-    using only validated message text after a zero exit code.
+    using only validated message text after a zero exit code. Before any handoff retry, run the owned-inbox
+    follow-up gate and send only when it returns decision: send.
 dependencies:
   tools:
     - type: "mcp"

@@ -21,6 +21,13 @@ PROTOCOL_PATH = SKILL_DIRECTORY / "references/protocol.md"
 WAKE_RELAY_PATH = SKILL_DIRECTORY / "references/wake-relay.md"
 MESSAGE_ID = "123e4567-e89b-42d3-a456-426614174000"
 REPLY_ID = "d9428888-122b-4c46-8f23-8b12dfe7c222"
+ORIGINAL_HANDOFF_ID = "5a676538-c833-4ea2-a82d-24e6d524fdb1"
+OWNED_INBOX = "epic/76192623-1324-4976-8439-75142e811a56/role/primary"
+TARGET_ROLE = "epic/6a78a873-2092-400a-ab60-cd47bf8d33b7/role/primary"
+OWNED_THREAD_ID = "1541146895202918470"
+TARGET_THREAD_ID = "1541143911920046153"
+STARTING_CURSOR = "1541155095578673182"
+ACCEPT_MESSAGE_ID = "1541168680384069707"
 
 
 def load_helper() -> ModuleType:
@@ -167,6 +174,151 @@ class DiscordCoordinationTests(unittest.TestCase):
 
             self.assertEqual(stat.S_IMODE(state_directory.stat().st_mode), 0o755)
             self.assertFalse((state_directory / "state.json").exists())
+
+
+class FollowUpGateTests(unittest.TestCase):
+    helper: ModuleType
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.helper = load_helper()
+
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        state_directory = Path(self.temporary_directory.name) / "state"
+        self.store = self.helper.CursorState(state_directory)
+        self.store.advance(OWNED_INBOX, STARTING_CURSOR, OWNED_THREAD_ID)
+
+    def accepted_reply(self) -> str:
+        return self.helper.render_envelope(
+            message_id="dd49bf2a-1079-450d-aca6-2f6241398787",
+            kind="reply",
+            sender=f"{TARGET_ROLE}/80d8d8da-0342-4782-8c46-40a804f1972f",
+            target=OWNED_INBOX,
+            task="TASK-55 https://app.notion.com/p/3c4c135abb818147acc5fbc28777b51e",
+            in_reply_to=ORIGINAL_HANDOFF_ID,
+            needs="none",
+            body="notion-sync: current\nACCEPT ownership of the native-routing qualification.",
+        )
+
+    def evaluate(self, payload: dict[str, object]) -> dict[str, object]:
+        return self.helper.evaluate_follow_up_gate(
+            payload,
+            address=OWNED_INBOX,
+            expected_from_role=TARGET_ROLE,
+            task="TASK-55",
+            in_reply_to=ORIGINAL_HANDOFF_ID,
+            inbox_state=self.store.get(OWNED_INBOX),
+        )
+
+    def run_gate(self, payload: dict[str, object]) -> subprocess.CompletedProcess[str]:
+        payload_path = Path(self.temporary_directory.name) / "messages.json"
+        payload_path.write_text(json.dumps(payload), encoding="utf-8")
+        return subprocess.run(  # nosec B603
+            [
+                sys.executable,
+                str(HELPER),
+                "follow-up-gate",
+                "--address",
+                OWNED_INBOX,
+                "--expected-from-role",
+                TARGET_ROLE,
+                "--task",
+                "TASK-55",
+                "--in-reply-to",
+                ORIGINAL_HANDOFF_ID,
+                "--messages-file",
+                str(payload_path),
+                "--state-dir",
+                str(self.store.directory),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_correlated_accept_in_owned_inbox_suppresses_duplicate_follow_up(self) -> None:
+        before = self.store.get(OWNED_INBOX)
+        payload = {
+            "channel_id": OWNED_THREAD_ID,
+            "count": 1,
+            "messages": [{"id": ACCEPT_MESSAGE_ID, "content": self.accepted_reply()}],
+        }
+
+        result = self.evaluate(payload)
+
+        self.assertEqual(result["decision"], "suppress")
+        self.assertEqual(result["resolution"], "ACCEPT")
+        self.assertEqual(result["reply_message_ids"], [ACCEPT_MESSAGE_ID])
+        self.assertEqual(self.store.get(OWNED_INBOX), before)
+
+    def test_target_inbox_cannot_be_substituted_for_owned_reply_inbox(self) -> None:
+        payload = {"channel_id": TARGET_THREAD_ID, "count": 0, "messages": []}
+
+        with self.assertRaisesRegex(self.helper.CoordinationError, "owned inbox thread"):
+            self.evaluate(payload)
+
+    def test_empty_owned_inbox_allows_follow_up(self) -> None:
+        payload = {"channel_id": OWNED_THREAD_ID, "count": 0, "messages": []}
+
+        result = self.evaluate(payload)
+
+        self.assertEqual(result["decision"], "send")
+        self.assertNotIn("resolution", result)
+
+    def test_unrelated_and_malformed_messages_require_processing_without_suppressing(self) -> None:
+        unrelated = self.helper.render_envelope(
+            message_id="3a676538-c833-4ea2-a82d-24e6d524fdb1",
+            kind="reply",
+            sender=f"{TARGET_ROLE}/80d8d8da-0342-4782-8c46-40a804f1972f",
+            target=OWNED_INBOX,
+            task="TASK-77",
+            in_reply_to=ORIGINAL_HANDOFF_ID,
+            needs="none",
+            body="notion-sync: current\nACCEPT a different request.",
+        )
+        message_ids = ["1541168680384069708", "1541168680384069709"]
+        payload = {
+            "channel_id": OWNED_THREAD_ID,
+            "count": 2,
+            "messages": [
+                {"id": message_ids[1], "content": "not an envelope"},
+                {"id": message_ids[0], "content": unrelated},
+            ],
+        }
+
+        result = self.evaluate(payload)
+
+        self.assertEqual(result["decision"], "process-inbox")
+        self.assertNotIn("resolution", result)
+        self.assertEqual(result["message_ids"], message_ids)
+        self.assertEqual(self.store.get(OWNED_INBOX)["cursor"], STARTING_CURSOR)
+
+    def test_cli_exit_codes_fail_closed_and_never_advance_the_cursor(self) -> None:
+        acceptance = {
+            "channel_id": OWNED_THREAD_ID,
+            "count": 1,
+            "messages": [{"id": ACCEPT_MESSAGE_ID, "content": self.accepted_reply()}],
+        }
+        pending = {
+            "channel_id": OWNED_THREAD_ID,
+            "count": 1,
+            "messages": [{"id": ACCEPT_MESSAGE_ID, "content": "not an envelope"}],
+        }
+        clear = {"channel_id": OWNED_THREAD_ID, "count": 0, "messages": []}
+
+        suppressed = self.run_gate(acceptance)
+        blocked = self.run_gate(pending)
+        allowed = self.run_gate(clear)
+
+        self.assertEqual(suppressed.returncode, self.helper.FOLLOW_UP_SUPPRESSED_EXIT)
+        self.assertEqual(json.loads(suppressed.stdout)["decision"], "suppress")
+        self.assertEqual(blocked.returncode, self.helper.FOLLOW_UP_INBOX_PENDING_EXIT)
+        self.assertEqual(json.loads(blocked.stdout)["decision"], "process-inbox")
+        self.assertEqual(allowed.returncode, 0)
+        self.assertEqual(json.loads(allowed.stdout)["decision"], "send")
+        self.assertEqual(self.store.get(OWNED_INBOX)["cursor"], STARTING_CURSOR)
 
 
 class DiscordSendWorkflowTests(unittest.TestCase):
@@ -370,6 +522,21 @@ class WakeRelayDocumentationTests(unittest.TestCase):
         self.assertIn("`messages_send`, `channels_forum_create_thread`", protocol)
         self.assertIn("Never send that field", protocol)
         self.assertIn("validated message text after a zero exit code", openai_prompt)
+
+    def test_follow_up_gate_checks_the_owned_inbox_and_is_wake_independent(self) -> None:
+        skill = " ".join(self.skill.split())
+        protocol = " ".join(self.protocol.split())
+        openai_prompt = " ".join(self.openai_prompt.split())
+
+        self.assertIn("sender's owned role inbox—never from the target role inbox", skill)
+        self.assertIn("Only its `send` decision permits a follow-up", skill)
+        self.assertIn("Call Discord `messages_read` on that exact owned inbox thread", protocol)
+        self.assertIn("--in-reply-to <original-envelope-uuid>", protocol)
+        self.assertIn("Exit `3` with `decision: suppress`", protocol)
+        self.assertIn("Exit `4` with `decision: process-inbox`", protocol)
+        self.assertIn("The gate never advances the cursor", protocol)
+        self.assertIn("Correctness never depends on receiving a wake-relay prompt", protocol)
+        self.assertIn("owned-inbox follow-up gate", openai_prompt)
 
 
 if __name__ == "__main__":

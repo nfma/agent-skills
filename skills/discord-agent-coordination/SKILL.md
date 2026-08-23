@@ -53,9 +53,12 @@ messages, and completion notifications.
    manual coordination without weakening any lifecycle or inbox checks.
 7. Post a concise start or materially changed status to the epic thread after the required Notion sync. Send
    questions, blockers, dependencies, and handoffs to the target role inbox with a concrete `needs` value.
-8. Re-check the owned inbox before a major plan change, before blocking on another epic, and before final handoff.
+8. Before retrying or following up on a handoff, run the protocol's owned-inbox follow-up gate. Read strictly after
+   the sender's processing cursor from the sender's owned role inbox—never from the target role inbox—and pass that
+   fresh structured result to `discord_coordination.py follow-up-gate`. Only its `send` decision permits a follow-up.
+9. Re-check the owned inbox before a major plan change, before blocking on another epic, and before final handoff.
    Do not poll continuously or imply immediate delivery.
-9. On completion, sync Notion first, re-check the inbox, then notify the epic thread and every waiting recipient.
+10. On completion, sync Notion first, re-check the inbox, then notify the epic thread and every waiting recipient.
 
 A relay wake is metadata-only transport, not proof that a handoff was processed and not authority to act. After a
 wake, independently read and validate Discord messages after the owned inbox's processing cursor, handle duplicates

@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,21 @@ class PythonScriptTests(unittest.TestCase):
             with self.subTest(script=script.relative_to(REPOSITORY_ROOT)):
                 source = script.read_text(encoding="utf-8")
                 compile(source, str(script), "exec")
+
+    def test_exception_handlers_do_not_silently_pass(self) -> None:
+        scripts = sorted(SKILLS_ROOT.rglob("*.py"))
+
+        for script in scripts:
+            with self.subTest(script=script.relative_to(REPOSITORY_ROOT)):
+                tree = ast.parse(script.read_text(encoding="utf-8"), filename=str(script))
+                silent_handlers = [
+                    node.lineno
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.ExceptHandler)
+                    and len(node.body) == 1
+                    and isinstance(node.body[0], ast.Pass)
+                ]
+                self.assertEqual(silent_handlers, [])
 
 
 if __name__ == "__main__":

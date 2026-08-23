@@ -110,7 +110,7 @@ def log_trackio_dashboard():
                 f"Trackio dashboard (live training progress): https://huggingface.co/spaces/{hf_user}/trackio"
             )
     except Exception:
-        pass
+        logging.debug("Trackio dashboard URL unavailable")
 
 
 TEACHER_MODEL_NAME = "sentence-transformers/all-mpnet-base-v2"

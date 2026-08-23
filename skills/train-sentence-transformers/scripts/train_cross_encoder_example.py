@@ -72,7 +72,7 @@ def log_trackio_dashboard():
                 f"Trackio dashboard (live training progress): https://huggingface.co/spaces/{hf_user}/trackio"
             )
     except Exception:
-        pass
+        logging.debug("Trackio dashboard URL unavailable")
 
 
 MODEL_NAME = "microsoft/MiniLM-L12-H384-uncased"

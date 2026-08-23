@@ -117,7 +117,7 @@ def scaffold_skill(name: str, destination: Path, description: str | None, resour
     return errors
 
 
-def secret_patterns() -> list[tuple[str, re.Pattern[str]]]:
+def blocked_content_patterns() -> list[tuple[str, re.Pattern[str]]]:
     return [
         ("private key", re.compile("BEGIN " + r"(?:RSA |EC |DSA |OPENSSH )?" + "PRIVATE " + "KEY")),
         ("AWS access key", re.compile("AK" + r"IA[0-9A-Z]{16}")),
@@ -140,7 +140,7 @@ def scan_text_file(path: Path, root: Path, errors: list[str]) -> None:
         errors.append(f"cannot inspect {path.relative_to(root)}: {exc}")
         return
 
-    for label, pattern in secret_patterns():
+    for label, pattern in blocked_content_patterns():
         if pattern.search(content):
             errors.append(f"secret-shaped content ({label}) in {path.relative_to(root)}")
     if path.suffix == ".py":
